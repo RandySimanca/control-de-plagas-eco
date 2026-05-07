@@ -5,16 +5,7 @@ import fs from 'fs'
 import { errorHandler } from './middlewares/error.middleware.js'
 import { pool } from './config/database.js'
 import { config } from './config/index.js'
-import authRoutes from './modules/auth/auth.routes.js'
-import usersRoutes from './modules/users/users.routes.js'
-import clientesRoutes from './modules/clientes/clientes.routes.js'
-import tecnicosRoutes from './modules/tecnicos/tecnicos.routes.js'
-import serviciosRoutes from './modules/servicios/servicios.routes.js'
-import configuracionRoutes from './modules/configuracion/configuracion.routes.js'
-import documentosRoutes from './modules/documentos/documentos.routes.js'
-import profilesRoutes from './modules/profiles/profiles.routes.js'
-import uploadRoutes from './modules/upload/upload.routes.js'
-import operacionesRoutes from './modules/operaciones/operaciones.routes.js'
+import apiRoutes from './routes.js'
 
 export function createApp () {
   const app = express()
@@ -29,10 +20,7 @@ export function createApp () {
   app.use(cors({ origin: config.frontendUrl === '*' ? true : config.frontendUrl, credentials: true }))
   app.use(express.json({ limit: '1mb' }))
 
-  app.get('/health', (req, res) => {
-    res.json({ ok: true, service: 'plagcontrol-api' })
-  })
-
+  // Database Health Check (queda en app.js por ser nivel sistema)
   app.get('/health/db', async (req, res, next) => {
     try {
       const { rows } = await pool.query('SELECT NOW() AS db_time')
@@ -42,16 +30,8 @@ export function createApp () {
     }
   })
 
-  app.use('/api/auth', authRoutes)
-  app.use('/api/users', usersRoutes)
-  app.use('/api/clientes', clientesRoutes)
-  app.use('/api/tecnicos', tecnicosRoutes)
-  app.use('/api/servicios', serviciosRoutes)
-  app.use('/api/configuracion', configuracionRoutes)
-  app.use('/api/documentos-legales', documentosRoutes)
-  app.use('/api/profiles', profilesRoutes)
-  app.use('/api/upload', uploadRoutes)
-  app.use('/api', operacionesRoutes)
+  // Montar todas las rutas del API bajo el prefijo /api
+  app.use('/api', apiRoutes)
 
   app.use((req, res) => {
     res.status(404).json({ success: false, message: 'Ruta no encontrada' })
