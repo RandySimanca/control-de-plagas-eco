@@ -25,7 +25,7 @@ export default function Solicitudes() {
   })
 
    useEffect(() => {
-     if (profile?.empresa_id) loadSolicitudes()
+     if (profile) loadSolicitudes()
      // eslint-disable-next-line react-hooks/exhaustive-deps
    }, [filter, profile])
 
@@ -92,7 +92,7 @@ export default function Solicitudes() {
           cliente_id: sol.cliente_id,
           tipo_plaga: sol.tipo_servicio,
           fecha_programada: sol.fecha_preferida || new Date().toISOString().split('T')[0],
-          observaciones: `Solicitud originada por el cliente: ${sol.descripcion}. \nCotización aceptada: $${sol.cotizacion_precio}.`,
+          observaciones: `Solicitud originada por el cliente: ${sol.descripcion}. \nCotización aceptada: $${sol.precio_cotizacion}.`,
           solicitud_id: sol.id
         }
       }
@@ -317,7 +317,7 @@ export default function Solicitudes() {
                   </div>
                   <div className="bg-white p-4 rounded-xl border border-green-100">
                     <p className="text-[10px] font-bold text-green-600 uppercase mb-1">Precio Acordado</p>
-                    <p className="text-2xl font-black text-green-900">${Number(selectedSol.cotizacion_precio).toLocaleString()}</p>
+                    <p className="text-2xl font-black text-green-900">${Number(selectedSol.precio_cotizacion).toLocaleString()}</p>
                   </div>
                   <button 
                     onClick={() => handleConvertirAOrden(selectedSol)}
@@ -331,8 +331,8 @@ export default function Solicitudes() {
               {selectedSol.estado === 'cotizada' && (
                 <div className="bg-blue-50 p-6 rounded-2xl border border-blue-200">
                   <p className="text-sm text-blue-800 font-bold mb-2">Cotización en revisión por el cliente:</p>
-                  <p className="text-2xl font-black text-blue-900 mb-1">${Number(selectedSol.cotizacion_precio).toLocaleString()}</p>
-                  <p className="text-xs text-blue-600 italic">{selectedSol.cotizacion_descripcion}</p>
+                  <p className="text-2xl font-black text-blue-900 mb-1">${Number(selectedSol.precio_cotizacion).toLocaleString()}</p>
+                  <p className="text-xs text-blue-600 italic">{selectedSol.descripcion_cotizacion}</p>
                   <p className="text-[10px] text-blue-400 mt-4 uppercase font-bold tracking-widest">
                     Esperando respuesta...
                   </p>

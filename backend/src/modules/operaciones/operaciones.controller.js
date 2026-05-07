@@ -35,7 +35,7 @@ export const listProductos = catchAsync(async (req, res) => res.json({ success: 
 export const createProducto = catchAsync(async (req, res) => res.status(201).json({ success: true, data: await service.createProducto(req.body) }))
 export const deleteProducto = catchAsync(async (req, res) => { await service.deleteProducto(req.params.id); res.status(204).send() })
 
-export const listSolicitudes = catchAsync(async (req, res) => res.json({ success: true, data: await service.listSolicitudes(req.user) }))
+export const listSolicitudes = catchAsync(async (req, res) => res.json({ success: true, data: await service.listSolicitudes(req.user, req.query) }))
 export const createSolicitud = catchAsync(async (req, res) => res.status(201).json({ success: true, data: await service.createSolicitud(req.body, req.user) }))
 export const updateSolicitud = catchAsync(async (req, res) => res.json({ success: true, data: await service.updateSolicitud(req.params.id, req.body, req.user) }))
 export const deleteSolicitud = catchAsync(async (req, res) => { await service.deleteSolicitud(req.params.id, req.user); res.status(204).send() })

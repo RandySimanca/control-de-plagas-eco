@@ -15,6 +15,19 @@ import toast from 'react-hot-toast'
 import logoDerosh from '../assets/logo Derosh.png'
 import { confirmDelete, successAlert } from '../lib/alerts'
 
+// Fallback for crypto.randomUUID in non-secure contexts (HTTP)
+const generateUUID = () => {
+  try {
+    return crypto.randomUUID()
+  } catch (e) {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = Math.random() * 16 | 0
+      const v = c === 'x' ? r : (r & 0x3 | 0x8)
+      return v.toString(16)
+    })
+  }
+}
+
 const OPCIONES_AREAS = [
   "Áreas Administrativas y Oficinas",
   "Baños y Vestieres",
@@ -92,6 +105,7 @@ export default function OrdenDetalle() {
   async function load() {
   try {
     if (isOnline) {
+      const token = localStorage.getItem('token')
       const [
         ordenRes,
         prodsRes,
@@ -100,22 +114,22 @@ export default function OrdenDetalle() {
         actividadesRes,
         estacRes
       ] = await Promise.all([
-        api.get(`/ordenes/${id}`),
-        api.get(`/ordenes/${id}/productos`),
-        api.get(`/ordenes/${id}/fotos`),
-        api.get(`/ordenes/${id}/certificado`),
-        api.get(`/ordenes/${id}/actividades`),
-        api.get(`/ordenes/${id}/estaciones`)
+        api.get(`/ordenes/${id}`, { token }),
+        api.get(`/ordenes/${id}/productos`, { token }),
+        api.get(`/ordenes/${id}/fotos`, { token }),
+        api.get(`/ordenes/${id}/certificado`, { token }),
+        api.get(`/ordenes/${id}/actividades`, { token }),
+        api.get(`/ordenes/${id}/estaciones`, { token })
       ])
 
       const snapshot = {
         id,
-        orden: ordenRes,
-        productos: prodsRes || [],
-        fotos: fotosRes || [],
-        certificado: certRes || null,
-        actividades: actividadesRes || [],
-        estaciones: estacRes || [],
+        orden: ordenRes.data,
+        productos: prodsRes.data || [],
+        fotos: fotosRes.data || [],
+        certificado: certRes.data || null,
+        actividades: actividadesRes.data || [],
+        estaciones: estacRes.data || [],
         updated_at: Date.now()
       }
 
@@ -253,7 +267,7 @@ export default function OrdenDetalle() {
     setSavingEstaciones(true)
     try {
       const toInsert = estacionesEdit.filter(e => e.active).map(e => ({
-        id: e.id || crypto.randomUUID(),
+        id: e.id || generateUUID(),
         orden_id: id,
         tipo_estacion: e.tipo_estacion,
         cantidad: parseInt(e.cantidad) || 0,
@@ -309,33 +323,45 @@ export default function OrdenDetalle() {
   async function descargarCertificado() {
     const configRes = await api.get('/configuracion', { token: localStorage.getItem('token') })
     const config = configRes.data
-      await abrirCertificado({
-        folio: certificado.folio,
-        cliente: orden.clientes,
-        orden,
-        productos,
-        estaciones,
-        tecnico: orden.profiles?.nombre_completo || 'N/A',
-        config,
-        firma: certificado?.firma_url,
-        firma_tecnico: orden.profiles?.firma_url,
-        actividades,
-        fotos
+    const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api').replace('/api', '').replace(/\/$/, '')
+    
+    await abrirCertificado({
+      folio: certificado?.folio || 'ORD-' + id.substring(0, 5),
+      cliente: orden.clientes,
+      orden,
+      productos,
+      estaciones: estaciones.map(e => ({
+        ...e,
+        foto_antes_url: e.foto_antes_url ? (e.foto_antes_url.startsWith('http') ? e.foto_antes_url : `${API_BASE}/uploads/${e.foto_antes_url}`) : null,
+        foto_despues_url: e.foto_despues_url ? (e.foto_despues_url.startsWith('http') ? e.foto_despues_url : `${API_BASE}/uploads/${e.foto_despues_url}`) : null
+      })),
+      tecnico: orden.profiles?.nombre_completo || 'N/A',
+      config,
+      firma: certificado?.firma_url,
+      firma_tecnico: orden.profiles?.firma_url,
+      actividades,
+      fotos: fotos.map(f => {
+        let url = f.url
+        if (!url && f.storage_path) {
+          url = `${API_BASE}/uploads/${f.storage_path.replace(/^\//, '')}`
+        }
+        return { ...f, url }
       })
+    })
   }
   async function handleSaveActivity(e) {
     e.preventDefault()
     if (!newActivity.trim()) return
     setSavingActivity(true)
     try {
-      const actPayload = { id: crypto.randomUUID(), orden_id: id, descripcion: newActivity, created_at: new Date().toISOString() }
+      const actPayload = { id: generateUUID(), orden_id: id, descripcion: newActivity, created_at: new Date().toISOString() }
       const { data: actRows, queued } = await queueOrExecute('actividades_servicio', 'insert', actPayload, id)
       const actData = actRows?.[0] || actPayload
 
       if (activityPhotos.length > 0) {
         for (const file of activityPhotos) {
           const path = `actividades/act_${id}_${Date.now()}_${file.name}`
-          const dbPayload = { id: crypto.randomUUID(), orden_id: id, storage_path: path, descripcion: newActivity.substring(0, 50) }
+          const dbPayload = { id: generateUUID(), orden_id: id, storage_path: path, descripcion: newActivity.substring(0, 50) }
           const { publicUrl } = await queuePhoto('fotos-servicio', path, file, file.type, 'fotos_servicio', dbPayload, id)
           if (!queued) {
             setFotos(prev => [...prev, { ...dbPayload, url: publicUrl }])
@@ -415,7 +441,7 @@ export default function OrdenDetalle() {
         for (const file of recommendationPhotos) {
           const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
           const path = `recomendaciones/rec_${id}_${Date.now()}_${safeName}`
-          const dbPayload = { id: crypto.randomUUID(), orden_id: id, storage_path: path, descripcion: 'Evidencia de recomendación técnica' }
+          const dbPayload = { id: generateUUID(), orden_id: id, storage_path: path, descripcion: 'Evidencia de recomendación técnica' }
           const { publicUrl } = await queuePhoto('fotos-servicio', path, file, file.type, 'fotos_servicio', dbPayload, id)
           if (!queued) setFotos(prev => [...prev, { ...dbPayload, url: publicUrl }])
         }
@@ -471,7 +497,7 @@ export default function OrdenDetalle() {
       for (const file of files) {
         const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
         const path = `evidencias/evt_${id}_${Date.now()}_${safeName}`
-        const dbPayload = { id: crypto.randomUUID(), orden_id: id, storage_path: path, descripcion: 'Evidencia general subida por técnico' }
+        const dbPayload = { id: generateUUID(), orden_id: id, storage_path: path, descripcion: 'Evidencia general subida por técnico' }
         const { publicUrl } = await queuePhoto('fotos-servicio', path, file, file.type, 'fotos_servicio', dbPayload, id)
         setFotos(prev => [...prev, { ...dbPayload, url: publicUrl }])
       }

@@ -117,6 +117,7 @@ useEffect(() => {
         api.get(`/fotos-servicio?orden_id=${orden.id}`, { token })
       ])
 
+      const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api').replace('/api', '').replace(/\/$/, '')
       await abrirCertificado({
         folio: cert.folio, 
         cliente: orden.clientes, 
@@ -126,7 +127,13 @@ useEffect(() => {
         config,
         firma: cert.firma_url,
         actividades: actividadesRes.data || [],
-        fotos: fotosRes.data || []
+        fotos: (fotosRes.data || []).map(f => {
+          let url = f.url
+          if (!url && f.storage_path) {
+            url = `${API_BASE}/uploads/${f.storage_path.replace(/^\//, '')}`
+          }
+          return { ...f, url }
+        })
       })
     } catch {
       toast.error('Error al generar certificado')
@@ -431,8 +438,8 @@ useEffect(() => {
                             <h4 className="font-bold text-sm">¡Cotización disponible!</h4>
                           </div>
                           <div className="mb-4">
-                            <p className="text-2xl font-black text-blue-900 mb-1">${Number(sol.cotizacion_precio).toLocaleString()}</p>
-                            <p className="text-sm text-blue-800 italic leading-relaxed">{sol.cotizacion_descripcion || 'Sin descripción adicional.'}</p>
+                            <p className="text-2xl font-black text-blue-900 mb-1">${Number(sol.precio_cotizacion).toLocaleString()}</p>
+                            <p className="text-sm text-blue-800 italic leading-relaxed">{sol.descripcion_cotizacion || 'Sin descripción adicional.'}</p>
                           </div>
                           <div className="flex flex-wrap gap-3">
                             <button onClick={() => handleResponderCotizacion(sol, 'rechazada')} className="bg-white text-dark-500 border border-dark-200 text-sm font-bold flex-1 py-2.5 rounded-xl transition-all hover:bg-red-50 hover:text-red-600">Rechazar</button>

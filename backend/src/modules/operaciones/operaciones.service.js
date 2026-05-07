@@ -6,13 +6,75 @@ async function getProfile(userId) {
   return rows[0] || null
 }
 
+let schemaReady = false
+async function ensureOperacionesSchema() {
+  if (schemaReady) return
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS fotos_servicio (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      orden_id UUID NOT NULL,
+      url TEXT NOT NULL,
+      descripcion TEXT,
+      storage_path TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS actividades_servicio (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      orden_id UUID NOT NULL,
+      descripcion TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS estaciones_usadas (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      orden_id UUID NOT NULL,
+      tipo_estacion TEXT,
+      cantidad INTEGER DEFAULT 0,
+      observaciones TEXT,
+      foto_antes_url TEXT,
+      foto_despues_url TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS productos_usados (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      orden_id UUID NOT NULL,
+      nombre_producto TEXT,
+      ingrediente_activo TEXT,
+      cantidad TEXT,
+      tipo_producto TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS solicitudes_servicio (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      cliente_id UUID NOT NULL,
+      tipo_servicio TEXT NOT NULL,
+      descripcion TEXT NOT NULL,
+      direccion TEXT,
+      fecha_preferida DATE,
+      estado TEXT DEFAULT 'pendiente',
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    ALTER TABLE solicitudes_servicio ADD COLUMN IF NOT EXISTS precio_cotizacion NUMERIC;
+    ALTER TABLE solicitudes_servicio ADD COLUMN IF NOT EXISTS descripcion_cotizacion TEXT;
+    ALTER TABLE solicitudes_servicio ADD COLUMN IF NOT EXISTS respuesta_cliente TEXT;
+    ALTER TABLE solicitudes_servicio ADD COLUMN IF NOT EXISTS respuesta_fecha TIMESTAMPTZ;
+    ALTER TABLE solicitudes_servicio ADD COLUMN IF NOT EXISTS motivo_rechazo TEXT;
+    ALTER TABLE solicitudes_servicio ADD COLUMN IF NOT EXISTS cotizacion_leida_por_cliente BOOLEAN DEFAULT FALSE;
+    ALTER TABLE solicitudes_servicio ADD COLUMN IF NOT EXISTS orden_id UUID;
+  `)
+  schemaReady = true
+}
+
 async function assertOrdenAccess(ordenId, user) {
+  await ensureOperacionesSchema()
   const orden = await getOrdenDetalle(ordenId, user)
   if (!orden) throw new AppError('Orden no encontrada', 404)
   return orden
 }
 
 export async function listOrdenes(user) {
+  await ensureOperacionesSchema()
   const profile = await getProfile(user.id)
   const params = []
   const where = []
@@ -39,6 +101,7 @@ export async function listOrdenes(user) {
 }
 
 export async function getOrdenDetalle(id, user) {
+  await ensureOperacionesSchema()
   const params = [id]
   let extra = ''
   if (user.role === 'tecnico') {
@@ -119,6 +182,7 @@ export async function getLatestCertificadoByOrden(ordenId) {
 }
 
 export async function listCertificados(user) {
+  await ensureOperacionesSchema()
   const params = []
   let where = ''
   if (user.role === 'tecnico') {
@@ -209,7 +273,8 @@ export async function createProducto(body) {
 }
 export async function deleteProducto(id) { await pool.query('DELETE FROM productos_usados WHERE id = $1', [id]) }
 
-export async function listSolicitudes(user) {
+export async function listSolicitudes(user, filters = {}) {
+  await ensureOperacionesSchema()
   let sql = `
     SELECT s.*, row_to_json(c) AS clientes
     FROM solicitudes_servicio s
@@ -222,6 +287,15 @@ export async function listSolicitudes(user) {
     const profile = await getProfile(user.id)
     params.push(profile?.cliente_id || null)
     conditions.push(`s.cliente_id = $${params.length}`)
+  }
+
+  if (filters.filter && filters.filter !== 'todas') {
+    if (filters.filter === 'historial') {
+      conditions.push(`s.estado IN ('rechazada', 'convertida')`)
+    } else {
+      params.push(filters.filter)
+      conditions.push(`s.estado = $${params.length}`)
+    }
   }
   
   if (conditions.length > 0) {

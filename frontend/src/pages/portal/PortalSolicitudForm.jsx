@@ -21,7 +21,7 @@ async function handleSubmit(e) {
       if (!formData.descripcion.trim()) {
         return toast.error('Por favor describe lo que necesitas')
       }
-      if (!profile?.cliente_id || !profile?.empresa_id) {
+      if (!profile?.cliente_id) {
         return toast.error('Error de sesión: recarga la página e inicia sesión de nuevo')
       }
 
@@ -31,7 +31,6 @@ async function handleSubmit(e) {
         const token = localStorage.getItem('token')
         await api.post('/solicitudes-servicio', {
           cliente_id: profile.cliente_id,
-          empresa_id: profile.empresa_id,
           tipo_servicio: formData.tipo_servicio,
           descripcion: formData.descripcion,
           direccion: formData.direccion,

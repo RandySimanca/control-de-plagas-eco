@@ -14,7 +14,7 @@ const EMPTY_FORM = {
 }
 
 export default function Clientes() {
-  const { isAdmin, profile: currentProfile } = useAuth()
+  const { isAdmin } = useAuth()
   const [clientes, setClientes] = useState([])
   const [search, setSearch] = useState('')
   const [filtroTipo, setFiltroTipo] = useState('todos')
