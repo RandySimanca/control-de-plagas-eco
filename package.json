@@ -1,0 +1,16 @@
+{
+  "name": "plagcontrol",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w frontend",
+    "dev:front": "npm run dev -w frontend",
+    "dev:back": "npm run dev -w backend",
+    "build": "npm run build -w frontend",
+    "lint": "npm run lint -w frontend",
+    "preview": "npm run preview -w frontend"
+  }
+}

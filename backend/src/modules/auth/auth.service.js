@@ -1,0 +1,86 @@
+import bcrypt from 'bcrypt'
+import jwt from 'jsonwebtoken'
+import { pool } from '../../config/database.js'
+import { config } from '../../config/index.js'
+import { AppError } from '../../utils/AppError.js'
+
+const SALT_ROUNDS = 12
+
+let schemaReady = false
+async function ensureAuthSchema() {
+  if (schemaReady) return
+  await pool.query(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS password_hash TEXT`)
+  await pool.query(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS cliente_id UUID`)
+  schemaReady = true
+}
+
+function signToken (user) {
+  return jwt.sign(
+    {
+      sub: user.id,
+      role: user.role
+    },
+    config.jwtSecret,
+    { expiresIn: config.jwtExpiresIn }
+  )
+}
+
+export async function register ({ email, password, nombre, role }) {
+  await ensureAuthSchema()
+  if (!['admin', 'tecnico', 'cliente'].includes(role)) {
+    throw new AppError('Rol inválido. Use admin, tecnico o cliente.', 400)
+  }
+
+  const passwordHash = await bcrypt.hash(password, SALT_ROUNDS)
+  const { rows: [user] } = await pool.query(
+    `INSERT INTO profiles (nombre_completo, email, rol, activo, password_hash)
+     VALUES ($1, $2, $3, true, $4)
+     RETURNING id, email, rol AS role, nombre_completo AS nombre, created_at`,
+    [nombre.trim(), email.toLowerCase().trim(), role, passwordHash]
+  )
+  const token = signToken(user)
+  return { user: { id: user.id, email: user.email, role: user.role, nombre: user.nombre }, token }
+}
+
+export async function login ({ email, password }) {
+  await ensureAuthSchema()
+  const { rows } = await pool.query(
+    `SELECT id, email, password_hash, rol AS role, nombre_completo AS nombre
+     FROM profiles WHERE email = $1 AND activo = true`,
+    [email.toLowerCase().trim()]
+  )
+  const user = rows[0]
+  if (!user) {
+    throw new AppError('Credenciales incorrectas', 401)
+  }
+
+  const ok = await bcrypt.compare(password, user.password_hash)
+  if (!ok) {
+    throw new AppError('Credenciales incorrectas', 401)
+  }
+
+  const token = signToken(user)
+  return {
+    user: {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      nombre: user.nombre
+    },
+    token
+  }
+}
+
+export async function getMe (userId) {
+  await ensureAuthSchema()
+  const { rows } = await pool.query(
+    `SELECT id, email, rol AS role, nombre_completo AS nombre, created_at, cliente_id, activo
+     FROM profiles WHERE id = $1`,
+    [userId]
+  )
+  const user = rows[0]
+  if (!user) {
+    throw new AppError('Usuario no encontrado', 404)
+  }
+  return user
+}
