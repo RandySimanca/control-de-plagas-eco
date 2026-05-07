@@ -40,6 +40,7 @@ router.get('/productos-usados', controller.listProductos)
 router.post('/productos-usados', controller.createProducto)
 router.delete('/productos-usados/:id', controller.deleteProducto)
 
+router.get('/solicitudes-servicio/count', controller.countSolicitudes)
 router.get('/solicitudes-servicio', controller.listSolicitudes)
 router.post('/solicitudes-servicio', controller.createSolicitud)
 router.patch('/solicitudes-servicio/:id', controller.updateSolicitud)

@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { Plus, Search, Calendar, User, ChevronRight, Trash2, ClipboardList, X, Save, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { api } from '../lib/api'
 import { confirmDelete, successAlert } from '../lib/alerts'
 
 const EMPTY_FORM = {
@@ -43,18 +44,21 @@ export default function Ordenes() {
        tecnico_id: profile?.id || '',
        ...prefillData 
      })
-     if (clientes.length === 0) {
-       // TODO: Replace with actual API calls (Supabase removed)
-       // const [clientesRes, tecnicosRes] = await Promise.all([
-       //   api.get('/clientes', { params: { activo: true } }),
-       //   api.get('/profiles', { params: { rol: 'tecnico', activo: true } })
-       // ])
-       // setClientes(clientesRes.data || [])
-       // setTecnicos(tecnicosRes.data || [])
-       
-       // Placeholder: Mock data for development
-       setClientes([])
-       setTecnicos([])
+     
+     // Fetch clients and technicians if they haven't been loaded yet
+     if (clientes.length === 0 || tecnicos.length === 0) {
+       try {
+         const token = localStorage.getItem('token')
+         const [clientesRes, tecnicosRes] = await Promise.all([
+           api.get('/clientes', { token, params: { activo: true } }),
+           api.get('/profiles', { token, params: { rol: 'tecnico', activo: true } })
+         ])
+         setClientes(clientesRes.data || [])
+         setTecnicos(tecnicosRes.data || [])
+       } catch (err) {
+         console.error('Error fetching data for modal:', err)
+         toast.error('Error al cargar datos del formulario')
+       }
      }
      setShowModal(true)
    }
@@ -67,42 +71,22 @@ export default function Ordenes() {
      if (!form.fecha_programada) { toast.error('Selecciona una fecha'); return }
      setSaving(true)
      try {
-       // TODO: Replace with actual API call (Supabase removed)
-       // const { data, error } = await api.post('/ordenes-servicio', {
-       //   cliente_id: form.cliente_id,
-       //   tecnico_id: form.tecnico_id || profile?.id,
-       //   fecha_programada: form.fecha_programada,
-       //   tipo_plaga: form.tipo_plaga,
-       //   observaciones: form.observaciones,
-       //   estado: form.estado
-       // })
-       
-       // Placeholder: Simulate successful creation
-       const newId = Math.random().toString(36).substr(2, 9)
-       await new Promise(resolve => setTimeout(resolve, 1000))
-       
-       // Simulate response data
-       const data = {
-         id: newId,
+       const token = localStorage.getItem('token')
+       const { data } = await api.post('/ordenes-servicio', {
          cliente_id: form.cliente_id,
          tecnico_id: form.tecnico_id || profile?.id,
          fecha_programada: form.fecha_programada,
          tipo_plaga: form.tipo_plaga,
          observaciones: form.observaciones,
          estado: form.estado
-       }
+       }, { token })
        
        // Si viene de una solicitud, actualizar el estado de la misma
        if (form.solicitud_id) {
-         // TODO: Replace with actual API call (Supabase removed)
-         // await api.put(`/solicitudes-servicio/${form.solicitud_id}`, {
-         //   estado: 'convertida',
-         //   orden_id: data.id,
-         //   updated_at: new Date().toISOString()
-         // })
-         
-         // Placeholder: Simulate successful update
-         await new Promise(resolve => setTimeout(resolve, 1000))
+         await api.patch(`/solicitudes-servicio/${form.solicitud_id}`, {
+           estado: 'convertida',
+           orden_id: data.id
+         }, { token })
        }
 
        closeModal()
@@ -121,11 +105,8 @@ export default function Ordenes() {
      const isConfirmed = await confirmDelete('¿Estás seguro de eliminar esta orden?', 'Se borrarán todos los datos asociados.')
      if (!isConfirmed) return
      try {
-       // TODO: Replace with actual API call (Supabase removed)
-       // const { error } = await supabase.from('ordenes_servicio').delete().eq('id', id)
-       
-       // Placeholder: Simulate successful deletion
-       await new Promise(resolve => setTimeout(resolve, 1000))
+       const token = localStorage.getItem('token')
+       await api.delete(`/ordenes-servicio/${id}`, { token })
        
        setOrdenes(ordenes.filter(o => o.id !== id))
        await successAlert('Eliminada', 'La orden de servicio ha sido eliminada.')
@@ -136,27 +117,9 @@ export default function Ordenes() {
 
    async function loadOrdenes() {
      try {
-       // TODO: Replace with actual API call (Supabase removed)
-       // let query = api.get('/ordenes-servicio', {
-       //   params: { 
-       //     select: '*, clientes(nombre), profiles(nombre_completo)',
-       //     order: 'fecha_programada.desc'
-       //   }
-       // })
-       // if (!isAdmin && profile?.id) {
-       //   query = api.get('/ordenes-servicio', {
-       //     params: { 
-       //       select: '*, clientes(nombre), profiles(nombre_completo)',
-       //       tecnico_id: profile.id,
-       //       order: 'fecha_programada.desc'
-       //     }
-       //   })
-       // }
-       // const { data, error } = await query
-       // if (error) throw error
-       
-       // Placeholder: Mock data for development
-       setOrdenes([])
+       const token = localStorage.getItem('token')
+       const { data } = await api.get('/ordenes-servicio', { token })
+       setOrdenes(data || [])
      } catch (err) {
        console.error('Error:', err)
        toast.error('Error al cargar órdenes')
@@ -184,7 +147,13 @@ export default function Ordenes() {
   const estadoLabel = { programada: 'Programada', en_progreso: 'En Progreso', completada: 'Completada' }
 
   if (loading) {
-    return <div className="flex justify-center py-20"><div className="w-8 h-8 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin" /></div>
+    return (
+      <div className="card text-center py-20 animate-pulse">
+        <ClipboardList className="w-16 h-16 text-primary-200 mx-auto mb-4" />
+        <h3 className="text-lg font-bold text-dark-400">Cargando órdenes...</h3>
+        <p className="text-dark-300">Obteniendo historial de servicios</p>
+      </div>
+    )
   }
 
   return (
@@ -328,10 +297,10 @@ export default function Ordenes() {
                     }`} />
                   </div>
                   <div className="min-w-0">
-                    <p className="font-semibold text-dark-900 truncate">{orden.clientes?.nombre}</p>
+                    <p className="font-semibold text-dark-900 truncate">{orden.cliente_nombre}</p>
                     <div className="flex items-center gap-3 text-xs text-dark-400 mt-0.5">
                       <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> {orden.fecha_programada}</span>
-                      <span className="flex items-center gap-1"><User className="w-3.5 h-3.5" /> {orden.profiles?.nombre_completo || 'Sin asignar'}</span>
+                      <span className="flex items-center gap-1"><User className="w-3.5 h-3.5" /> {orden.tecnico_nombre || 'Sin asignar'}</span>
                     </div>
                     {orden.tipo_plaga && <p className="text-xs text-dark-500 mt-1">{orden.tipo_plaga}</p>}
                   </div>

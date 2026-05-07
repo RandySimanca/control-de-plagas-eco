@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { api } from '../lib/api'
-import { Plus, Search, Building2, Home, Phone, Mail, ChevronRight, X, Save, Loader2, UserPlus, Trash2 } from 'lucide-react'
+import { Plus, Search, Building2, Home, Phone, Mail, ChevronRight, X, Save, Loader2, UserPlus, Trash2, UserCheck, UserX } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { confirmDelete, successAlert } from '../lib/alerts'
 
@@ -197,7 +197,13 @@ export default function Clientes() {
   })
 
   if (loading) {
-    return <div className="flex justify-center py-20"><div className="w-8 h-8 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin" /></div>
+    return (
+      <div className="card text-center py-20 animate-pulse">
+        <Building2 className="w-16 h-16 text-primary-200 mx-auto mb-4" />
+        <h3 className="text-lg font-bold text-dark-400">Cargando clientes...</h3>
+        <p className="text-dark-300">Obteniendo base de datos de clientes</p>
+      </div>
+    )
   }
 
   return (

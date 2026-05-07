@@ -144,7 +144,7 @@ export default function Usuarios() {
       }
 
       if (isEdit) {
-        const { data: updated } = await api.put(`/profiles/${editingId}`, payload, { token })
+        const { data: updated } = await api.patch(`/profiles/${editingId}`, payload, { token })
         setUsuarios(prev => prev.map(u => u.id === editingId ? updated : u))
         await successAlert('¡Usuario Actualizado!', 'Los datos se guardaron correctamente.')
       } else {

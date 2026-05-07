@@ -6,6 +6,7 @@ import {
   CheckCircle2, XCircle, Send, Plus, ArrowRight, User, Trash2
 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { api } from '../../lib/api'
 import { confirmDelete, successAlert } from '../../lib/alerts'
 
 export default function Solicitudes() {
@@ -31,13 +32,9 @@ export default function Solicitudes() {
    async function loadSolicitudes() {
      try {
        setLoading(true)
-       // TODO: Replace with actual API call (Supabase removed)
-       // const response = await fetch(`/api/solicitudes?filter=${filter}`)
-       // const data = await response.json()
-       // setSolicitudes(data || [])
-       
-       // Placeholder: Mock data for development
-       setSolicitudes([])
+       const token = localStorage.getItem('token')
+       const { data } = await api.get('/solicitudes-servicio', { token, params: { filter } })
+       setSolicitudes(data || [])
      } catch (err) {
        console.error('Error cargando solicitudes:', err)
        toast.error('No se pudieron cargar las solicitudes')
@@ -53,28 +50,20 @@ export default function Solicitudes() {
      }
 
      try {
-       // TODO: Replace with actual API call (Supabase removed)
-       // const response = await fetch(`/api/solicitudes/${selectedSol.id}/cotizacion`, {
-       //   method: 'PUT',
-       //   headers: { 'Content-Type': 'application/json' },
-       //   body: JSON.stringify({
-       //     estado: 'cotizada',
-       //     cotizacion_precio: Number(cotizacion.precio),
-       //     cotizacion_descripcion: cotizacion.descripcion,
-       //     cotizacion_fecha: new Date().toISOString(),
-       //     cotizacion_leida_por_cliente: false
-       //   })
-       // })
-       
-       // Placeholder: Simulate successful update
-       await new Promise(resolve => setTimeout(resolve, 1000))
+       const token = localStorage.getItem('token')
+       await api.patch(`/solicitudes-servicio/${selectedSol.id}`, {
+         estado: 'cotizada',
+         precio_cotizacion: Number(cotizacion.precio),
+         descripcion_cotizacion: cotizacion.descripcion,
+         // El backend se encarga de updated_at
+       }, { token })
        
        await successAlert('¡Enviada!', 'Cotización enviada al cliente')
        setCotizando(false)
        setSelectedSol(null)
        loadSolicitudes()
-     } catch {
-       toast.error('Error al enviar cotización')
+     } catch (err) {
+       toast.error('Error al enviar cotización: ' + err.message)
      }
    }
 
@@ -83,17 +72,14 @@ export default function Solicitudes() {
      if (!isConfirmed) return
      
      try {
-       // TODO: Replace with actual API call (Supabase removed)
-       // const { error } = await supabase.from('solicitudes_servicio').delete().eq('id', id)
-       
-       // Placeholder: Simulate successful deletion
-       await new Promise(resolve => setTimeout(resolve, 1000))
+       const token = localStorage.getItem('token')
+       await api.delete(`/solicitudes-servicio/${id}`, { token })
        
        await successAlert('¡Eliminada!', 'Solicitud eliminada')
        setSelectedSol(null)
        loadSolicitudes()
-     } catch {
-       toast.error('Error al eliminar la solicitud')
+     } catch (err) {
+       toast.error('Error al eliminar la solicitud: ' + err.message)
      }
    }
 
@@ -146,8 +132,10 @@ export default function Solicitudes() {
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-20">
-          <div className="w-8 h-8 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin" />
+        <div className="card text-center py-20 animate-pulse">
+          <ClipboardList className="w-16 h-16 text-primary-200 mx-auto mb-4" />
+          <h3 className="text-lg font-bold text-dark-400">Buscando solicitudes...</h3>
+          <p className="text-dark-300">Conectando con el servidor</p>
         </div>
       ) : solicitudes.length === 0 ? (
         <div className="card text-center py-20">

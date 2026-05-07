@@ -32,3 +32,9 @@ export const me = catchAsync(async (req, res) => {
   const { role, ...rest } = user
   res.json({ success: true, user: { ...rest, rol: role } })
 })
+
+export const changePassword = catchAsync(async (req, res) => {
+  assertBody(req, ['currentPassword', 'newPassword'])
+  await authService.changePassword(req.user.id, req.body)
+  res.json({ success: true, message: 'Contraseña actualizada' })
+})

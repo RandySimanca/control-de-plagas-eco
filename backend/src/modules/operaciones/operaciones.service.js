@@ -210,14 +210,25 @@ export async function createProducto(body) {
 export async function deleteProducto(id) { await pool.query('DELETE FROM productos_usados WHERE id = $1', [id]) }
 
 export async function listSolicitudes(user) {
-  let sql = 'SELECT * FROM solicitudes_servicio'
+  let sql = `
+    SELECT s.*, row_to_json(c) AS clientes
+    FROM solicitudes_servicio s
+    LEFT JOIN clientes c ON c.id = s.cliente_id
+  `
   const params = []
+  const conditions = []
+  
   if (user.role === 'cliente') {
     const profile = await getProfile(user.id)
     params.push(profile?.cliente_id || null)
-    sql += ' WHERE cliente_id = $1'
+    conditions.push(`s.cliente_id = $${params.length}`)
   }
-  sql += ' ORDER BY created_at DESC'
+  
+  if (conditions.length > 0) {
+    sql += ' WHERE ' + conditions.join(' AND ')
+  }
+  
+  sql += ' ORDER BY s.created_at DESC'
   const { rows } = await pool.query(sql, params)
   return rows
 }
@@ -248,3 +259,27 @@ export async function updateSolicitud(id, body) {
   return rows[0]
 }
 export async function deleteSolicitud(id) { await pool.query('DELETE FROM solicitudes_servicio WHERE id = $1', [id]) }
+
+export async function countSolicitudes(filters = {}) {
+  const params = []
+  const conditions = []
+  
+  if (filters.estado) {
+    const estados = filters.estado.split(',')
+    params.push(estados)
+    conditions.push(`estado = ANY($${params.length})`)
+  }
+  
+  if (filters.updated_after) {
+    params.push(filters.updated_after)
+    conditions.push(`updated_at > $${params.length}`)
+  }
+  
+  let sql = 'SELECT COUNT(*) FROM solicitudes_servicio'
+  if (conditions.length > 0) {
+    sql += ' WHERE ' + conditions.join(' AND ')
+  }
+  
+  const { rows } = await pool.query(sql, params)
+  return parseInt(rows[0].count, 10)
+}

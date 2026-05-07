@@ -84,3 +84,25 @@ export async function getMe (userId) {
   }
   return user
 }
+
+export async function changePassword(userId, { currentPassword, newPassword }) {
+  await ensureAuthSchema()
+  const { rows } = await pool.query(
+    `SELECT password_hash FROM profiles WHERE id = $1`,
+    [userId]
+  )
+  const user = rows[0]
+  if (!user) throw new AppError('Usuario no encontrado', 404)
+  
+  if (user.password_hash) {
+    const ok = await bcrypt.compare(currentPassword, user.password_hash)
+    if (!ok) throw new AppError('La contraseña actual es incorrecta', 401)
+  }
+  
+  const newHash = await bcrypt.hash(newPassword, SALT_ROUNDS)
+  await pool.query(
+    `UPDATE profiles SET password_hash = $1, updated_at = NOW() WHERE id = $2`,
+    [newHash, userId]
+  )
+  return { success: true }
+}
