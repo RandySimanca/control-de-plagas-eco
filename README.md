@@ -1,119 +1,85 @@
-# 🐜 PlagControl — Gestión Profesional de Control de Plagas
+# PlagControl - Sistema de Gestión de Control de Plagas
 
-**PlagControl** es una plataforma integral "mobile-first" diseñada para la gestión operativa de empresas de control de plagas. Permite automatizar la operación en campo, generar informes técnicos PDF de alta fidelidad, gestionar solicitudes y ofrecer transparencia total a los clientes a través de un portal dedicado.
-
-Esta versión está optimizada para ser **Self-Hosted**, utilizando un backend propio en Node.js y almacenamiento local de evidencias.
-
----
+Sistema integral para la gestión operativa de empresas de control de plagas. Diseñado con una arquitectura modular, robusta y optimizada para despliegues en ecosistemas de aplicaciones (Single-Tenant / Multi-instance).
 
 ## 🚀 Características Principales
 
-### 📱 Módulo del Técnico en Campo
-- **Operación Offline Real**: Gracias a **Dexie.js**, el técnico puede registrar actividades, estaciones y fotos incluso sin internet. Los datos se sincronizan automáticamente al recuperar la señal.
-- **Bitácora en Tiempo Real**: Registro detallado del servicio con estados y edición inmediata.
-- **Monitoreo de Estaciones**: Control de cebaderos, trampas de impacto y jaulas con fotos comparativas "antes/después".
-- **Recomendaciones con Evidencia**: El técnico puede adjuntar fotos a sus recomendaciones, las cuales se integran directamente en el informe final.
-
-### 🏢 Panel de Administración
-- **Control Total de Órdenes**: Creación, asignación a técnicos y seguimiento de estados.
-- **Gestión de Cotizaciones**: Recibe solicitudes de clientes, genera cotizaciones y las convierte en órdenes de servicio con un clic.
-- **Configuración de Branding**: Sube tu logo y personaliza los textos, versiones y recomendaciones que aparecen en los certificados PDF.
-- **Repositorio Legal**: Gestiona documentos como RUT, Cámara de Comercio y resoluciones de salud para que tus clientes puedan consultarlos.
-
-### 🌐 Portal del Cliente
-- **Portal Independiente**: Acceso seguro para clientes donde pueden ver su historial de servicios.
-- **Solicitudes de Servicio**: Motor para que el cliente solicite visitas y reciba cotizaciones en tiempo real.
-- **Descarga de Certificados**: Acceso inmediato a los informes técnicos en PDF una vez finalizado el servicio.
-
-### 📄 Motor de Informes (PDF)
-- Generación de documentos profesionales con **jsPDF**, incluyendo:
-  - Diseño corporativo y branding personalizado.
-  - Trazabilidad de productos químicos aplicados.
-  - Galería de evidencias fotográficas (6 por página con etiquetas).
-  - Firmas digitales de técnicos.
-
----
+- **Dashboard Administrativo**: Control total de clientes, técnicos y servicios.
+- **Portal de Clientes**: Seguimiento en tiempo real de órdenes de servicio, historial y descarga de certificados.
+- **Gestión Operativa**: Registro de aplicaciones, productos utilizados, estaciones de control y registro fotográfico.
+- **Motor de Certificados**: Generación automática de reportes en PDF con firmas digitales y evidencias.
+- **PWA (Progressive Web App)**: Instalable en dispositivos móviles con capacidades de funcionamiento offline.
+- **Arquitectura Soberana**: Independencia total de servicios externos como Supabase; control absoluto sobre la base de datos PostgreSQL.
 
 ## 🛠️ Stack Tecnológico
 
-| Capa | Tecnología |
-|---|---|
-| **Frontend** | React 19 + Vite 8 |
-| **Backend** | Node.js + Express |
-| **Base de Datos** | PostgreSQL 16 |
-| **Almacenamiento** | Local (Carpeta `/uploads`) |
-| **Offline** | Dexie.js (IndexedDB) + PWA |
-| **Estilos** | Tailwind CSS 4 |
+- **Frontend**: React 19, Vite, Tailwind CSS v4, Lucide Icons.
+- **Backend**: Node.js, Express, PostgreSQL (`pg` pool), JWT para autenticación.
+- **Base de Datos**: PostgreSQL con sistema de migraciones automatizado.
+- **Generación de Reportes**: jsPDF.
 
----
+## 📦 Estructura del Proyecto
 
-## 📂 Estructura del Proyecto (Monorepo)
-
-```
+```text
 plagcontrol/
-├── backend/                # Servidor Node.js
+├── backend/            # Lógica de servidor y API
 │   ├── src/
-│   │   ├── modules/        # Lógica por dominio (auth, operaciones, etc.)
-│   │   ├── config/         # Conexión DB y variables
-│   │   └── uploads/        # Almacenamiento local de fotos
-│   └── database/           # Scripts SQL de esquema
-├── frontend/               # Aplicación React
+│   │   ├── db/         # Migraciones SQL y configuración de BD
+│   │   ├── modules/    # Módulos de negocio (Ordenes, Clientes, Profiles)
+│   │   └── index.js    # Punto de entrada
+├── frontend/           # Interfaz de usuario (React)
 │   ├── src/
-│   │   ├── components/     # UI Reutilizable
-│   │   ├── pages/          # Vistas (Admin, Técnico, Portal)
-│   │   ├── contexts/       # Estado global (Auth, Offline)
-│   │   └── lib/            # Utilidades (API, PDF, Alertas)
-└── uploads/                # Enlace simbólico o carpeta real de archivos
+│   │   ├── api/        # Capa de servicios API
+│   │   ├── components/ # Componentes UI y Features
+│   │   └── pages/      # Páginas principales
 ```
 
----
+## ⚙️ Configuración y Despliegue
 
-## ⚙️ Configuración e Instalación
+### 1. Base de Datos (PostgreSQL)
+El sistema cuenta con un motor de migraciones automáticas. Al conectar el backend a una base de datos vacía, este ejecutará los scripts necesarios en `backend/src/db/migrations/` automáticamente.
 
-### Requisitos
-- Node.js v20+
-- PostgreSQL v15+
+### 2. Variables de Entorno
+Crea un archivo `.env` en las carpetas correspondientes:
 
-### 1. Clonar e Instalar
-```bash
-git clone https://github.com/RandySimanca/control-de-plagas-eco.git
-cd plagcontrol-eco
-npm install
-```
-
-### 2. Configurar Base de Datos
-1. Crea una base de datos en PostgreSQL llamada `plagcontrol`.
-2. Ejecuta el script inicial ubicado en `backend/database/schema.sql`.
-
-### 3. Variables de Entorno
-Crea archivos `.env` en las carpetas respectivas:
-
-**En `backend/.env`:**
+**Backend (`backend/.env`):**
 ```env
 PORT=3001
-DATABASE_URL=postgres://usuario:password@localhost:5432/plagcontrol
-JWT_SECRET=tu_secreto_super_seguro
-FRONTEND_URL=http://localhost:3000
+PGHOST=localhost
+PGUSER=tu_usuario
+PGPASSWORD=tu_password
+PGDATABASE=plagcontrol
+PGPORT=5432
+JWT_SECRET=una_clave_secreta_y_larga
 ```
 
-**En `frontend/.env`:**
+**Frontend (`frontend/.env`):**
 ```env
 VITE_API_URL=http://localhost:3001/api
 ```
 
-### 4. Ejecutar en Desarrollo
-Desde la raíz del proyecto:
+### 3. Instalación y Ejecución
+
+**Levantar el Backend:**
 ```bash
+cd backend
+npm install
+npm start
+```
+
+**Levantar el Frontend:**
+```bash
+cd frontend
+npm install
 npm run dev
 ```
 
----
+## 🏗️ Notas para el Superadmin (Despliegue SaaS)
 
-## 🔐 Seguridad y Almacenamiento
-- **Auth**: Autenticación basada en JWT (JSON Web Tokens).
-- **Passwords**: Encriptación con `bcrypt`.
-- **Archivos**: Las fotos se gestionan mediante `multer` y se sirven con permisos de CORS para permitir la generación de informes PDF desde el frontend.
+Esta aplicación está diseñada bajo el modelo **Single-Tenant**. Para escalar a múltiples clientes dentro de un ecosistema:
+- Se recomienda el despliegue de una instancia (BD + API + Web) por cada organización/cliente final.
+- La base de datos es soberana y se autogestiona mediante el script `migrate.js` incluido en el arranque del backend.
+- Las imágenes y firmas se gestionan de forma local en la carpeta `uploads/` (configurable para almacenamiento S3 o similar).
 
----
-
-> Desarrollado para transformar la industria del control de plagas.
+## 📄 Licencia
+Software desarrollado para uso exclusivo en la plataforma PlagControl. Todos los derechos reservados.
