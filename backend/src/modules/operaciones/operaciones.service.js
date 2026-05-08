@@ -39,7 +39,6 @@ export async function listOrdenes(user) {
 }
 
 export async function getOrdenDetalle(id, user) {
-  await ensureOperacionesSchema()
   const params = [id]
   let extra = ''
   if (user.role === 'tecnico') {

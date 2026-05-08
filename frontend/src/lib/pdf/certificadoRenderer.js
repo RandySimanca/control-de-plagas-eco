@@ -145,6 +145,9 @@ export async function renderCertificado(data) {
         const lbl = doc.splitTextToSize(ev.label || 'Evidencia', 21)
         doc.text(lbl, posX - 15 + 12.5, posY + 10 + 9, { align: 'center' })
     }
+    // Update y to be below the last row of images
+    const lastRow = Math.floor(((evidences.length - 1) % 6) / 2)
+    y = y + (lastRow + 1) * (imgH + 15)
   }
 
   // --- FINAL: FIRMA Y CIERRE ---
@@ -154,7 +157,13 @@ export async function renderCertificado(data) {
   doc.text('Cordialmente,', margin + 3, y); y += 8
 
   if (firmaData) {
-    doc.addImage(firmaData, 'PNG', margin + 3, y, 35, 15)
+    try {
+      doc.addImage(firmaData, 'JPEG', margin + 3, y, 35, 15)
+    } catch (e) {
+      console.error('Error adding signature to PDF:', e)
+      // Retry with auto-detection if JPEG fails
+      try { doc.addImage(firmaData, margin + 3, y, 35, 15) } catch (e2) { console.error('Final signature failure:', e2) }
+    }
     y += 18
   } else {
     y += 10

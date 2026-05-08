@@ -65,7 +65,7 @@ export default function PortalOrdenDetalle() {
         estaciones,
         tecnico: orden.profiles?.nombre_completo || 'N/A',
         config,
-        firma: certificado.firma_url,
+        firma_tecnico: certificado.firma_url,
         actividades,
         fotos
       })

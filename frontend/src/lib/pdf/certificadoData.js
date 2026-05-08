@@ -3,8 +3,17 @@
  */
 export async function getImgData(url) {
   if (!url) return null
+  
+  // Ensure absolute URL
+  let finalUrl = url
+  if (!url.startsWith('http') && !url.startsWith('data:')) {
+    const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api').replace('/api', '').replace(/\/$/, '')
+    finalUrl = `${API_BASE}/uploads/${url.replace(/^\//, '')}`
+  }
+
   try {
-    const res = await fetch(url)
+    const res = await fetch(finalUrl)
+    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`)
     const blob = await res.blob()
     return new Promise((resolve) => {
       const reader = new FileReader()
@@ -12,7 +21,7 @@ export async function getImgData(url) {
       reader.readAsDataURL(blob)
     })
   } catch (err) {
-    console.error('Error fetching image:', err)
+    console.error('Error fetching image:', finalUrl, err)
     return null
   }
 }
@@ -67,7 +76,10 @@ export async function prepareCertificadoData(params) {
 
   // 3. Asset Loading
   const logoData = config?.logo_url ? await getImgData(config.logo_url) : null
-  const firmaData = firma_tecnico ? await getImgData(firma_tecnico) : null
+  
+  // Try certificate signature first, then fallback to tech profile signature
+  const signatureUrl = firma_tecnico || orden.profiles?.firma_url
+  const firmaData = signatureUrl ? await getImgData(signatureUrl) : null
 
   return {
     ...params,

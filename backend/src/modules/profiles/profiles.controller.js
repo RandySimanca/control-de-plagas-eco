@@ -3,10 +3,7 @@ import * as profilesService from './profiles.service.js';
 import { pool } from '../../config/database.js';
 import bcrypt from 'bcrypt';
 
-async function ensureProfileAuthColumns() {
-  await pool.query(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS password_hash TEXT`);
-  await pool.query(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS cliente_id UUID`);
-}
+
 
 // GET /api/profiles - listar todos los perfiles (con filtros opcionales)
 export const list = catchAsync(async (req, res) => {
@@ -58,7 +55,6 @@ export const remove = catchAsync(async (req, res) => {
 
 // POST /api/profiles - crear un nuevo usuario con perfil (solo admin)
 export const create = catchAsync(async (req, res) => {
-  await ensureProfileAuthColumns();
   const { email, password, nombre_completo, rol, telefono, especialidad, cliente_id } = req.body;
   
   if (!email || !password || !nombre_completo || !rol) {

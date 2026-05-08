@@ -111,10 +111,12 @@ useEffect(() => {
       const token = localStorage.getItem('token')
       const { data: config } = await api.get('/configuracion', { token })
       
-      // Actividades y fotos si las hay
-      const [actividadesRes, fotosRes] = await Promise.all([
-        api.get(`/actividades-servicio?orden_id=${orden.id}`, { token }),
-        api.get(`/fotos-servicio?orden_id=${orden.id}`, { token })
+      // Cargar todos los datos necesarios para un informe completo
+      const [actividadesRes, fotosRes, productosRes, estacionesRes] = await Promise.all([
+        api.get('/actividades-servicio', { token, params: { orden_id: orden.id } }),
+        api.get('/fotos-servicio', { token, params: { orden_id: orden.id } }),
+        api.get('/productos-usados', { token, params: { orden_id: orden.id } }),
+        api.get('/estaciones-usadas', { token, params: { orden_id: orden.id } })
       ])
 
       const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api').replace('/api', '').replace(/\/$/, '')
@@ -122,18 +124,13 @@ useEffect(() => {
         folio: cert.folio, 
         cliente: orden.clientes, 
         orden,
-        productos: [], // En esta versión simplificada
+        productos: productosRes.data || [],
+        estaciones: estacionesRes.data || [],
         tecnico: orden.profiles?.nombre_completo || 'N/A',
         config,
-        firma: cert.firma_url,
+        firma_tecnico: cert.firma_url,
         actividades: actividadesRes.data || [],
-        fotos: (fotosRes.data || []).map(f => {
-          let url = f.url
-          if (!url && f.storage_path) {
-            url = `${API_BASE}/uploads/${f.storage_path.replace(/^\//, '')}`
-          }
-          return { ...f, url }
-        })
+        fotos: fotosRes.data || []
       })
     } catch {
       toast.error('Error al generar certificado')
