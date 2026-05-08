@@ -1,10 +1,11 @@
 import { catchAsync } from '../../utils/catchAsync.js'
 import * as service from './operaciones.service.js'
 
-export const listOrdenes = catchAsync(async (req, res) => res.json({ success: true, data: await service.listOrdenes(req.user) }))
+export const listOrdenes = catchAsync(async (req, res) => res.json({ success: true, data: await service.listOrdenes(req.user, req.query) }))
 export const updateOrden = catchAsync(async (req, res) => res.json({ success: true, data: await service.updateOrden(req.params.id, req.body, req.user) }))
 export const createOrden = catchAsync(async (req, res) => res.status(201).json({ success: true, data: await service.createOrden(req.body, req.user) }))
 export const deleteOrden = catchAsync(async (req, res) => { await service.deleteOrden(req.params.id, req.user); res.status(204).send() })
+export const assignOrden = catchAsync(async (req, res) => res.json({ success: true, data: await service.assignTecnico(req.params.id, req.body.tecnico_id, req.user) }))
 
 export const getOrdenDetalle = catchAsync(async (req, res) => res.json({ success: true, data: await service.getOrdenDetalle(req.params.id, req.user) }))
 export const getProductosByOrden = catchAsync(async (req, res) => res.json({ success: true, data: await service.getProductosByOrden(req.params.id) }))
@@ -39,4 +40,4 @@ export const listSolicitudes = catchAsync(async (req, res) => res.json({ success
 export const createSolicitud = catchAsync(async (req, res) => res.status(201).json({ success: true, data: await service.createSolicitud(req.body, req.user) }))
 export const updateSolicitud = catchAsync(async (req, res) => res.json({ success: true, data: await service.updateSolicitud(req.params.id, req.body, req.user) }))
 export const deleteSolicitud = catchAsync(async (req, res) => { await service.deleteSolicitud(req.params.id, req.user); res.status(204).send() })
-export const countSolicitudes = catchAsync(async (req, res) => res.json({ success: true, count: await service.countSolicitudes(req.query) }))
+export const countSolicitudes = catchAsync(async (req, res) => res.json({ success: true, data: { count: await service.countSolicitudes(req.query) } }))

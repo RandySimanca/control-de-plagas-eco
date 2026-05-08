@@ -12,7 +12,7 @@ async function assertOrdenAccess(ordenId, user) {
   return orden
 }
 
-export async function listOrdenes(user) {
+export async function listOrdenes(user, filters = {}) {
   const profile = await getProfile(user.id)
   const params = []
   const where = []
@@ -20,10 +20,23 @@ export async function listOrdenes(user) {
   if (user.role === 'tecnico') {
     params.push(user.id)
     where.push(`o.tecnico_id = $${params.length}`)
-  }
-  if (user.role === 'cliente') {
+  } else if (user.role === 'cliente') {
     params.push(profile?.cliente_id || null)
     where.push(`o.cliente_id = $${params.length}`)
+  }
+
+  // Advanced filters
+  if (filters.cliente_id) {
+    params.push(filters.cliente_id)
+    where.push(`o.cliente_id = $${params.length}`)
+  }
+  if (filters.tecnico_id) {
+    params.push(filters.tecnico_id)
+    where.push(`o.tecnico_id = $${params.length}`)
+  }
+  if (filters.estado) {
+    params.push(filters.estado)
+    where.push(`o.estado = $${params.length}`)
   }
 
   const sql = `
@@ -95,6 +108,16 @@ export async function updateOrden(id, body, user) {
 export async function deleteOrden(id, user) {
   if (user.role !== 'admin') throw new AppError('Solo administradores', 403)
   await pool.query('DELETE FROM ordenes_servicio WHERE id = $1', [id])
+}
+
+export async function assignTecnico(ordenId, tecnicoId, user) {
+  if (user.role !== 'admin') throw new AppError('Solo administradores', 403)
+  const { rows } = await pool.query(
+    'UPDATE ordenes_servicio SET tecnico_id = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
+    [tecnicoId || null, ordenId]
+  )
+  if (!rows[0]) throw new AppError('Orden no encontrada', 404)
+  return rows[0]
 }
 
 export async function getProductosByOrden(ordenId) {
