@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react'
-import api from '../lib/api'
+import * as authApi from '../api/auth.api'
 
 const AuthContext = createContext({})
 
@@ -23,9 +23,9 @@ export function AuthProvider({ children }) {
   async function fetchProfile() {
     try {
       const token = localStorage.getItem('token')
-      const data = await api.get('/auth/me', { token })
-      setUser(data.user)
-      setProfile(data.user)
+      const data = await authApi.getMe(token)
+      setUser(data.user || data) // Backend returns { user } or directly the profile
+      setProfile(data.user || data)
     } catch (err) {
       console.error('Error cargando perfil:', err)
       localStorage.removeItem('token')
@@ -37,7 +37,7 @@ export function AuthProvider({ children }) {
   }
 
   async function login(email, password) {
-    const data = await api.post('/auth/login', { email, password })
+    const data = await authApi.login(email, password)
     if (data.token) {
       localStorage.setItem('token', data.token)
       await fetchProfile()
@@ -54,7 +54,6 @@ export function AuthProvider({ children }) {
   const isAdmin = profile?.rol === 'admin'
   const isTecnico = profile?.rol === 'tecnico'
   const isCliente = profile?.rol === 'cliente'
-  const isSuperadmin = profile?.rol === 'superadmin'
 
   return (
     <AuthContext.Provider value={{
@@ -65,8 +64,7 @@ export function AuthProvider({ children }) {
       logout,
       isAdmin,
       isTecnico,
-      isCliente,
-      isSuperadmin,
+      isCliente
     }}>
       {children}
     </AuthContext.Provider>

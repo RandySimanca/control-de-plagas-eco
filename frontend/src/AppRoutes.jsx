@@ -1,7 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './contexts/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
-import Layout from './components/Layout'
+import Layout from './components/features/Layout'
 
 // Importación de Páginas
 import Login from './pages/Login'

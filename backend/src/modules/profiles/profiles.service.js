@@ -1,26 +1,6 @@
 import { pool } from '../../config/database.js';
 
-async function ensureProfilesTable() {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS profiles (
-      id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-      nombre_completo TEXT NOT NULL,
-      email TEXT,
-      telefono TEXT,
-      rol TEXT NOT NULL DEFAULT 'tecnico' CHECK (rol IN ('admin', 'tecnico', 'cliente', 'superadmin')),
-      especialidad TEXT,
-      firma_url TEXT,
-      activo BOOLEAN NOT NULL DEFAULT true,
-      cliente_id UUID,
-      empresa_id UUID,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-  `);
-}
-
 export async function listProfiles(filters = {}) {
-  await ensureProfilesTable();
   const conditions = [];
   const params = [];
   let idx = 1;
@@ -56,7 +36,6 @@ export async function listProfiles(filters = {}) {
 }
 
 export async function getProfileById(id) {
-  await ensureProfilesTable();
   const { rows } = await pool.query(`
     SELECT p.*, c.nombre as cliente_nombre
     FROM profiles p
@@ -67,7 +46,6 @@ export async function getProfileById(id) {
 }
 
 export async function updateProfile(id, data) {
-  await ensureProfilesTable();
   const allowed = ['nombre_completo', 'email', 'telefono', 'rol', 'especialidad', 'firma_url', 'activo', 'cliente_id'];
   const fields = [];
   const values = [];
@@ -94,15 +72,12 @@ export async function updateProfile(id, data) {
 }
 
 export async function deleteProfile(id) {
-  await ensureProfilesTable();
-  // Note: The profile will be deleted via CASCADE from users table, or we can delete directly
   await pool.query('DELETE FROM profiles WHERE id = $1', [id]);
   return { success: true };
 }
 
 // Helper to create or update profile after user registration
 export async function upsertProfile(userId, data) {
-  await ensureProfilesTable();
   const { nombre_completo, email, telefono, rol, especialidad, cliente_id } = data;
   
   const existing = await getProfileById(userId);

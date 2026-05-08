@@ -9,7 +9,7 @@ import {
 import toast from 'react-hot-toast'
 import { useInstallPrompt } from '../../hooks/useInstallPrompt'
 import { confirmDelete, successAlert } from '../../lib/alerts'
-import ChangePasswordModal from '../../components/ChangePasswordModal'
+import ChangePasswordModal from '../../components/features/ChangePasswordModal'
 import api from '../../lib/api'
 
 export default function PortalHistorial() {

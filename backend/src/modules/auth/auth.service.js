@@ -6,14 +6,6 @@ import { AppError } from '../../utils/AppError.js'
 
 const SALT_ROUNDS = 12
 
-let schemaReady = false
-async function ensureAuthSchema() {
-  if (schemaReady) return
-  await pool.query(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS password_hash TEXT`)
-  await pool.query(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS cliente_id UUID`)
-  schemaReady = true
-}
-
 function signToken (user) {
   return jwt.sign(
     {
@@ -26,7 +18,6 @@ function signToken (user) {
 }
 
 export async function register ({ email, password, nombre, role }) {
-  await ensureAuthSchema()
   if (!['admin', 'tecnico', 'cliente'].includes(role)) {
     throw new AppError('Rol inválido. Use admin, tecnico o cliente.', 400)
   }
@@ -43,7 +34,6 @@ export async function register ({ email, password, nombre, role }) {
 }
 
 export async function login ({ email, password }) {
-  await ensureAuthSchema()
   const { rows } = await pool.query(
     `SELECT id, email, password_hash, rol AS role, nombre_completo AS nombre
      FROM profiles WHERE email = $1 AND activo = true`,
@@ -72,7 +62,6 @@ export async function login ({ email, password }) {
 }
 
 export async function getMe (userId) {
-  await ensureAuthSchema()
   const { rows } = await pool.query(
     `SELECT id, email, rol AS role, nombre_completo AS nombre, created_at, cliente_id, activo
      FROM profiles WHERE id = $1`,
@@ -86,7 +75,6 @@ export async function getMe (userId) {
 }
 
 export async function changePassword(userId, { currentPassword, newPassword }) {
-  await ensureAuthSchema()
   const { rows } = await pool.query(
     `SELECT password_hash FROM profiles WHERE id = $1`,
     [userId]

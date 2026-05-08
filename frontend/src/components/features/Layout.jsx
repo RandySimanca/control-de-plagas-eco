@@ -1,15 +1,15 @@
 import { useState, useEffect, useCallback } from 'react'
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../../contexts/AuthContext'
 import {
   LayoutDashboard, Users, ClipboardList, FileCheck, UserCog,
   Menu, X, LogOut, Shield, Bug, Download, ClipboardCheck,
   WifiOff, RefreshCw, Key
 } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { useInstallPrompt } from '../hooks/useInstallPrompt'
-import api from '../lib/api'
-import { useOffline } from '../contexts/OfflineContext'
+import { useInstallPrompt } from '../../hooks/useInstallPrompt'
+import api from '../../lib/api'
+import { useOffline } from '../../contexts/OfflineContext'
 import ChangePasswordModal from './ChangePasswordModal'
 
 export default function Layout() {
@@ -113,7 +113,7 @@ export default function Layout() {
         </div>
       )}
 
-{/* Mobile Header */}
+      {/* Mobile Header */}
        <header className={`md:hidden flex items-center justify-between px-4 py-3 bg-white border-b border-dark-200 z-30`}>
          <div className="flex items-center gap-2">
            <Bug className="w-6 h-6 text-primary-600" />
@@ -129,7 +129,7 @@ export default function Layout() {
         <div className="md:hidden fixed inset-0 bg-black/40 z-20" onClick={() => setSidebarOpen(false)} />
       )}
 
-{/* Sidebar */}
+      {/* Sidebar */}
        <aside className={`
          fixed md:static inset-y-0 left-0 z-30 w-64 bg-white border-r border-dark-200
          transform transition-transform duration-300 ease-in-out

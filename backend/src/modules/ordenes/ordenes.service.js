@@ -1,7 +1,7 @@
 import { pool } from '../../config/database.js';
 import { AppError } from '../../utils/AppError.js';
 
-export async function listServicios({ user, filters = {} }) {
+export async function listOrdenes({ user, filters = {} }) {
   const params = [];
   let sql = `
     SELECT s.*,
@@ -44,7 +44,7 @@ export async function listServicios({ user, filters = {} }) {
   return rows;
 }
 
-export async function getServicioById(id, user) {
+export async function getOrdenById(id, user) {
   const params = [id];
   let sql = `
     SELECT s.*,
@@ -66,14 +66,14 @@ export async function getServicioById(id, user) {
 
   const { rows } = await pool.query(sql, params);
   if (!rows[0]) {
-    throw new AppError('Servicio no encontrado', 404);
+    throw new AppError('Orden no encontrada', 404);
   }
   return rows[0];
 }
 
-export async function createServicio(body, user) {
+export async function createOrden(body, user) {
   if (user.role !== 'admin') {
-    throw new AppError('Solo administradores pueden crear servicios', 403);
+    throw new AppError('Solo administradores pueden crear órdenes', 403);
   }
   if (!body.cliente_id) {
     throw new AppError('cliente_id es obligatorio', 400);
@@ -97,8 +97,8 @@ export async function createServicio(body, user) {
   return row;
 }
 
-export async function updateServicio(id, body, user) {
-  const current = await getServicioById(id, user);
+export async function updateOrden(id, body, user) {
+  const current = await getOrdenById(id, user);
 
   if (user.role === 'admin') {
     const fields = [];
@@ -133,11 +133,11 @@ export async function updateServicio(id, body, user) {
     `UPDATE ordenes_servicio SET estado = $1, updated_at = NOW() WHERE id = $2 AND tecnico_id = $3 RETURNING *`,
     [body.estado, id, user.id]
   );
-  if (!rows[0]) throw new AppError('Servicio no encontrado o no autorizado', 404);
+  if (!rows[0]) throw new AppError('Orden no encontrada o no autorizada', 404);
   return rows[0];
 }
 
-export async function assignTecnico(servicioId, tecnicoId, user) {
+export async function assignTecnico(ordenId, tecnicoId, user) {
   if (user.role !== 'admin') {
     throw new AppError('Solo administradores pueden asignar técnicos', 403);
   }
@@ -149,20 +149,20 @@ export async function assignTecnico(servicioId, tecnicoId, user) {
   }
   const { rows } = await pool.query(
     `UPDATE ordenes_servicio SET tecnico_id = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,
-    [tecnicoId || null, servicioId]
+    [tecnicoId || null, ordenId]
   );
   if (!rows[0]) {
-    throw new AppError('Servicio no encontrado', 404);
+    throw new AppError('Orden no encontrada', 404);
   }
   return rows[0];
 }
 
-export async function deleteServicio(id, user) {
+export async function deleteOrden(id, user) {
   if (user.role !== 'admin') {
-    throw new AppError('Solo administradores pueden eliminar servicios', 403);
+    throw new AppError('Solo administradores pueden eliminar órdenes', 403);
   }
   const { rowCount } = await pool.query(`DELETE FROM ordenes_servicio WHERE id = $1`, [id]);
   if (!rowCount) {
-    throw new AppError('Servicio no encontrado', 404);
+    throw new AppError('Orden no encontrada', 404);
   }
 }
