@@ -6,26 +6,23 @@ const router = Router()
 
 router.use(authenticate)
 
-// Base routes (will be mounted at /ordenes and /servicios)
-router.get('/', controller.listOrdenes)
-router.post('/', controller.createOrden)
-router.get('/:id', controller.getOrdenDetalle)
-router.patch('/:id', controller.updateOrden)
-router.put('/:id', controller.updateOrden)
-router.delete('/:id', controller.deleteOrden)
-router.post('/:id/assign', controller.assignOrden)
+// 1. Static/Specific Routes FIRST (to avoid being captured by /:id)
+// These ensure that specific path names are not treated as UUIDs
+router.get('/solicitudes-servicio/count', controller.countSolicitudes)
+router.get('/solicitudes-servicio', controller.listSolicitudes)
+router.post('/solicitudes-servicio', controller.createSolicitud)
+router.patch('/solicitudes-servicio/:id', controller.updateSolicitud)
+router.delete('/solicitudes-servicio/:id', controller.deleteSolicitud)
 
-// Sub-resources
-router.get('/:id/productos', controller.getProductosByOrden)
-router.get('/:id/fotos', controller.getFotosByOrden)
-router.get('/:id/actividades', controller.getActividadesByOrden)
-router.get('/:id/estaciones', controller.getEstacionesByOrden)
-router.get('/:id/certificado', controller.getLatestCertificadoByOrden)
-
-// Shared operational endpoints (will be mounted at root or specific paths)
 router.get('/certificados', controller.listCertificados)
 router.post('/certificados', controller.createCertificado)
 router.put('/certificados/:id', controller.updateCertificado)
+
+// Explicit routes for compatibility when mounted at root / or aliases
+router.get('/ordenes-servicio', controller.listOrdenes) // Missing this one!
+router.post('/ordenes-servicio', controller.createOrden)
+router.get('/ordenes', controller.listOrdenes)
+router.get('/servicios', controller.listOrdenes)
 
 router.get('/actividades-servicio', controller.listActividades)
 router.post('/actividades-servicio', controller.createActividad)
@@ -45,10 +42,22 @@ router.get('/productos-usados', controller.listProductos)
 router.post('/productos-usados', controller.createProducto)
 router.delete('/productos-usados/:id', controller.deleteProducto)
 
-router.get('/solicitudes-servicio/count', controller.countSolicitudes)
-router.get('/solicitudes-servicio', controller.listSolicitudes)
-router.post('/solicitudes-servicio', controller.createSolicitud)
-router.patch('/solicitudes-servicio/:id', controller.updateSolicitud)
-router.delete('/solicitudes-servicio/:id', controller.deleteSolicitud)
+// 2. Base routes for when mounted at /ordenes or /servicios (Relative paths)
+router.get('/', controller.listOrdenes)
+router.post('/', controller.createOrden)
+
+// 3. Parameterized Routes LAST
+router.get('/:id', controller.getOrdenDetalle)
+router.patch('/:id', controller.updateOrden)
+router.put('/:id', controller.updateOrden)
+router.delete('/:id', controller.deleteOrden)
+router.post('/:id/assign', controller.assignOrden)
+
+// 4. Sub-resources
+router.get('/:id/productos', controller.getProductosByOrden)
+router.get('/:id/fotos', controller.getFotosByOrden)
+router.get('/:id/actividades', controller.getActividadesByOrden)
+router.get('/:id/estaciones', controller.getEstacionesByOrden)
+router.get('/:id/certificado', controller.getLatestCertificadoByOrden)
 
 export default router
