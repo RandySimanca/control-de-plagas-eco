@@ -45,8 +45,8 @@ export default function Usuarios() {
     setLoading(true)
     try {
       const token = localStorage.getItem('token')
-      const data = await api.get('/profiles', { token })
-      setUsuarios(data || [])
+      const response = await api.get('/profiles', { token })
+      setUsuarios(response.data || [])
     } catch (err) {
       console.error('Error:', err)
     } finally {
@@ -58,8 +58,8 @@ export default function Usuarios() {
     if (clientes.length === 0) {
       try {
         const token = localStorage.getItem('token')
-        const data = await api.get('/clientes', { token })
-        setClientes(data || [])
+        const response = await api.get('/clientes', { token })
+        setClientes(response.data || [])
       } catch (err) {
         console.error('Error loading clientes:', err)
       }
@@ -77,8 +77,8 @@ export default function Usuarios() {
       setModalLoading(true)
       try {
         const token = localStorage.getItem('token')
-        const data = await api.get(`/profiles/${id}`, { token })
-        setForm({ ...data, password: '' })
+        const response = await api.get(`/profiles/${id}`, { token })
+        setForm({ ...response.data, password: '' })
       } catch (err) {
         toast.error(err.message || 'Error cargando usuario')
         setShowModal(false)
@@ -140,15 +140,17 @@ export default function Usuarios() {
       }
 
       if (isEdit) {
-        const updated = await api.patch(`/profiles/${editingId}`, payload, { token })
+        const response = await api.patch(`/profiles/${editingId}`, payload, { token })
+        const updated = response.data
         setUsuarios(prev => prev.map(u => u.id === editingId ? updated : u))
         await successAlert('¡Usuario Actualizado!', 'Los datos se guardaron correctamente.')
       } else {
         // Create user + profile
-        const created = await api.post('/profiles', {
+        const response = await api.post('/profiles', {
           ...payload,
           password: form.password
         }, { token })
+        const created = response.data
         setUsuarios(prev => [created, ...prev])
         await successAlert('¡Usuario Creado!', 'El usuario ha sido registrado en el sistema.')
       }

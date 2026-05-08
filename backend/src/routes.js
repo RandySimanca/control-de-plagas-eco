@@ -27,6 +27,7 @@ router.use('/configuracion', configuracionRoutes)
 router.use('/documentos-legales', documentosRoutes)
 router.use('/profiles', profilesRoutes)
 router.use('/upload', uploadRoutes)
+router.use('/', operacionesRoutes) // Mount operational sub-resources
 
 // Nota: operacionesRoutes y profilesRoutes deberían tener sus propios archivos .routes.js 
 // para seguir el patrón, pero por ahora mantenemos compatibilidad.

@@ -60,8 +60,8 @@ export default function Layout() {
         ...(lastViewed && { updated_after: lastViewed })
       })
       
-      const data = await api.get(`/solicitudes-servicio/count?${params}`, { token })
-      setRequestCount(data.count || 0)
+      const response = await api.get(`/solicitudes-servicio/count?${params}`, { token })
+      setRequestCount(response.data?.count || 0)
     } catch {
       console.error('Error cargando solicitudes')
     }
