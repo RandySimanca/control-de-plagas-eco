@@ -32,7 +32,7 @@ export default function Ordenes() {
     if (profile || isAdmin) loadOrdenes() 
     
     if (location.state?.openModal) {
-      openModal(null, location.state.prefill)
+      openModal(location.state.prefill)
       window.history.replaceState({}, document.title)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -242,7 +242,7 @@ export default function Ordenes() {
             <p className="page-subtitle">{ordenes.length} órdenes registradas</p>
           </div>
           {isAdmin && (
-            <button onClick={openModal} className="btn-primary text-sm">
+            <button onClick={() => openModal()} className="btn-primary text-sm">
               <Plus className="w-4 h-4" /> Nueva Orden
             </button>
           )}

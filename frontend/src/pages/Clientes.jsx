@@ -367,20 +367,30 @@ export default function Clientes() {
                 </div>
 
                 {isAdmin && (
-                  <div className="flex items-center gap-3">
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input type="checkbox" checked={crearUsuario} onChange={e => setCrearUsuario(e.target.checked)} className="sr-only peer" />
-                      <div className="w-11 h-6 bg-dark-300 peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
-                    </label>
-                    <span className="text-sm font-medium text-dark-700">Crear usuario para el cliente</span>
-                  </div>
-                )}
+                  tieneUsuario ? (
+                    <div className="bg-blue-50 text-blue-800 text-sm p-4 rounded-xl border border-blue-200 flex items-center gap-3 mt-4">
+                      <UserCheck className="w-5 h-5 text-blue-600 shrink-0" />
+                      <p className="font-medium">Este cliente ya tiene una cuenta de acceso al portal vinculada a su correo.</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-3 mt-4">
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input type="checkbox" checked={crearUsuario} onChange={e => setCrearUsuario(e.target.checked)} className="sr-only peer" />
+                          <div className="w-11 h-6 bg-dark-300 peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                        </label>
+                        <span className="text-sm font-medium text-dark-700">Crear cuenta de acceso para el cliente</span>
+                      </div>
 
-                {crearUsuario && (
-                  <div>
-                    <label className="label-field">Contraseña para el usuario</label>
-                    <input type="password" className="input-field" value={userPassword} onChange={e => setUserPassword(e.target.value)} placeholder="Contraseña (mín. 6 caracteres)" required />
-                  </div>
+                      {crearUsuario && (
+                        <div className="mt-4 animate-in fade-in slide-in-from-top-2">
+                          <label className="label-field">Contraseña temporal de acceso</label>
+                          <input type="password" className="input-field" value={userPassword} onChange={e => setUserPassword(e.target.value)} placeholder="Contraseña (mín. 6 caracteres)" required={crearUsuario} />
+                          <p className="text-[10px] text-dark-400 mt-1 font-medium">Se usará el email del cliente registrado arriba como su correo de ingreso.</p>
+                        </div>
+                      )}
+                    </>
+                  )
                 )}
 
                 <div className="flex flex-wrap gap-3 pt-4 border-t border-dark-100">

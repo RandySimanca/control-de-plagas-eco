@@ -23,9 +23,10 @@ router.use('/profiles', profilesRoutes)
 router.use('/upload', uploadRoutes)
 
 // Operational Modules (Unified)
-// We mount at /servicios and /ordenes for base order management
+// We mount at /servicios, /ordenes, and /ordenes-servicio for base order management
 router.use('/servicios', operacionesRoutes)
 router.use('/ordenes', operacionesRoutes)
+router.use('/ordenes-servicio', operacionesRoutes)
 
 // We also mount at root to expose sub-resources like /certificados, /solicitudes-servicio, etc.
 router.use('/', operacionesRoutes) 

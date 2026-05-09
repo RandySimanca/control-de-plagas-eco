@@ -18,11 +18,7 @@ router.get('/certificados', controller.listCertificados)
 router.post('/certificados', controller.createCertificado)
 router.put('/certificados/:id', controller.updateCertificado)
 
-// Explicit routes for compatibility when mounted at root / or aliases
-router.get('/ordenes-servicio', controller.listOrdenes) // Missing this one!
-router.post('/ordenes-servicio', controller.createOrden)
-router.get('/ordenes', controller.listOrdenes)
-router.get('/servicios', controller.listOrdenes)
+// Explicit routes for compatibility with older endpoints are now handled by routes.js mounts
 
 router.get('/actividades-servicio', controller.listActividades)
 router.post('/actividades-servicio', controller.createActividad)

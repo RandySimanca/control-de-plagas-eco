@@ -31,7 +31,6 @@ export default function PortalHistorial() {
   const [showModal, setShowModal] = useState(false)
   const [showPwdModal, setShowPwdModal] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [responding, setResponding] = useState(null) // ID of the solicitud being responded to
   const [form, setForm] = useState({
     tipo_servicio: 'Desinsectación',
     descripcion: '',
@@ -440,20 +439,8 @@ useEffect(() => {
                             <p className="text-sm text-blue-800 italic leading-relaxed">{sol.descripcion_cotizacion || 'Sin descripción adicional.'}</p>
                           </div>
                           <div className="flex flex-wrap gap-3">
-                            <button 
-                              onClick={() => handleResponderCotizacion(sol, 'rechazada')} 
-                              disabled={!!responding}
-                              className="bg-white text-dark-500 border border-dark-200 text-sm font-bold flex-1 py-2.5 rounded-xl transition-all hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
-                            >
-                              Rechazar
-                            </button>
-                            <button 
-                              onClick={() => handleResponderCotizacion(sol, 'aceptada')} 
-                              disabled={!!responding}
-                              className="bg-primary-600 text-white text-sm font-bold flex-1 py-2.5 rounded-xl transition-all hover:bg-primary-700 shadow-md shadow-primary-600/20 disabled:opacity-50 flex items-center justify-center gap-2"
-                            >
-                              {responding === sol.id ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Aceptar Cotización'}
-                            </button>
+                            <button onClick={() => handleResponderCotizacion(sol, 'rechazada')} className="bg-white text-dark-500 border border-dark-200 text-sm font-bold flex-1 py-2.5 rounded-xl transition-all hover:bg-red-50 hover:text-red-600">Rechazar</button>
+                            <button onClick={() => handleResponderCotizacion(sol, 'aceptada')} className="bg-primary-600 text-white text-sm font-bold flex-1 py-2.5 rounded-xl transition-all hover:bg-primary-700 shadow-md shadow-primary-600/20">Aceptar Cotización</button>
                           </div>
                         </div>
                       )}
