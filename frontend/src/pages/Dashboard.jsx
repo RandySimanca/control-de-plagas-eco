@@ -94,7 +94,7 @@ export default function Dashboard() {
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
-          <h1 className="page-title font-bold text-3xl text-dark-900">¡Hola, {primerNombre}! 👋</h1>
+          <h1 className="page-title font-bold text-3xl text-dark-900">¡Hola, {primerNombre}! </h1>
           <p className="page-subtitle text-dark-500 mt-1">
             {isAdmin ? 'Resumen general de PlagControl' : 'Tus tareas asignadas para hoy'}
           </p>
@@ -174,7 +174,7 @@ export default function Dashboard() {
                       {order.cliente_nombre}
                     </p>
                     <p className="text-xs text-dark-400 font-medium">
-                      {order.tipo_plaga || 'Servicio general'} • {order.fecha_programada || 'Sin fecha'}
+                      {order.tipo_plaga || 'Servicio general'} • {order.fecha_programada ? new Date(order.fecha_programada).toLocaleDateString() : 'Sin fecha'}
                     </p>
                   </div>
                 </div>

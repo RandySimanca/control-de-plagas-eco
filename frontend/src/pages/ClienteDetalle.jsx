@@ -16,8 +16,10 @@ export default function ClienteDetalle() {
   const [cliente, setCliente] = useState(null)
   const [ordenes, setOrdenes] = useState([])
   const [loading, setLoading] = useState(true)
-
-  useEffect(() => { load() }, [id])
+  useEffect(() => {
+    load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id])
 
   async function load() {
     try {

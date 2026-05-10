@@ -299,7 +299,7 @@ export default function Ordenes() {
                   <div className="min-w-0">
                     <p className="font-semibold text-dark-900 truncate">{orden.cliente_nombre}</p>
                     <div className="flex items-center gap-3 text-xs text-dark-400 mt-0.5">
-                      <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> {orden.fecha_programada}</span>
+                      <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> {orden.fecha_programada ? new Date(orden.fecha_programada).toLocaleDateString() : 'Sin fecha'}</span>
                       <span className="flex items-center gap-1"><User className="w-3.5 h-3.5" /> {orden.tecnico_nombre || 'Sin asignar'}</span>
                     </div>
                     {orden.tipo_plaga && <p className="text-xs text-dark-500 mt-1">{orden.tipo_plaga}</p>}
