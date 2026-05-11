@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { abrirCertificado } from '../../lib/generarCertificado'
+import { getAuthImageUrl } from '../../utils/imageUtils'
 
 export default function PortalOrdenDetalle() {
   const { id } = useParams()
@@ -189,7 +190,7 @@ export default function PortalOrdenDetalle() {
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               {fotos.map(f => (
                 <a key={f.id} href={f.url} target="_blank" rel="noopener" className="aspect-video rounded-xl overflow-hidden bg-dark-100 border border-dark-200">
-                  <img src={f.url} alt="Evidencia" className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" />
+                  <img src={getAuthImageUrl(f.url)} alt="Evidencia" className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" />
                 </a>
               ))}
             </div>
@@ -246,13 +247,13 @@ export default function PortalOrdenDetalle() {
                       {e.foto_antes_url && (
                         <div className="space-y-1">
                           <p className="text-[10px] font-bold text-dark-400 uppercase">Antes</p>
-                          <img src={e.foto_antes_url} className="rounded-lg w-full aspect-video object-cover border border-dark-100" />
+                          <img src={getAuthImageUrl(e.foto_antes_url)} className="rounded-lg w-full aspect-video object-cover border border-dark-100" />
                         </div>
                       )}
                       {e.foto_despues_url && (
                         <div className="space-y-1">
                           <p className="text-[10px] font-bold text-dark-400 uppercase">Después</p>
-                          <img src={e.foto_despues_url} className="rounded-lg w-full aspect-video object-cover border border-dark-100" />
+                          <img src={getAuthImageUrl(e.foto_despues_url)} className="rounded-lg w-full aspect-video object-cover border border-dark-100" />
                         </div>
                       )}
                     </div>

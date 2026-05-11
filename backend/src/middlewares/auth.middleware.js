@@ -6,11 +6,18 @@ import { config } from '../config/index.js'
  * Asigna req.user = { id, role }
  */
 export function authenticate (req, res, next) {
+  let token = null
   const header = req.headers.authorization
-  if (!header?.startsWith('Bearer ')) {
+  if (header?.startsWith('Bearer ')) {
+    token = header.slice(7)
+  } else if (req.query.token) {
+    token = req.query.token
+  }
+
+  if (!token) {
     return res.status(401).json({ success: false, message: 'No autorizado' })
   }
-  const token = header.slice(7)
+
   try {
     const payload = jwt.verify(token, config.jwtSecret)
     req.user = {

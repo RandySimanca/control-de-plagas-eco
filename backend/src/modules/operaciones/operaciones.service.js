@@ -183,31 +183,44 @@ export async function listActividades(ordenId) {
   const { rows } = await pool.query('SELECT * FROM actividades_servicio WHERE ($1::uuid IS NULL OR orden_id = $1) ORDER BY created_at DESC', [ordenId || null])
   return rows
 }
-export async function createActividad(body) {
+export async function createActividad(body, user) {
+  await assertOrdenAccess(body.orden_id, user)
   const { rows } = await pool.query('INSERT INTO actividades_servicio (id, orden_id, descripcion) VALUES (COALESCE($1, gen_random_uuid()), $2, $3) RETURNING *', [body.id || null, body.orden_id, body.descripcion])
   return rows[0]
 }
-export async function updateActividad(id, body) {
+export async function updateActividad(id, body, user) {
+  const { rows: actRows } = await pool.query('SELECT orden_id FROM actividades_servicio WHERE id = $1', [id])
+  if (actRows[0]) await assertOrdenAccess(actRows[0].orden_id, user)
   const { rows } = await pool.query('UPDATE actividades_servicio SET descripcion = COALESCE($2, descripcion), updated_at = NOW() WHERE id = $1 RETURNING *', [id, body.descripcion])
   return rows[0]
 }
-export async function deleteActividad(id) { await pool.query('DELETE FROM actividades_servicio WHERE id = $1', [id]) }
+export async function deleteActividad(id, user) {
+  const { rows } = await pool.query('SELECT orden_id FROM actividades_servicio WHERE id = $1', [id])
+  if (rows[0]) await assertOrdenAccess(rows[0].orden_id, user)
+  await pool.query('DELETE FROM actividades_servicio WHERE id = $1', [id])
+}
 
 export async function listFotos(ordenId) {
   const { rows } = await pool.query('SELECT * FROM fotos_servicio WHERE ($1::uuid IS NULL OR orden_id = $1) ORDER BY created_at DESC', [ordenId || null])
   return rows
 }
-export async function createFoto(body) {
+export async function createFoto(body, user) {
+  await assertOrdenAccess(body.orden_id, user)
   const { rows } = await pool.query('INSERT INTO fotos_servicio (id, orden_id, url, descripcion, storage_path) VALUES (COALESCE($1, gen_random_uuid()), $2, $3, $4, $5) RETURNING *', [body.id || null, body.orden_id, body.url, body.descripcion || null, body.storage_path || null])
   return rows[0]
 }
-export async function deleteFoto(id) { await pool.query('DELETE FROM fotos_servicio WHERE id = $1', [id]) }
+export async function deleteFoto(id, user) {
+  const { rows } = await pool.query('SELECT orden_id FROM fotos_servicio WHERE id = $1', [id])
+  if (rows[0]) await assertOrdenAccess(rows[0].orden_id, user)
+  await pool.query('DELETE FROM fotos_servicio WHERE id = $1', [id])
+}
 
 export async function listEstaciones(ordenId) {
   const { rows } = await pool.query('SELECT * FROM estaciones_usadas WHERE ($1::uuid IS NULL OR orden_id = $1) ORDER BY created_at DESC', [ordenId || null])
   return rows
 }
-export async function createEstacion(body) {
+export async function createEstacion(body, user) {
+  await assertOrdenAccess(body.orden_id, user)
   const { rows } = await pool.query(
     `INSERT INTO estaciones_usadas (id, orden_id, tipo_estacion, cantidad, observaciones, foto_antes_url, foto_despues_url)
      VALUES (COALESCE($1, gen_random_uuid()), $2, $3, $4, $5, $6, $7) RETURNING *`,
@@ -215,14 +228,22 @@ export async function createEstacion(body) {
   )
   return rows[0]
 }
-export async function deleteEstacion(id) { await pool.query('DELETE FROM estaciones_usadas WHERE id = $1', [id]) }
-export async function deleteEstacionesByOrden(ordenId) { await pool.query('DELETE FROM estaciones_usadas WHERE orden_id = $1', [ordenId]) }
+export async function deleteEstacion(id, user) {
+  const { rows } = await pool.query('SELECT orden_id FROM estaciones_usadas WHERE id = $1', [id])
+  if (rows[0]) await assertOrdenAccess(rows[0].orden_id, user)
+  await pool.query('DELETE FROM estaciones_usadas WHERE id = $1', [id])
+}
+export async function deleteEstacionesByOrden(ordenId, user) {
+  await assertOrdenAccess(ordenId, user)
+  await pool.query('DELETE FROM estaciones_usadas WHERE orden_id = $1', [ordenId])
+}
 
 export async function listProductos(ordenId) {
   const { rows } = await pool.query('SELECT * FROM productos_usados WHERE ($1::uuid IS NULL OR orden_id = $1) ORDER BY created_at DESC', [ordenId || null])
   return rows
 }
-export async function createProducto(body) {
+export async function createProducto(body, user) {
+  await assertOrdenAccess(body.orden_id, user)
   const { rows } = await pool.query(
     `INSERT INTO productos_usados (id, orden_id, nombre_producto, ingrediente_activo, cantidad, tipo_producto)
      VALUES (COALESCE($1, gen_random_uuid()), $2, $3, $4, $5, $6) RETURNING *`,
@@ -230,7 +251,11 @@ export async function createProducto(body) {
   )
   return rows[0]
 }
-export async function deleteProducto(id) { await pool.query('DELETE FROM productos_usados WHERE id = $1', [id]) }
+export async function deleteProducto(id, user) {
+  const { rows } = await pool.query('SELECT orden_id FROM productos_usados WHERE id = $1', [id])
+  if (rows[0]) await assertOrdenAccess(rows[0].orden_id, user)
+  await pool.query('DELETE FROM productos_usados WHERE id = $1', [id])
+}
 
 export async function listSolicitudes(user, filters = {}) {
   let sql = `

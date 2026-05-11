@@ -6,11 +6,26 @@ import fs from 'fs';
 
 const router = Router();
 
+// Tipos MIME permitidos
+const ALLOWED_MIME_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'application/pdf'
+]);
+
 // Configure multer to store file in memory
 const storage = multer.memoryStorage();
-const upload = multer({ 
+const upload = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter (_req, file, cb) {
+    if (ALLOWED_MIME_TYPES.has(file.mimetype)) {
+      cb(null, true)
+    } else {
+      cb(new Error(`Tipo de archivo no permitido: ${file.mimetype}. Solo se aceptan JPEG, PNG, WebP y PDF.`))
+    }
+  }
 });
 
 router.post('/', authenticate, upload.single('file'), (req, res) => {

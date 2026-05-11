@@ -18,8 +18,11 @@ function requireEnv (name) {
 export const config = {
   port: Number(process.env.PORT) || 3001,
   nodeEnv: process.env.NODE_ENV || 'development',
-  frontendUrl: process.env.FRONTEND_URL || '*',
+  // IMPORTANTE: En producción DEBE configurarse FRONTEND_URL explícitamente.
+  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
   databaseUrl: requireEnv('DATABASE_URL'),
   jwtSecret: requireEnv('JWT_SECRET'),
-  jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d'
+  // TODO (v2.0 - Deuda Técnica): Implementar un sistema de Refresh Tokens.
+  // Por ahora se deja en '1d' por seguridad al no haber mecanismo de revocación.
+  jwtExpiresIn: process.env.JWT_EXPIRES_IN || '1d'
 }

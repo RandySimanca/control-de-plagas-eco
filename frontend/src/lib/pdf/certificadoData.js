@@ -11,6 +11,15 @@ export async function getImgData(url) {
     finalUrl = `${API_BASE}/uploads/${url.replace(/^\//, '')}`
   }
 
+  // Append token to bypass authentication on the backend
+  if (finalUrl.includes('/uploads/')) {
+    const token = localStorage.getItem('token');
+    if (token && !finalUrl.includes('token=')) {
+      const separator = finalUrl.includes('?') ? '&' : '?';
+      finalUrl = `${finalUrl}${separator}token=${token}`;
+    }
+  }
+
   try {
     const res = await fetch(finalUrl)
     if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`)

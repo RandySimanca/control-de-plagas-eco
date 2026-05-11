@@ -6,6 +6,7 @@ import { Plus, Search, Shield, UserCog, Users as UsersIcon, UserCheck, UserX, Sa
 import toast from 'react-hot-toast'
 import { confirmDelete, successAlert } from '../../lib/alerts'
 import Modal from '../../components/ui/Modal'
+import { getAuthImageUrl } from '../../utils/imageUtils'
 
 const EMPTY_FORM = {
   nombre_completo: '', email: '', password: '', telefono: '',
@@ -275,7 +276,7 @@ export default function Usuarios() {
                   <label className="label-field">Firma Digital (Técnico)</label>
                   <div className="flex items-center gap-3">
                     {form.firma_url && !signatureFile && (
-                      <img src={form.firma_url} alt="Firma" className="w-12 h-12 rounded border bg-white object-contain" />
+                      <img src={getAuthImageUrl(form.firma_url)} alt="Firma" className="w-12 h-12 rounded border bg-white object-contain" />
                     )}
                     <label className="flex-1 flex items-center justify-center gap-2 px-3 py-2 border-2 border-dashed border-dark-200 rounded-xl cursor-pointer hover:border-primary-400 hover:bg-primary-50 transition-all">
                       <Upload className="w-4 h-4 text-dark-400" />

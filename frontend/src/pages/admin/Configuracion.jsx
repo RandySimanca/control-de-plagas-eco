@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { api } from '../../lib/api'
 import { Save, Loader2, Upload, Building2, Mail, Phone, MapPin, Type } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { getAuthImageUrl } from '../../utils/imageUtils'
 
 export default function Configuracion() {
   const [loading, setLoading] = useState(true)
@@ -238,7 +239,7 @@ export default function Configuracion() {
                 {logo ? (
                   <img src={URL.createObjectURL(logo)} alt="Vista previa" className="w-full h-full object-contain" />
                 ) : form.logo_url ? (
-                  <img src={form.logo_url} alt="Logo actual" className="w-full h-full object-contain" />
+                  <img src={getAuthImageUrl(form.logo_url)} alt="Logo actual" className="w-full h-full object-contain" />
                 ) : (
                   <div className="text-center p-4">
                     <Building2 className="w-12 h-12 text-dark-200 mx-auto mb-2" />

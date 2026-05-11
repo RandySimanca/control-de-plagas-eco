@@ -14,6 +14,7 @@ import {
 import toast from 'react-hot-toast'
 import logoDerosh from '../assets/logo Derosh.png'
 import { confirmDelete, successAlert } from '../lib/alerts'
+import { getAuthImageUrl } from '../utils/imageUtils'
 
 import { generateUUID } from '../utils/uuid'
 
@@ -695,7 +696,7 @@ export default function OrdenDetalle() {
                                 <div className="relative aspect-video rounded-lg border-2 border-dashed border-dark-200 bg-white flex items-center justify-center overflow-hidden">
                                   {e.foto_antes_url ? (
                                     <>
-                                      <img src={e.foto_antes_url} className="w-full h-full object-cover" />
+                                      <img src={getAuthImageUrl(e.foto_antes_url)} className="w-full h-full object-cover" />
                                       <button 
                                         onClick={() => setEstacionesEdit(prev => prev.map((item, i) => i === idx ? {...item, foto_antes_url: null} : item))}
                                         className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-md"
@@ -717,7 +718,7 @@ export default function OrdenDetalle() {
                                 <div className="relative aspect-video rounded-lg border-2 border-dashed border-dark-200 bg-white flex items-center justify-center overflow-hidden">
                                   {e.foto_despues_url ? (
                                     <>
-                                      <img src={e.foto_despues_url} className="w-full h-full object-cover" />
+                                      <img src={getAuthImageUrl(e.foto_despues_url)} className="w-full h-full object-cover" />
                                       <button 
                                         onClick={() => setEstacionesEdit(prev => prev.map((item, i) => i === idx ? {...item, foto_despues_url: null} : item))}
                                         className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-md"
@@ -769,13 +770,13 @@ export default function OrdenDetalle() {
                           {e.foto_antes_url && (
                             <div className="space-y-1">
                               <p className="text-[10px] font-bold text-dark-400 uppercase">Antes</p>
-                              <img src={e.foto_antes_url} className="rounded-lg w-full aspect-video object-cover border border-dark-100" />
+                              <img src={getAuthImageUrl(e.foto_antes_url)} className="rounded-lg w-full aspect-video object-cover border border-dark-100" />
                             </div>
                           )}
                           {e.foto_despues_url && (
                             <div className="space-y-1">
                               <p className="text-[10px] font-bold text-dark-400 uppercase">Después</p>
-                              <img src={e.foto_despues_url} className="rounded-lg w-full aspect-video object-cover border border-dark-100" />
+                              <img src={getAuthImageUrl(e.foto_despues_url)} className="rounded-lg w-full aspect-video object-cover border border-dark-100" />
                             </div>
                           )}
                         </div>
@@ -881,7 +882,7 @@ export default function OrdenDetalle() {
             {fotos.map(f => (
               <div key={f.id} className="relative group aspect-square rounded-xl overflow-hidden bg-dark-100 border border-dark-200">
                 <a href={f.url} target="_blank" rel="noopener">
-                  <img src={f.url} alt="Foto servicio" className="w-full h-full object-cover hover:scale-105 transition-transform" />
+                  <img src={getAuthImageUrl(f.url)} alt="Foto servicio" className="w-full h-full object-cover hover:scale-105 transition-transform" />
                 </a>
                 {isAssignedTecnico && orden.estado === 'en_progreso' && (
                   <button 
