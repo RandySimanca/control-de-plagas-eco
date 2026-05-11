@@ -20,7 +20,7 @@ export function createApp () {
   fs.mkdirSync(uploadsDir, { recursive: true })
 
   // Serve uploaded files statically with CORS and authentication
-  app.use('/uploads', cors(), authenticate, express.static(uploadsDir))
+  app.use('/uploads', cors({ origin: config.frontendUrl === '*' ? true : config.frontendUrl, credentials: true }), authenticate, express.static(uploadsDir))
 
   app.use(cors({ origin: config.frontendUrl === '*' ? true : config.frontendUrl, credentials: true }))
   app.use(express.json({ limit: '1mb' }))

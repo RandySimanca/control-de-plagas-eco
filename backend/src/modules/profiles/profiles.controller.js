@@ -36,7 +36,7 @@ export const update = catchAsync(async (req, res) => {
   }
 
   // Validar el rol si viene en la actualizacion
-  if (updateData.rol && !['admin', 'tecnico', 'cliente', 'superadmin'].includes(updateData.rol)) {
+  if (updateData.rol && !['admin', 'tecnico', 'cliente'].includes(updateData.rol)) {
     return res.status(400).json({ success: false, message: 'Rol inválido' });
   }
 
@@ -61,8 +61,8 @@ export const create = catchAsync(async (req, res) => {
     return res.status(400).json({ success: false, message: 'Email, contraseña, nombre y rol son requeridos' });
   }
 
-  if (!['admin', 'tecnico', 'cliente', 'superadmin'].includes(rol)) {
-    return res.status(400).json({ success: false, message: 'Rol inválido. Use admin, tecnico, cliente o superadmin.' });
+  if (!['admin', 'tecnico', 'cliente'].includes(rol)) {
+    return res.status(400).json({ success: false, message: 'Rol inválido. Use admin, tecnico, o cliente.' });
   }
 
   if (password.length < 8) {

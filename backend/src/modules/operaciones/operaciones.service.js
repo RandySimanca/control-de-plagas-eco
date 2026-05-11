@@ -120,23 +120,28 @@ export async function assignTecnico(ordenId, tecnicoId, user) {
   return rows[0]
 }
 
-export async function getProductosByOrden(ordenId) {
+export async function getProductosByOrden(ordenId, user) {
+  await assertOrdenAccess(ordenId, user)
   const { rows } = await pool.query('SELECT * FROM productos_usados WHERE orden_id = $1 ORDER BY created_at DESC', [ordenId])
   return rows
 }
-export async function getFotosByOrden(ordenId) {
+export async function getFotosByOrden(ordenId, user) {
+  await assertOrdenAccess(ordenId, user)
   const { rows } = await pool.query('SELECT * FROM fotos_servicio WHERE orden_id = $1 ORDER BY created_at DESC', [ordenId])
   return rows
 }
-export async function getActividadesByOrden(ordenId) {
+export async function getActividadesByOrden(ordenId, user) {
+  await assertOrdenAccess(ordenId, user)
   const { rows } = await pool.query('SELECT * FROM actividades_servicio WHERE orden_id = $1 ORDER BY created_at DESC', [ordenId])
   return rows
 }
-export async function getEstacionesByOrden(ordenId) {
+export async function getEstacionesByOrden(ordenId, user) {
+  await assertOrdenAccess(ordenId, user)
   const { rows } = await pool.query('SELECT * FROM estaciones_usadas WHERE orden_id = $1 ORDER BY created_at DESC', [ordenId])
   return rows
 }
-export async function getLatestCertificadoByOrden(ordenId) {
+export async function getLatestCertificadoByOrden(ordenId, user) {
+  await assertOrdenAccess(ordenId, user)
   const { rows } = await pool.query('SELECT * FROM certificados WHERE orden_id = $1 ORDER BY created_at DESC LIMIT 1', [ordenId])
   return rows[0] || null
 }
@@ -169,17 +174,25 @@ export async function listCertificados(user) {
   )
   return rows
 }
-export async function createCertificado(body) {
+export async function createCertificado(body, user) {
+  await assertOrdenAccess(body.orden_id, user)
   const { rows } = await pool.query('INSERT INTO certificados (orden_id, folio, firma_url) VALUES ($1,$2,$3) RETURNING *', [body.orden_id, body.folio, body.firma_url || null])
   return rows[0]
 }
-export async function updateCertificado(id, body) {
+export async function updateCertificado(id, body, user) {
+  // Primero buscamos a qué orden pertenece el certificado
+  const { rows: certRows } = await pool.query('SELECT orden_id FROM certificados WHERE id = $1 OR orden_id = $1', [id])
+  if (certRows[0]) await assertOrdenAccess(certRows[0].orden_id, user)
+  
   const { rows } = await pool.query('UPDATE certificados SET folio = COALESCE($2, folio), firma_url = COALESCE($3, firma_url), updated_at = NOW() WHERE id = $1 OR orden_id = $1 RETURNING *', [id, body.folio, body.firma_url])
   if (!rows[0]) throw new AppError('Certificado no encontrado', 404)
   return rows[0]
 }
 
-export async function listActividades(ordenId) {
+export async function listActividades(ordenId, user) {
+  if (ordenId) await assertOrdenAccess(ordenId, user)
+  else if (user.role !== 'admin') throw new AppError('orden_id es obligatorio', 400)
+  
   const { rows } = await pool.query('SELECT * FROM actividades_servicio WHERE ($1::uuid IS NULL OR orden_id = $1) ORDER BY created_at DESC', [ordenId || null])
   return rows
 }
@@ -200,7 +213,10 @@ export async function deleteActividad(id, user) {
   await pool.query('DELETE FROM actividades_servicio WHERE id = $1', [id])
 }
 
-export async function listFotos(ordenId) {
+export async function listFotos(ordenId, user) {
+  if (ordenId) await assertOrdenAccess(ordenId, user)
+  else if (user.role !== 'admin') throw new AppError('orden_id es obligatorio', 400)
+    
   const { rows } = await pool.query('SELECT * FROM fotos_servicio WHERE ($1::uuid IS NULL OR orden_id = $1) ORDER BY created_at DESC', [ordenId || null])
   return rows
 }
@@ -215,7 +231,10 @@ export async function deleteFoto(id, user) {
   await pool.query('DELETE FROM fotos_servicio WHERE id = $1', [id])
 }
 
-export async function listEstaciones(ordenId) {
+export async function listEstaciones(ordenId, user) {
+  if (ordenId) await assertOrdenAccess(ordenId, user)
+  else if (user.role !== 'admin') throw new AppError('orden_id es obligatorio', 400)
+    
   const { rows } = await pool.query('SELECT * FROM estaciones_usadas WHERE ($1::uuid IS NULL OR orden_id = $1) ORDER BY created_at DESC', [ordenId || null])
   return rows
 }
@@ -238,7 +257,10 @@ export async function deleteEstacionesByOrden(ordenId, user) {
   await pool.query('DELETE FROM estaciones_usadas WHERE orden_id = $1', [ordenId])
 }
 
-export async function listProductos(ordenId) {
+export async function listProductos(ordenId, user) {
+  if (ordenId) await assertOrdenAccess(ordenId, user)
+  else if (user.role !== 'admin') throw new AppError('orden_id es obligatorio', 400)
+    
   const { rows } = await pool.query('SELECT * FROM productos_usados WHERE ($1::uuid IS NULL OR orden_id = $1) ORDER BY created_at DESC', [ordenId || null])
   return rows
 }
@@ -300,22 +322,64 @@ export async function createSolicitud(body, user) {
   )
   return rows[0]
 }
-export async function updateSolicitud(id, body) {
-  const keys = ['estado', 'precio_cotizacion', 'descripcion_cotizacion', 'respuesta_cliente', 'respuesta_fecha', 'motivo_rechazo', 'cotizacion_leida_por_cliente', 'orden_id']
-  const sets = []
-  const vals = []
-  for (const key of keys) {
-    if (body[key] !== undefined) {
+export async function updateSolicitud(id, body, user) {
+  const { rows: solRows } = await pool.query('SELECT cliente_id, estado FROM solicitudes_servicio WHERE id = $1', [id])
+  if (!solRows[0]) throw new AppError('Solicitud no encontrada', 404)
+  
+  const sol = solRows[0]
+  const profile = await getProfile(user.id)
+  
+  // Si es cliente, solo puede actualizar su propia solicitud y solo ciertos campos (aceptar/rechazar)
+  if (user.role === 'cliente') {
+    if (sol.cliente_id !== profile?.cliente_id) throw new AppError('No autorizado', 403)
+    
+    // Un cliente solo puede actualizar estos campos específicos al responder a una cotización
+    const allowedClientKeys = ['respuesta_cliente', 'respuesta_fecha', 'motivo_rechazo', 'cotizacion_leida_por_cliente']
+    const keys = Object.keys(body).filter(k => allowedClientKeys.includes(k))
+    
+    if (keys.length === 0) throw new AppError('No tienes permiso para actualizar estos campos', 403)
+    
+    const sets = []
+    const vals = []
+    for (const key of keys) {
       vals.push(body[key])
       sets.push(`${key} = $${vals.length}`)
     }
+    vals.push(id)
+    const { rows } = await pool.query(`UPDATE solicitudes_servicio SET ${sets.join(', ')}, updated_at = NOW() WHERE id = $${vals.length} RETURNING *`, vals)
+    return rows[0]
   }
-  if (!sets.length) throw new AppError('No hay campos para actualizar', 400)
-  vals.push(id)
-  const { rows } = await pool.query(`UPDATE solicitudes_servicio SET ${sets.join(', ')}, updated_at = NOW() WHERE id = $${vals.length} RETURNING *`, vals)
-  return rows[0]
+  
+  // Si es admin, tiene acceso completo
+  if (user.role === 'admin') {
+    const keys = ['estado', 'precio_cotizacion', 'descripcion_cotizacion', 'respuesta_cliente', 'respuesta_fecha', 'motivo_rechazo', 'cotizacion_leida_por_cliente', 'orden_id']
+    const sets = []
+    const vals = []
+    for (const key of keys) {
+      if (body[key] !== undefined) {
+        vals.push(body[key])
+        sets.push(`${key} = $${vals.length}`)
+      }
+    }
+    if (!sets.length) throw new AppError('No hay campos para actualizar', 400)
+    vals.push(id)
+    const { rows } = await pool.query(`UPDATE solicitudes_servicio SET ${sets.join(', ')}, updated_at = NOW() WHERE id = $${vals.length} RETURNING *`, vals)
+    return rows[0]
+  }
+
+  throw new AppError('No autorizado', 403)
 }
-export async function deleteSolicitud(id) { await pool.query('DELETE FROM solicitudes_servicio WHERE id = $1', [id]) }
+export async function deleteSolicitud(id, user) {
+  const { rows: solRows } = await pool.query('SELECT cliente_id FROM solicitudes_servicio WHERE id = $1', [id])
+  if (!solRows[0]) return // Ya no existe
+  
+  const profile = await getProfile(user.id)
+  if (user.role !== 'admin' && solRows[0].cliente_id !== profile?.cliente_id) {
+    throw new AppError('No autorizado', 403)
+  }
+  
+  await pool.query('DELETE FROM solicitudes_servicio WHERE id = $1', [id])
+}
 
 export async function countSolicitudes(filters = {}) {
   const params = []

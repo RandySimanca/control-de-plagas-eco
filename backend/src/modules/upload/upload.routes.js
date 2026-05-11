@@ -41,6 +41,11 @@ router.post('/', authenticate, upload.single('file'), (req, res) => {
   // Sanitize bucket: allow only alphanumeric, dash, underscore
   const safeBucket = path.basename(bucket);
 
+  const ALLOWED_BUCKETS = new Set(['fotos-servicio', 'documentos', 'branding', 'certificados', 'firmas', 'default', 'avatars']);
+  if (!ALLOWED_BUCKETS.has(safeBucket)) {
+    return res.status(400).json({ success: false, message: 'Bucket no permitido' });
+  }
+
   // Sanitize each path segment to prevent directory traversal
   const pathSegments = filePath.split('/').map(seg => path.basename(seg));
   const safeFilePath = pathSegments.join('/');
