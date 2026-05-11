@@ -11,8 +11,9 @@ import { useInstallPrompt } from '../../hooks/useInstallPrompt'
 import { confirmDelete, successAlert } from '../../lib/alerts'
 import ChangePasswordModal from '../../components/features/ChangePasswordModal'
 import api from '../../lib/api'
+import { getAuthImageUrl } from '../../utils/imageUtils'
 
-export default function PortalHistorial() {
+export default function PortalCliente() {
   const { profile, logout } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
@@ -513,7 +514,7 @@ useEffect(() => {
                   documentos.map(doc => (
                     <a 
                       key={doc.id} 
-                      href={doc.url} 
+                      href={getAuthImageUrl(doc.url)} 
                       target="_blank" 
                       rel="noopener noreferrer" 
                       className="group bg-white rounded-[1.5rem] p-4 border border-dark-100/80 shadow-sm hover:shadow-xl hover:shadow-blue-500/10 hover:border-blue-300 hover:-translate-y-1 transition-all duration-300 flex items-center gap-4 relative overflow-hidden"

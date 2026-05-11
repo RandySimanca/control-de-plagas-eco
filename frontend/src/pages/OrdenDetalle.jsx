@@ -881,7 +881,7 @@ export default function OrdenDetalle() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {fotos.map(f => (
               <div key={f.id} className="relative group aspect-square rounded-xl overflow-hidden bg-dark-100 border border-dark-200">
-                <a href={f.url} target="_blank" rel="noopener">
+                <a href={getAuthImageUrl(f.url)} target="_blank" rel="noopener">
                   <img src={getAuthImageUrl(f.url)} alt="Foto servicio" className="w-full h-full object-cover hover:scale-105 transition-transform" />
                 </a>
                 {isAssignedTecnico && orden.estado === 'en_progreso' && (

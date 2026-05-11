@@ -189,7 +189,7 @@ export default function PortalOrdenDetalle() {
             </h2>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               {fotos.map(f => (
-                <a key={f.id} href={f.url} target="_blank" rel="noopener" className="aspect-video rounded-xl overflow-hidden bg-dark-100 border border-dark-200">
+                <a key={f.id} href={getAuthImageUrl(f.url)} target="_blank" rel="noopener" className="aspect-video rounded-xl overflow-hidden bg-dark-100 border border-dark-200">
                   <img src={getAuthImageUrl(f.url)} alt="Evidencia" className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" />
                 </a>
               ))}

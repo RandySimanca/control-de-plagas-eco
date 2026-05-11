@@ -14,7 +14,7 @@ import Certificados from './pages/Certificados'
 import Usuarios from './pages/admin/Usuarios'
 import Tecnicos from './pages/admin/Tecnicos'
 import PortalLogin from './pages/portal/PortalLogin'
-import PortalHistorial from './pages/portal/PortalHistorial'
+import PortalCliente from './pages/portal/PortalCliente'
 import PortalOrdenDetalle from './pages/portal/PortalOrdenDetalle'
 import Configuracion from './pages/admin/Configuracion'
 import DocumentosLegales from './pages/admin/DocumentosLegales'
@@ -37,7 +37,7 @@ export default function AppRoutes() {
       <Route path="/portal/login" element={user && profile && profile.rol === 'cliente' ? <Navigate to="/portal" /> : <PortalLogin />} />
       <Route path="/portal" element={
         <ProtectedRoute allowedRoles={['cliente']}>
-          <PortalHistorial />
+          <PortalCliente />
         </ProtectedRoute>
       } />
       <Route path="/portal/ordenes/:id" element={
