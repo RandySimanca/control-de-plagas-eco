@@ -26,16 +26,16 @@ export async function register ({ email, password, nombre, role }) {
   const { rows: [user] } = await pool.query(
     `INSERT INTO profiles (nombre_completo, email, rol, activo, password_hash)
      VALUES ($1, $2, $3, true, $4)
-     RETURNING id, email, rol AS role, nombre_completo AS nombre, created_at`,
+     RETURNING id, email, rol AS role, nombre_completo, created_at`,
     [nombre.trim(), email.toLowerCase().trim(), role, passwordHash]
   )
   const token = signToken(user)
-  return { user: { id: user.id, email: user.email, role: user.role, nombre: user.nombre }, token }
+  return { user: { id: user.id, email: user.email, role: user.role, nombre_completo: user.nombre_completo }, token }
 }
 
 export async function login ({ email, password }) {
   const { rows } = await pool.query(
-    `SELECT id, email, password_hash, rol AS role, nombre_completo AS nombre
+    `SELECT id, email, password_hash, rol AS role, nombre_completo
      FROM profiles WHERE email = $1 AND activo = true`,
     [email.toLowerCase().trim()]
   )
@@ -55,7 +55,7 @@ export async function login ({ email, password }) {
       id: user.id,
       email: user.email,
       role: user.role,
-      nombre: user.nombre
+      nombre_completo: user.nombre_completo
     },
     token
   }
@@ -63,7 +63,7 @@ export async function login ({ email, password }) {
 
 export async function getMe (userId) {
   const { rows } = await pool.query(
-    `SELECT id, email, rol AS role, nombre_completo AS nombre, created_at, cliente_id, activo
+    `SELECT id, email, rol AS role, nombre_completo, created_at, cliente_id, activo
      FROM profiles WHERE id = $1`,
     [userId]
   )

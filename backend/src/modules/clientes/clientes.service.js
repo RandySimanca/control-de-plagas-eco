@@ -21,8 +21,8 @@ export async function createCliente (body) {
     throw new AppError('El nombre es obligatorio', 400)
   }
   const { rows: [row] } = await pool.query(
-    `INSERT INTO clientes (nombre, email, telefono, direccion, notas, activo)
-     VALUES ($1, $2, $3, $4, $5, $6)
+    `INSERT INTO clientes (nombre, email, telefono, direccion, notas, activo, razon_social, identificacion, nombre_contacto, telefono_contacto, tipo)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
      RETURNING *`,
     [
       body.nombre.trim(),
@@ -30,7 +30,12 @@ export async function createCliente (body) {
       body.telefono?.trim() || null,
       body.direccion?.trim() || null,
       body.notas?.trim() || null,
-      body.activo !== false
+      body.activo !== false,
+      body.razon_social?.trim() || null,
+      body.identificacion?.trim() || null,
+      body.nombre_contacto?.trim() || null,
+      body.telefono_contacto?.trim() || null,
+      body.tipo || 'residencial'
     ]
   )
   return row
@@ -44,6 +49,11 @@ export async function updateCliente (id, body) {
   const direccion = body.direccion !== undefined ? (body.direccion ? String(body.direccion).trim() : null) : cur.direccion
   const notas = body.notas !== undefined ? (body.notas ? String(body.notas).trim() : null) : cur.notas
   const activo = body.activo !== undefined ? Boolean(body.activo) : cur.activo
+  const razon_social = body.razon_social !== undefined ? (body.razon_social ? String(body.razon_social).trim() : null) : cur.razon_social
+  const identificacion = body.identificacion !== undefined ? (body.identificacion ? String(body.identificacion).trim() : null) : cur.identificacion
+  const nombre_contacto = body.nombre_contacto !== undefined ? (body.nombre_contacto ? String(body.nombre_contacto).trim() : null) : cur.nombre_contacto
+  const telefono_contacto = body.telefono_contacto !== undefined ? (body.telefono_contacto ? String(body.telefono_contacto).trim() : null) : cur.telefono_contacto
+  const tipo = body.tipo !== undefined ? (body.tipo || 'residencial') : cur.tipo
 
   if (!nombre) {
     throw new AppError('El nombre no puede quedar vacío', 400)
@@ -51,10 +61,12 @@ export async function updateCliente (id, body) {
 
   const { rows: [row] } = await pool.query(
     `UPDATE clientes SET
-       nombre = $2, email = $3, telefono = $4, direccion = $5, notas = $6, activo = $7, updated_at = NOW()
+       nombre = $2, email = $3, telefono = $4, direccion = $5, notas = $6, activo = $7, 
+       razon_social = $8, identificacion = $9, nombre_contacto = $10, telefono_contacto = $11, tipo = $12,
+       updated_at = NOW()
      WHERE id = $1
      RETURNING *`,
-    [id, nombre, email, telefono, direccion, notas, activo]
+    [id, nombre, email, telefono, direccion, notas, activo, razon_social, identificacion, nombre_contacto, telefono_contacto, tipo]
   )
   return row
 }
