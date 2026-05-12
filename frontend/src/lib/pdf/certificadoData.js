@@ -47,8 +47,8 @@ export async function prepareCertificadoData(params) {
     firma_tecnico 
   } = params
 
-  // 1. Normalize Photos & Evidences
-  const evidences = [
+  // 1. Normalize Photos & Evidences (Converting to Base64 to include token and avoid async issues in renderer)
+  const rawEvidences = [
     ...fotos.map(f => ({ url: f.url, label: f.descripcion, type: 'ambiente' })),
     ...estaciones.filter(e => e.foto_antes_url).map(e => ({ 
       url: e.foto_antes_url, 
@@ -61,6 +61,11 @@ export async function prepareCertificadoData(params) {
       type: 'estacion' 
     }))
   ]
+
+  const evidences = await Promise.all(rawEvidences.map(async (ev) => {
+    const data = await getImgData(ev.url)
+    return { ...ev, data }
+  }))
 
   // 2. Dynamic Texts based on pest type
   const tipoPlagaTitle = orden.tipo_plaga || 'Control de Plagas'

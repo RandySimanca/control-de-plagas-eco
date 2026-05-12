@@ -1,0 +1,7 @@
+export { default as OrdenHeader } from './OrdenHeader'
+export { default as OrdenProductos } from './OrdenProductos'
+export { default as OrdenEstaciones } from './OrdenEstaciones'
+export { default as OrdenActividades } from './OrdenActividades'
+export { default as OrdenFotos } from './OrdenFotos'
+export { default as OrdenCertificado } from './OrdenCertificado'
+export { default as OrdenTecnicoDetalles } from './OrdenTecnicoDetalles'

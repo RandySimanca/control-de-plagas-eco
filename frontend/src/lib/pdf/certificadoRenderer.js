@@ -15,13 +15,13 @@ export async function renderCertificado(data) {
   doc.triangle(0, 0, pageWidth * 0.8, 0, 0, pageHeight * 0.3, 'F')
   doc.setFillColor(250, 175, 0)
   doc.triangle(0, pageHeight * 0.25, pageWidth, pageHeight * 0.7, 0, pageHeight * 0.7, 'F')
-  
+
   doc.setTextColor(15, 23, 42)
   doc.setFontSize(32); doc.setFont(undefined, 'bold')
   doc.text('Informe Técnico', pageWidth - margin, pageHeight * 0.22, { align: 'right' })
   doc.setFontSize(28)
   doc.text(cliente?.nombre || 'Cliente', pageWidth - margin, pageHeight * 0.32, { align: 'right' })
-  
+
   doc.setTextColor(15, 23, 42)
   doc.setFontSize(14)
   doc.text('MANEJO INTEGRADO DE PLAGAS', pageWidth - margin, pageHeight - 50, { align: 'right' })
@@ -35,21 +35,21 @@ export async function renderCertificado(data) {
 
   // --- PÁGINAS INTERNAS ---
   doc.addPage()
-  
+
   const drawHeader = (pageNumber, totalPages) => {
     const headerY = 10
     const headerHeight = 22
     doc.setDrawColor(31, 41, 55); doc.setLineWidth(0.3)
-    
+
     doc.rect(margin, headerY, 50, headerHeight)
     if (logoData) doc.addImage(logoData, 'PNG', margin + 2, headerY + 2, 45, 18)
-    
+
     const companyName = config?.nombre_empresa || 'DEROSH S.A.S'
     doc.rect(margin + 50, headerY, pageWidth - 2 * margin - 100, headerHeight)
     doc.setFontSize(9); doc.setFont(undefined, 'bold'); doc.setTextColor(30, 41, 59)
     doc.text(companyName, margin + (pageWidth - 2 * margin) / 2, headerY + 8, { align: 'center' })
     doc.text('INFORME TÉCNICO DEL SERVICIO', margin + (pageWidth - 2 * margin) / 2, headerY + 14, { align: 'center' })
-    
+
     const metaX = pageWidth - margin - 50
     doc.rect(metaX, headerY, 50, headerHeight)
     doc.setFontSize(7); doc.setFont(undefined, 'bold')
@@ -79,12 +79,12 @@ export async function renderCertificado(data) {
   y = drawSectionHeader('1. Identificación del Cliente', y)
   doc.setFontSize(8.5); doc.setTextColor(50, 50, 50)
   const col1 = margin + 3; const col2 = margin + 60
-  
+
   doc.setFont(undefined, 'bold'); doc.text('FECHA DE EJECUCIÓN:', col1, y); doc.setFont(undefined, 'normal'); doc.text(fechaEjecucion, col2, y); y += 5
   doc.setFont(undefined, 'bold'); doc.text('NOMBRE O RAZÓN SOCIAL:', col1, y); doc.setFont(undefined, 'normal'); doc.text(cliente?.nombre || 'N/A', col2, y); y += 5
   doc.setFont(undefined, 'bold'); doc.text('DIRECCIÓN:', col1, y); doc.setFont(undefined, 'normal'); doc.text(cliente?.direccion || 'N/A', col2, y); y += 5
-  doc.setFont(undefined, 'bold'); doc.text('PROCESO EJECUTADO:', col1, y); doc.setFont(undefined, 'normal'); doc.text('Diagnóstico Técnico de la locación.', col2, y); y += 5
-  doc.text(`${tipoPlagaTitle}, diagnóstico técnico integral.`, col2, y); y += 10
+  doc.setFont(undefined, 'bold'); doc.text('PROCESO EJECUTADO:', col1, y); doc.setFont(undefined, 'normal'); doc.text('', col2, y);
+  doc.text(`${tipoPlagaTitle}, diagnóstico técnico integral.`, col2, y); y += 5
 
   // Sección 2: Objetivos
   y = drawSectionHeader('2. Objetivos', y)
@@ -92,7 +92,7 @@ export async function renderCertificado(data) {
   doc.text('Objetivo General:', margin + 3, y); y += 4
   doc.setFont(undefined, 'normal')
   doc.text(doc.splitTextToSize("Realizar un diagnóstico técnico que permita validar las condiciones locativas, madrigueras o condiciones que propicien la proliferación de plagas.", pageWidth - 2 * margin - 5), margin + 3, y); y += 8
-  
+
   doc.setFont(undefined, 'bold'); doc.text('Objetivos Específicos:', margin + 3, y); y += 5
   doc.setFont(undefined, 'normal')
   const specs = ["Identificar deterioros locativos.", "Verificar disposición de residuos.", "Identificar rastros de vectores.", "Realizar control homogéneo."]
@@ -133,17 +133,19 @@ export async function renderCertificado(data) {
     doc.addPage(); y = 42; y = drawSectionHeader('6. Resultados y Registro Fotográfico', y)
     const imgW = 65; const imgH = 45
     for (let i = 0; i < evidences.length; i++) {
-        const ev = evidences[i]
-        const imgData = await fetch(ev.url).then(r => r.blob()).then(b => new Promise(r => { const f = new FileReader(); f.onload = () => r(f.result); f.readAsDataURL(b) })).catch(() => null)
-        if (!imgData) continue
-        const col = i % 2; const row = Math.floor((i % 6) / 2)
-        if (i > 0 && i % 6 === 0) { doc.addPage(); y = 42; drawSectionHeader('6. Registro Fotográfico (Cont.)', y) }
-        const posX = margin + 25 + col * (imgW + 30); const posY = y + row * (imgH + 15)
-        doc.addImage(imgData, 'JPEG', posX, posY, imgW, imgH)
-        doc.setFillColor(31, 41, 55); doc.rect(posX - 15, posY + 10, 25, 18, 'F')
-        doc.setTextColor(255, 255, 255); doc.setFontSize(7)
-        const lbl = doc.splitTextToSize(ev.label || 'Evidencia', 21)
-        doc.text(lbl, posX - 15 + 12.5, posY + 10 + 9, { align: 'center' })
+      const ev = evidences[i]
+      const imgData = ev.data
+      if (!imgData) continue
+
+      const col = i % 2; const row = Math.floor((i % 6) / 2)
+      if (i > 0 && i % 6 === 0) { doc.addPage(); y = 42; drawSectionHeader('6. Registro Fotográfico (Cont.)', y) }
+
+      const posX = margin + 25 + col * (imgW + 30); const posY = y + row * (imgH + 15)
+      doc.addImage(imgData, posX, posY, imgW, imgH)
+      doc.setFillColor(31, 41, 55); doc.rect(posX - 15, posY + 10, 25, 18, 'F')
+      doc.setTextColor(255, 255, 255); doc.setFontSize(7)
+      const lbl = doc.splitTextToSize(ev.label || 'Evidencia', 21)
+      doc.text(lbl, posX - 15 + 12.5, posY + 10 + 9, { align: 'center' })
     }
     // Update y to be below the last row of images
     const lastRow = Math.floor(((evidences.length - 1) % 6) / 2)
