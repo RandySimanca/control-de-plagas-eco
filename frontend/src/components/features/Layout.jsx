@@ -59,7 +59,7 @@ export default function Layout() {
         estado: ['pendiente', 'aceptada'].join(','),
         ...(lastViewed && { updated_after: lastViewed })
       })
-      
+
       const response = await api.get(`/solicitudes-servicio/count?${params}`, { token })
       setRequestCount(response.data?.count || 0)
     } catch {
@@ -86,20 +86,18 @@ export default function Layout() {
   }
 
   const linkClasses = ({ isActive }) =>
-    `flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200 text-sm font-medium ${
-      isActive
-        ? 'bg-primary-600 text-white shadow-md shadow-primary-600/25'
-        : 'text-dark-600 hover:bg-dark-100 hover:text-dark-900'
+    `flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200 text-sm font-medium ${isActive
+      ? 'bg-primary-600 text-white shadow-md shadow-primary-600/25'
+      : 'text-dark-600 hover:bg-dark-100 hover:text-dark-900'
     }`
 
   return (
-    <div className="h-screen flex flex-col md:flex-row bg-dark-50">
+    <div className="h-screen flex flex-col md:flex-row bg-dark-100">
 
       {/* Offline / Syncing Banner */}
       {(!isOnline || isSyncing) && (
-        <div className={`fixed top-0 left-0 right-0 z-[9999] flex items-center justify-center gap-2 py-2 px-4 text-xs font-semibold text-white transition-all ${
-          isSyncing ? 'bg-amber-500' : 'bg-red-500'
-        }`}>
+        <div className={`fixed top-0 left-0 right-0 z-[9999] flex items-center justify-center gap-2 py-2 px-4 text-xs font-semibold text-white transition-all ${isSyncing ? 'bg-amber-500' : 'bg-red-500'
+          }`}>
           {isSyncing ? (
             <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Sincronizando {pendingCount} cambio{pendingCount !== 1 ? 's' : ''}...</>
           ) : (
@@ -114,15 +112,15 @@ export default function Layout() {
       )}
 
       {/* Mobile Header */}
-       <header className={`md:hidden flex items-center justify-between px-4 py-3 bg-white border-b border-dark-200 z-30`}>
-         <div className="flex items-center gap-2">
-           <Bug className="w-6 h-6 text-primary-600" />
-           <span className="font-bold text-lg text-dark-900 truncate max-w-[150px]">PlagControl</span>
-         </div>
-         <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 rounded-lg hover:bg-dark-100">
-           {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-         </button>
-       </header>
+      <header className={`md:hidden flex items-center justify-between px-4 py-3 bg-white border-b border-dark-200 z-30`}>
+        <div className="flex items-center gap-2">
+          <Bug className="w-6 h-6 text-primary-600" />
+          <span className="font-bold text-lg text-dark-900 truncate max-w-[150px]">PlagControl</span>
+        </div>
+        <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 rounded-lg hover:bg-dark-100">
+          {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+        </button>
+      </header>
 
       {/* Overlay */}
       {sidebarOpen && (
@@ -130,22 +128,22 @@ export default function Layout() {
       )}
 
       {/* Sidebar */}
-       <aside className={`
-         fixed md:static inset-y-0 left-0 z-30 w-64 bg-white border-r border-dark-200
+      <aside className={`
+         fixed md:static inset-y-0 left-0 z-30 w-64 bg-green-200 border-r border-dark-200
          transform transition-transform duration-300 ease-in-out
          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0
          flex flex-col
        `}>
-         {/* Logo */}
-         <div className="hidden md:flex items-center gap-3 px-6 py-5 border-b border-dark-100">
-           <div className="w-10 h-10 bg-primary-600 rounded-xl flex items-center justify-center">
-             <Bug className="w-5 h-5 text-white" />
-           </div>
-           <div className="min-w-0">
-             <h1 className="font-bold text-lg text-dark-900 leading-tight truncate">PlagControl</h1>
-             <p className="text-xs text-dark-400">Panel Operativo</p>
-           </div>
-         </div>
+        {/* Logo */}
+        <div className="hidden md:flex items-center gap-3 px-6 py-5 border-b border-dark-100">
+          <div className="w-10 h-10 bg-primary-600 rounded-xl flex items-center justify-center">
+            <Bug className="w-5 h-5 text-white" />
+          </div>
+          <div className="min-w-0">
+            <h1 className="font-bold text-lg text-dark-900 leading-tight truncate">PlagControl</h1>
+            <p className="text-xs text-dark-400">Panel Operativo</p>
+          </div>
+        </div>
 
         {/* Nav Links */}
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto mt-14 md:mt-0">
@@ -170,28 +168,27 @@ export default function Layout() {
           ))}
         </nav>
 
-          {canInstall && (
-            <button 
-              onClick={promptInstall}
-              className={`flex items-center gap-2 w-full justify-start text-sm px-4 py-2.5 rounded-xl font-semibold shadow-md transition-all duration-200 mb-2 ${
-                isReady 
-                ? 'bg-primary-600 text-white hover:bg-primary-700 shadow-primary-600/20' 
-                : 'bg-dark-200 text-dark-500 cursor-not-allowed opacity-80'
+        {canInstall && (
+          <button
+            onClick={promptInstall}
+            className={`flex items-center gap-2 w-full justify-start text-sm px-4 py-2.5 rounded-xl font-semibold shadow-md transition-all duration-200 mb-2 ${isReady
+              ? 'bg-primary-600 text-white hover:bg-primary-700 shadow-primary-600/20'
+              : 'bg-dark-200 text-dark-500 cursor-not-allowed opacity-80'
               }`}
-            >
-              <Download className="w-5 h-5 shrink-0" /> 
-              <span>{isReady ? 'Instalar Aplicación' : 'Preparando Instalación...'}</span>
-            </button>
-          )}
-          {/* Debug Indicator */}
-          {window.location.hostname !== 'localhost' && (
-            <div className="flex items-center gap-1.5 px-1">
-              <div className={`w-2 h-2 rounded-full ${isReady ? 'bg-green-500 animate-pulse' : 'bg-amber-500'}`} />
-              <p className="text-[9px] text-dark-400 font-medium">
-                PWA: {isReady ? 'Listo para instalar' : 'Esperando navegador...'}
-              </p>
-            </div>
-          )}
+          >
+            <Download className="w-5 h-5 shrink-0" />
+            <span>{isReady ? 'Instalar App' : 'Preparando Instalación...'}</span>
+          </button>
+        )}
+        {/* Debug Indicator */}
+        {window.location.hostname !== 'localhost' && (
+          <div className="flex items-center gap-1.5 px-1">
+            <div className={`w-2 h-2 rounded-full ${isReady ? 'bg-green-500 animate-pulse' : 'bg-amber-500'}`} />
+            <p className="text-[9px] text-dark-400 font-medium">
+              PWA: {isReady ? 'Listo para instalar' : 'Esperando navegador...'}
+            </p>
+          </div>
+        )}
 
         {/* User */}
         <div className="p-4 border-t border-dark-100">
@@ -201,7 +198,7 @@ export default function Layout() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-dark-900 truncate">{profile?.nombre_completo}</p>
-              <p className="text-xs text-dark-400 capitalize">{profile?.rol}</p>
+              <p className="text-xs text-red-500 capitalize">{profile?.rol}</p>
             </div>
           </div>
           <div className="space-y-1">

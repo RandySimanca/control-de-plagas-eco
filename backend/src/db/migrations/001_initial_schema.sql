@@ -1,7 +1,7 @@
--- 001: Initial Schema (Full Consolidated Version)
+-- 001: Esquema Inicial (Versión Consolidada Completa)
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
--- 1. Table for clients (companies/locations)
+-- 1. Tabla para clientes (empresas/ubicaciones)
 CREATE TABLE IF NOT EXISTS clientes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   nombre VARCHAR(255) NOT NULL,
@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS clientes (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 2. Consolidated Users/Profiles table
+-- 2. Tabla Consolidada de Usuarios/Perfiles
 CREATE TABLE IF NOT EXISTS profiles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   nombre_completo TEXT NOT NULL,
@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS profiles (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 3. Operations Tables
+-- 3. Tablas de Operaciones
 CREATE TABLE IF NOT EXISTS ordenes_servicio (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   cliente_id UUID NOT NULL REFERENCES clientes(id) ON DELETE RESTRICT,
@@ -116,7 +116,7 @@ CREATE TABLE IF NOT EXISTS certificados (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 4. Configuration & Legal
+-- 4. Configuración y Legal
 CREATE TABLE IF NOT EXISTS configuracion (
   id SERIAL PRIMARY KEY,
   nombre_empresa TEXT NOT NULL DEFAULT 'PlagControl',
@@ -140,7 +140,7 @@ CREATE TABLE IF NOT EXISTS documentos_legales (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 5. Triggers for updated_at
+-- 5. Triggers para updated_at
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
