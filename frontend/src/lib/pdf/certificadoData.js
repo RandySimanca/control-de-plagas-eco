@@ -1,17 +1,17 @@
 /**
- * Utility to fetch and convert image URL to base64
+ * Utilidad para obtener y convertir una URL de imagen a base64
  */
 export async function getImgData(url) {
   if (!url) return null
   
-  // Ensure absolute URL
+  // Asegurar URL absoluta
   let finalUrl = url
   if (!url.startsWith('http') && !url.startsWith('data:')) {
     const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api').replace('/api', '').replace(/\/$/, '')
     finalUrl = `${API_BASE}/uploads/${url.replace(/^\//, '')}`
   }
 
-  // Append token to bypass authentication on the backend
+  // Agregar token para evitar autenticación en el backend
   if (finalUrl.includes('/uploads/')) {
     const token = localStorage.getItem('token');
     if (token && !finalUrl.includes('token=')) {
@@ -22,7 +22,7 @@ export async function getImgData(url) {
 
   try {
     const res = await fetch(finalUrl)
-    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`)
+    if (!res.ok) throw new Error(`Error HTTP! status: ${res.status}`)
     const blob = await res.blob()
     return new Promise((resolve) => {
       const reader = new FileReader()
@@ -30,13 +30,13 @@ export async function getImgData(url) {
       reader.readAsDataURL(blob)
     })
   } catch (err) {
-    console.error('Error fetching image:', finalUrl, err)
+    console.error('Error al obtener la imagen:', finalUrl, err)
     return null
   }
 }
 
 /**
- * Prepares and normalizes all data needed for the PDF report
+ * Prepara y normaliza todos los datos necesarios para el informe PDF
  */
 export async function prepareCertificadoData(params) {
   const { 
@@ -47,7 +47,7 @@ export async function prepareCertificadoData(params) {
     firma_tecnico 
   } = params
 
-  // 1. Normalize Photos & Evidences (Converting to Base64 to include token and avoid async issues in renderer)
+  // 1. Normalizar Fotos y Evidencias (convirtiendo a Base64 para incluir el token y evitar problemas async en el renderer)
   const rawEvidences = [
     ...fotos.map(f => ({ url: f.url, label: f.descripcion, type: 'ambiente' })),
     ...estaciones.filter(e => e.foto_antes_url).map(e => ({ 
@@ -67,7 +67,7 @@ export async function prepareCertificadoData(params) {
     return { ...ev, data }
   }))
 
-  // 2. Dynamic Texts based on pest type
+  // 2. Textos dinámicos según el tipo de plaga
   const tipoPlagaTitle = orden.tipo_plaga || 'Control de Plagas'
   const areasTrabajadas = orden.areas_intervenidas ? orden.areas_intervenidas.toLowerCase() : 'todas las áreas del establecimiento'
   
@@ -88,10 +88,10 @@ export async function prepareCertificadoData(params) {
 
   const diagnosisText = `Se realizó aplicación de ${productoPrincipal} a zonas: ${areasTrabajadas}. Con el objetivo de ${objetivo}`
 
-  // 3. Asset Loading
+  // 3. Carga de recursos (imágenes)
   const logoData = config?.logo_url ? await getImgData(config.logo_url) : null
   
-  // Try certificate signature first, then fallback to tech profile signature
+  // Intentar la firma del certificado primero, luego usar la firma del perfil del técnico como respaldo
   const signatureUrl = firma_tecnico || orden.profiles?.firma_url
   const firmaData = signatureUrl ? await getImgData(signatureUrl) : null
 

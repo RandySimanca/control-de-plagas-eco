@@ -24,7 +24,7 @@ export function AuthProvider({ children }) {
     try {
       const token = localStorage.getItem('token')
       const data = await authApi.getMe(token)
-      setUser(data.user || data) // Backend returns { user } or directly the profile
+      setUser(data.user || data) // El backend retorna { user } o directamente el perfil
       setProfile(data.user || data)
     } catch (err) {
       console.error('Error cargando perfil:', err)

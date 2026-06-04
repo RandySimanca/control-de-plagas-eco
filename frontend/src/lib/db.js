@@ -1,11 +1,11 @@
 import Dexie from 'dexie'
 
 /**
- * PlagControlDB — Local IndexedDB managed by Dexie.
+ * PlagControlDB — Base de datos local IndexedDB gestionada por Dexie.
  *
- * Tables:
- *   ordenes        → snapshot of orden + related data for offline reading.
- *   sync_queue     → pending write operations to be sent to backend.
+ * Tablas:
+ *   ordenes        → snapshot de la orden + datos relacionados para lectura sin conexión.
+ *   sync_queue     → operaciones de escritura pendientes de ser enviadas al backend.
  */
 const db = new Dexie('PlagControlDB')
 

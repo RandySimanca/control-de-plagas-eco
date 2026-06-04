@@ -16,7 +16,7 @@ export default function SignaturePad({ onSave, onCancel }) {
     ctx.strokeStyle = '#000'
     ctx.lineWidth = 2
 
-    // Set canvas resolution for crisp lines
+    // Ajustar la resolución del canvas para líneas nítidas
     const ratio = window.devicePixelRatio || 1
     const { width, height } = canvas.getBoundingClientRect()
     canvas.width = width * ratio
@@ -40,7 +40,7 @@ export default function SignaturePad({ onSave, onCancel }) {
     const canvas = canvasRef.current
     const ctx = canvas.getContext('2d')
     
-    // Support both mouse and touch
+    // Soporte para mouse y pantalla táctil
     const rect = canvas.getBoundingClientRect()
     const clientX = e.clientX || (e.touches && e.touches[0].clientX)
     const clientY = e.clientY || (e.touches && e.touches[0].clientY)

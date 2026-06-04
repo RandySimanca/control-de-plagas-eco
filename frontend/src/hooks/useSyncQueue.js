@@ -6,31 +6,31 @@ import { useOffline } from '../contexts/OfflineContext'
 /**
  * useSyncQueue
  *
- * Wraps write operations so they fall through to IndexedDB
- * when the device is offline, and execute immediately when online.
+ * Envuelve las operaciones de escritura para que caigan a IndexedDB
+ * cuando el dispositivo está sin conexión, y se ejecuten de inmediato cuando hay conexión.
  *
- * Usage:
+ * Uso:
  *   const { queueOrExecute, queuePhoto } = useSyncQueue()
  *
- *   // Instead of: await supabase.from('actividades_servicio').insert(payload)
+ *   // En lugar de: await supabase.from('actividades_servicio').insert(payload)
  *   await queueOrExecute('actividades_servicio', 'insert', payload, ordenId)
  */
 export function useSyncQueue() {
   const { isOnline, refreshCount } = useOffline()
 
   /**
-   * Execute a DB write online or queue it for later.
-   * @param {string} table - Table name
+   * Ejecuta una escritura en BD si hay conexión, o la encola para más tarde.
+   * @param {string} table - Nombre de la tabla
    * @param {'insert'|'update'|'delete'|'upsert'} operation
-   * @param {object} payload - Row data. For updates/deletes must include `id`.
-   * @param {string} [ordenId] - UUID of the associated service order (for context).
-   * @returns {{ data, error, queued }} queued=true means it was saved offline.
+   * @param {object} payload - Datos de la fila. Para actualizaciones/eliminaciones debe incluir `id`.
+   * @param {string} [ordenId] - UUID de la orden de servicio asociada (para contexto).
+   * @returns {{ data, error, queued }} queued=true significa que fue guardado sin conexión.
    */
   const queueOrExecute = useCallback(async (table, operation, payload, ordenId = null) => {
     if (isOnline) {
-      // Execute directly via API
+      // Ejecutar directamente vía API
       const token = localStorage.getItem('token')
-      const endpoint = `/${table.replace(/_/g, '-')}` // Convert table_name to table-name
+      const endpoint = `/${table.replace(/_/g, '-')}` // Convertir table_name a table-name
       let result
 
       try {
@@ -54,24 +54,24 @@ export function useSyncQueue() {
       }
     }
 
-    // Offline: enqueue
+    // Sin conexión: encolar la operación
     const queued = { table, operation, payload, ordenId, attempts: 0, createdAt: Date.now() }
     const id = await db.sync_queue.add(queued)
     await refreshCount()
 
-    // Return a "fake" successful response so the UI can optimistically update
+    // Devolver una respuesta "falsa" exitosa para que la UI pueda actualizarse optimistamente
     const fakeRow = { ...payload, _offline_id: id, _queued: true }
     return { data: [fakeRow], error: null, queued: true }
   }, [isOnline, refreshCount])
 
   /**
-   * Upload a photo online or store a Blob locally for later upload.
-   * @param {string} bucket - Storage bucket name
-   * @param {string} path - Target path in bucket
-   * @param {File|Blob} file - The file to upload
-   * @param {string} contentType - MIME type
-   * @param {string|null} dbTable - If provided, inserts a row in this table after successful upload
-   * @param {object|null} dbPayload - Payload for DB insert (url field will be filled in automatically)
+   * Sube una foto si hay conexión, o almacena un Blob localmente para subirlo después.
+   * @param {string} bucket - Nombre del bucket de almacenamiento
+   * @param {string} path - Ruta destino en el bucket
+   * @param {File|Blob} file - El archivo a subir
+   * @param {string} contentType - Tipo MIME
+   * @param {string|null} dbTable - Si se provee, inserta una fila en esta tabla tras la subida exitosa
+   * @param {object|null} dbPayload - Payload para el insert en BD (el campo url se rellena automáticamente)
    * @param {string} [ordenId]
    * @returns {{ publicUrl, error, queued }}
    */
@@ -81,7 +81,7 @@ export function useSyncQueue() {
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
       
       try {
-        // Create FormData for file upload
+        // Crear FormData para la subida del archivo
         const formData = new FormData()
         formData.append('file', file)
         formData.append('path', path)
@@ -120,7 +120,7 @@ export function useSyncQueue() {
       }
     }
 
-    // Offline: store blob in IndexedDB
+    // Sin conexión: almacenar el blob en IndexedDB
     const blobData = file instanceof Blob ? file : new Blob([file], { type: contentType })
     await db.fotos_pendientes.add({
       bucket, path, blobData, contentType,
@@ -129,7 +129,7 @@ export function useSyncQueue() {
     })
     await refreshCount()
 
-    // Return a fake blob URL so the image can be previewed offline
+    // Devolver una URL local falsa para poder previsualizar la imagen sin conexión
     const localUrl = URL.createObjectURL(blobData)
     return { publicUrl: localUrl, error: null, queued: true }
   }, [isOnline, refreshCount])

@@ -147,7 +147,7 @@ export async function renderCertificado(data) {
       const lbl = doc.splitTextToSize(ev.label || 'Evidencia', 21)
       doc.text(lbl, posX - 15 + 12.5, posY + 10 + 9, { align: 'center' })
     }
-    // Update y to be below the last row of images
+    // Actualizar y a la posición por debajo de la última fila de imágenes
     const lastRow = Math.floor(((evidences.length - 1) % 6) / 2)
     y = y + (lastRow + 1) * (imgH + 15)
   }
@@ -162,9 +162,9 @@ export async function renderCertificado(data) {
     try {
       doc.addImage(firmaData, 'JPEG', margin + 3, y, 35, 15)
     } catch (e) {
-      console.error('Error adding signature to PDF:', e)
-      // Retry with auto-detection if JPEG fails
-      try { doc.addImage(firmaData, margin + 3, y, 35, 15) } catch (e2) { console.error('Final signature failure:', e2) }
+      console.error('Error al añadir la firma al PDF:', e)
+      // Reintentar con detección automática si falla JPEG
+      try { doc.addImage(firmaData, margin + 3, y, 35, 15) } catch (e2) { console.error('Fallo definitivo al insertar la firma:', e2) }
     }
     y += 18
   } else {
@@ -177,7 +177,7 @@ export async function renderCertificado(data) {
   doc.text('Técnico Especialista', margin + 3, y); y += 4
   doc.text(config?.nombre_empresa || 'DEROSH S.A.S', margin + 3, y)
 
-  // Final touches
+  // Toques finales
   const totalPages = doc.internal.getNumberOfPages()
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i)

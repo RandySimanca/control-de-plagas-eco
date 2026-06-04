@@ -14,7 +14,7 @@ export function OfflineProvider({ children }) {
   const [isSyncing, setIsSyncing] = useState(false)
   const syncLock = useRef(false)
 
-  // Refresh pending count from IndexedDB
+  // Actualizar el contador de pendientes desde IndexedDB
   const refreshCount = useCallback(async () => {
     const [queueCount, photoCount] = await Promise.all([
       db.sync_queue.count(),
@@ -23,20 +23,20 @@ export function OfflineProvider({ children }) {
     setPendingCount(queueCount + photoCount)
   }, [])
 
-  // ----- Core sync logic -----
+  // ----- Lógica central de sincronización -----
   const syncAll = useCallback(async () => {
     if (syncLock.current || !navigator.onLine) return
     syncLock.current = true
     setIsSyncing(true)
 
     try {
-      // 1. Process write operations queue
+      // 1. Procesar la cola de operaciones de escritura
       const ops = await db.sync_queue.orderBy('createdAt').toArray()
       const token = localStorage.getItem('token')
       
       for (const op of ops) {
         try {
-          const endpoint = `/${op.table.replace(/_/g, '-')}` // Convert table_name to table-name
+          const endpoint = `/${op.table.replace(/_/g, '-')}` // Convertir table_name a table-name
           
           if (op.operation === 'insert') {
             await api.post(endpoint, op.payload, { token })
@@ -52,8 +52,8 @@ export function OfflineProvider({ children }) {
           }
           await db.sync_queue.delete(op.id)
         } catch (err) {
-          console.error('Sync failed for op', op.id, err)
-          // Increment attempts; drop after 5 failed tries
+          console.error('Fallo de sincronización para la operación', op.id, err)
+          // Incrementar intentos; descartar después de 5 fallos
           const attempts = (op.attempts || 0) + 1
           if (attempts >= 5) {
             await db.sync_queue.delete(op.id)
@@ -64,11 +64,11 @@ export function OfflineProvider({ children }) {
         }
       }
 
-      // 2. Upload pending photos
+      // 2. Subir fotos pendientes
       const pendingPhotos = await db.fotos_pendientes.orderBy('createdAt').toArray()
       for (const item of pendingPhotos) {
         try {
-          // Create FormData for file upload
+          // Crear FormData para la subida del archivo
           const formData = new FormData()
           formData.append('file', item.blobData)
           formData.append('path', item.path)
@@ -89,11 +89,11 @@ export function OfflineProvider({ children }) {
             body: formData
           })
 
-          if (!response.ok) throw new Error('Error uploading photo')
+          if (!response.ok) throw new Error('Error al subir la foto')
 
           await db.fotos_pendientes.delete(item.id)
         } catch (err) {
-          console.error('Photo sync failed for item', item.id, err)
+          console.error('Fallo de sincronización de foto para el elemento', item.id, err)
           const attempts = (item.attempts || 0) + 1
           if (attempts >= 5) {
             await db.fotos_pendientes.delete(item.id)
@@ -109,11 +109,11 @@ export function OfflineProvider({ children }) {
     }
   }, [refreshCount])
 
-  // Listen to online/offline events
+  // Escuchar eventos de conexión/desconexión
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true)
-      setTimeout(() => syncAll(), 500) // Small delay to let the connection stabilize
+      setTimeout(() => syncAll(), 500) // Pequeña espera para que la conexión se estabilice
     }
     const handleOffline = () => setIsOnline(false)
 
@@ -125,7 +125,7 @@ export function OfflineProvider({ children }) {
     }
   }, [syncAll])
 
-  // Initial count on mount + sync if online with pending ops
+  // Carga inicial del contador al montar + sincronizar si hay operaciones pendientes
   useEffect(() => {
     refreshCount().then(async () => {
       if (navigator.onLine) {

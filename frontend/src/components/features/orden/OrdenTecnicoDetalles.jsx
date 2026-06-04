@@ -89,7 +89,7 @@ export default function OrdenTecnicoDetalles({
       setShowRecomendacionesModal(false)
       setRecommendationPhotos([])
       toast.success(queued ? 'Guardado offline ⚡' : 'Recomendaciones guardadas exitosamente')
-    } catch(err) {
+    } catch {
       toast.error('Error guardando recomendaciones')
     } finally {
       setSavingRecomendaciones(false)
@@ -98,7 +98,7 @@ export default function OrdenTecnicoDetalles({
 
   return (
     <>
-      {/* Areas */}
+      {/* Áreas */}
       <div className="card mt-6 border-t-4 border-t-indigo-500">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-dark-900 flex items-center gap-2">
