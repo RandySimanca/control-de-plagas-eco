@@ -7,6 +7,8 @@ import { useOffline } from '../contexts/OfflineContext'
 import { useAuth } from '../contexts/AuthContext'
 import toast from 'react-hot-toast'
 import { confirmDelete, successAlert } from '../lib/alerts'
+import HelpButton from '../components/features/HelpButton'
+import { HELP_CONTENT } from '../lib/helpContent'
 
 import {
   OrdenHeader,
@@ -143,6 +145,9 @@ export default function OrdenDetalle() {
 
   return (
     <div className="max-w-4xl mx-auto">
+      <div className="flex justify-end mb-2">
+        <HelpButton title="Detalle de Orden" content={HELP_CONTENT.ordenDetalle} />
+      </div>
       {/* 1. Header e Información Base */}
       <OrdenHeader 
         orden={orden} 

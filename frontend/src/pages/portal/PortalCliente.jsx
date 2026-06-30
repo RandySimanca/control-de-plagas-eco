@@ -12,7 +12,8 @@ import { confirmDelete, successAlert } from '../../lib/alerts'
 import ChangePasswordModal from '../../components/features/ChangePasswordModal'
 import api from '../../lib/api'
 import { getAuthImageUrl } from '../../utils/imageUtils'
-
+import HelpButton from '../../components/features/HelpButton'
+import { HELP_CONTENT } from '../../lib/helpContent'
 export default function PortalCliente() {
   const { profile, logout } = useAuth()
   const navigate = useNavigate()
@@ -390,6 +391,9 @@ useEffect(() => {
             <PlusCircle className="w-4 h-4" /> Solicitudes {solicitudes.length > 0 && `(${solicitudes.length})`}
             {hasUnreadQuotes && <span className="absolute top-2.5 right-2.5 h-2 w-2 bg-red-500 rounded-full animate-pulse ring-2 ring-white" />}
           </button>
+          <div className="flex-none flex items-center justify-center px-2">
+            <HelpButton title="Portal del Cliente" content={HELP_CONTENT.portalCliente} />
+          </div>
         </div>
 
         {!profile?.cliente_id ? (

@@ -7,6 +7,8 @@ import {
   Settings, FilePlus
 } from 'lucide-react'
 import Badge from '../components/ui/Badge'
+import HelpButton from '../components/features/HelpButton'
+import { HELP_CONTENT } from '../lib/helpContent'
 
 export default function Dashboard() {
   const { profile, isAdmin } = useAuth()
@@ -94,7 +96,10 @@ export default function Dashboard() {
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
-          <h1 className="page-title font-bold text-3xl text-dark-900">¡Hola, {primerNombre}! </h1>
+          <div className="flex items-center gap-2">
+            <h1 className="page-title font-bold text-3xl text-dark-900">¡Hola, {primerNombre}! </h1>
+            <HelpButton title="Dashboard" content={HELP_CONTENT.dashboard} />
+          </div>
           <p className="page-subtitle text-dark-500 mt-1">
             {isAdmin ? 'Resumen general de PlagControl' : 'Tus tareas asignadas para hoy'}
           </p>

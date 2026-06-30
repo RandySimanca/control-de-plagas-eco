@@ -7,7 +7,8 @@ import toast from 'react-hot-toast'
 import { confirmDelete, successAlert } from '../../lib/alerts'
 import Modal from '../../components/ui/Modal'
 import { getAuthImageUrl } from '../../utils/imageUtils'
-
+import HelpButton from '../../components/features/HelpButton'
+import { HELP_CONTENT } from '../../lib/helpContent'
 const EMPTY_FORM = {
   nombre_completo: '', email: '', password: '', telefono: '',
   rol: 'tecnico', especialidad: '', activo: true, cliente_id: '',
@@ -334,7 +335,10 @@ export default function Usuarios() {
       <div>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <div>
-            <h1 className="page-title">Gestión de Usuarios</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="page-title">Gestión de Usuarios</h1>
+              <HelpButton title="Gestión de Usuarios" content={HELP_CONTENT.usuarios} />
+            </div>
             <p className="page-subtitle">{usuarios.length} usuarios registrados</p>
           </div>
           <button onClick={() => openModal()} className="btn-primary text-sm">

@@ -4,7 +4,8 @@ import { useAuth } from '../../contexts/AuthContext'
 import { ArrowLeft, Send } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../../lib/api'
-
+import HelpButton from '../../components/features/HelpButton'
+import { HELP_CONTENT } from '../../lib/helpContent'
 export default function PortalSolicitudForm() {
   const { profile } = useAuth()
   const navigate = useNavigate()
@@ -64,7 +65,10 @@ async function handleSubmit(e) {
               <Send className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-dark-900">Nueva Solicitud de Servicio</h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl font-bold text-dark-900">Nueva Solicitud de Servicio</h1>
+                <HelpButton title="Nueva Solicitud de Servicio" content={HELP_CONTENT.portalSolicitudForm} />
+              </div>
               <p className="text-sm text-dark-500">Cuéntanos qué necesitas y te responderemos pronto</p>
             </div>
           </div>

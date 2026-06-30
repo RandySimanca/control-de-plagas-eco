@@ -3,7 +3,8 @@ import { api } from '../../lib/api'
 import { Save, Loader2, Upload, Building2, Mail, Phone, MapPin, Type } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { getAuthImageUrl } from '../../utils/imageUtils'
-
+import HelpButton from '../../components/features/HelpButton'
+import { HELP_CONTENT } from '../../lib/helpContent'
 export default function Configuracion() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -106,7 +107,10 @@ export default function Configuracion() {
   return (
     <div className="max-w-4xl mx-auto">
       <div className="mb-8">
-        <h1 className="page-title text-2xl font-bold text-dark-900">Configuración del Sistema</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="page-title text-2xl font-bold text-dark-900">Configuración del Sistema</h1>
+          <HelpButton title="Configuración del Sistema" content={HELP_CONTENT.configuracion} />
+        </div>
         <p className="page-subtitle text-dark-500">Personaliza la identidad de tu empresa y los datos de contacto.</p>
       </div>
 

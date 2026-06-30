@@ -5,6 +5,8 @@ import { abrirCertificado } from '../lib/generarCertificado'
 import { FileCheck, Download, Search, Calendar } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import toast from 'react-hot-toast'
+import HelpButton from '../components/features/HelpButton'
+import { HELP_CONTENT } from '../lib/helpContent'
 
 export default function Certificados() {
   const { isAdmin, profile } = useAuth()
@@ -77,7 +79,10 @@ export default function Certificados() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="page-title">Certificados</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="page-title">Certificados</h1>
+          <HelpButton title="Certificados" content={HELP_CONTENT.certificados} />
+        </div>
         <p className="page-subtitle">{certificados.length} certificados generados</p>
       </div>
 

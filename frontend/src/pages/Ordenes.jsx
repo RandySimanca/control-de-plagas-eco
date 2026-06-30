@@ -5,6 +5,8 @@ import { Plus, Search, Calendar, User, ChevronRight, Trash2, ClipboardList, X, S
 import toast from 'react-hot-toast'
 import { api } from '../lib/api'
 import { confirmDelete, successAlert } from '../lib/alerts'
+import HelpButton from '../components/features/HelpButton'
+import { HELP_CONTENT } from '../lib/helpContent'
 
 const EMPTY_FORM = {
   cliente_id: '', tecnico_id: '', fecha_programada: new Date().toISOString().split('T')[0],
@@ -238,7 +240,10 @@ export default function Ordenes() {
       <div>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <div>
-            <h1 className="page-title">Órdenes de Servicio</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="page-title">Órdenes de Servicio</h1>
+              <HelpButton title="Órdenes de Servicio" content={HELP_CONTENT.ordenes} />
+            </div>
             <p className="page-subtitle">{ordenes.length} órdenes registradas</p>
           </div>
           {isAdmin && (

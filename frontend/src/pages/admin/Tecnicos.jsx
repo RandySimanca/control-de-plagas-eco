@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom'
 import api from '../../lib/api'
 
 import { UserCog, ClipboardList, ChevronRight, Search } from 'lucide-react'
-
+import HelpButton from '../../components/features/HelpButton'
+import { HELP_CONTENT } from '../../lib/helpContent'
 export default function Tecnicos() {
   const [tecnicos, setTecnicos] = useState([])
   const [search, setSearch] = useState('')
@@ -50,7 +51,10 @@ export default function Tecnicos() {
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <h1 className="page-title">Técnicos</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="page-title">Técnicos</h1>
+            <HelpButton title="Técnicos" content={HELP_CONTENT.usuarios} />
+          </div>
           <p className="page-subtitle">{tecnicos.length} técnicos registrados</p>
         </div>
         <Link to="/admin/usuarios" state={{ openModal: true }} className="btn-primary text-sm">

@@ -5,6 +5,8 @@ import { api } from '../lib/api'
 import { Plus, Search, Building2, Home, Phone, Mail, ChevronRight, X, Save, Loader2, UserPlus, Trash2, UserCheck, UserX } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { confirmDelete, successAlert } from '../lib/alerts'
+import HelpButton from '../components/features/HelpButton'
+import { HELP_CONTENT } from '../lib/helpContent'
 
 const EMPTY_FORM = {
   nombre: '', razon_social: '', identificacion: '',
@@ -225,7 +227,10 @@ export default function Clientes() {
               {clientes.length} Registrados
             </span>
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-dark-900">Directorio de Clientes</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-3xl font-bold tracking-tight text-dark-900">Directorio de Clientes</h1>
+            <HelpButton title="Directorio de Clientes" content={HELP_CONTENT.clientes} />
+          </div>
           <p className="text-sm text-dark-500">Administra la base de datos de empresas y residencias.</p>
         </div>
         

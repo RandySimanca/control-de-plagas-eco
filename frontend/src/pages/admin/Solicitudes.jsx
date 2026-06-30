@@ -8,7 +8,8 @@ import {
 import toast from 'react-hot-toast'
 import { api } from '../../lib/api'
 import { confirmDelete, successAlert } from '../../lib/alerts'
-
+import HelpButton from '../../components/features/HelpButton'
+import { HELP_CONTENT } from '../../lib/helpContent'
 export default function Solicitudes() {
   const { profile } = useAuth()
   const navigate = useNavigate()
@@ -111,7 +112,10 @@ export default function Solicitudes() {
     <div className="max-w-6xl mx-auto">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="page-title">Solicitudes de Servicio</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="page-title">Solicitudes de Servicio</h1>
+            <HelpButton title="Solicitudes de Servicio" content={HELP_CONTENT.solicitudes} />
+          </div>
           <p className="page-subtitle">Gestiona los requerimientos de tus clientes</p>
         </div>
       </div>
