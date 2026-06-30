@@ -200,19 +200,19 @@ useEffect(() => {
   return (
     <div className="min-h-screen bg-dark-50 relative overflow-hidden pb-12 font-sans selection:bg-primary-100 selection:text-primary-900">
       {/* Background decoration */}
-      <div className="absolute top-0 left-0 right-0 h-[400px] bg-gradient-to-b from-primary-50/80 via-white/40 to-transparent -z-10 pointer-events-none" />
-      <div className="absolute top-[-10%] right-[-5%] w-[500px] h-[500px] rounded-full bg-gradient-to-bl from-primary-200/20 to-transparent blur-3xl -z-10" />
+      <div className="absolute top-0 left-0 right-0 h-[400px] bg-linear-to-b from-primary-50/80 via-white/40 to-transparent -z-10 pointer-events-none" />
+      <div className="absolute top-[-10%] right-[-5%] w-[500px] h-[500px] rounded-full bg-linear-to-bl from-primary-200/20 to-transparent blur-3xl -z-10" />
 
       {/* -- Nueva Solicitud Modal -- */}
       {showModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-100 flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
           <div className="absolute inset-0 bg-dark-900/30 backdrop-blur-sm transition-opacity" onClick={() => setShowModal(false)} />
           
-          <div className="relative bg-white/95 backdrop-blur-xl rounded-[2rem] shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col border border-white/40 ring-1 ring-dark-900/5">
+          <div className="relative bg-white/95 backdrop-blur-xl rounded-4xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col border border-white/40 ring-1 ring-dark-900/5">
             {/* Header Modal */}
             <div className="shrink-0 px-8 py-6 border-b border-dark-100/50 bg-white/50 flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary-50 to-primary-100 border border-primary-200/50 flex items-center justify-center shadow-sm">
+                <div className="w-12 h-12 rounded-2xl bg-linear-to-br from-primary-50 to-primary-100 border border-primary-200/50 flex items-center justify-center shadow-sm">
                   <Send className="w-6 h-6 text-primary-600" />
                 </div>
                 <div>
@@ -303,7 +303,7 @@ useEffect(() => {
         <header className="sticky top-0 z-40 bg-dark-900/90 backdrop-blur-xl border-b border-dark-800">
           <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl shadow-md">
+              <div className="p-2 bg-linear-to-br from-primary-500 to-primary-600 rounded-xl shadow-md">
                 <Bug className="w-5 h-5 text-white" />
               </div>
               <span className="font-bold text-white tracking-tight hidden sm:block">PlagControl Portal</span>
@@ -446,12 +446,12 @@ useEffect(() => {
                       <Link 
                         to={`/portal/ordenes/${o.id}`} 
                         key={o.id} 
-                        className="group bg-white rounded-[1.5rem] p-5 sm:p-6 border border-dark-100/60 shadow-sm hover:shadow-2xl hover:shadow-primary-500/10 hover:border-primary-300 hover:-translate-y-1 transition-all duration-300 block relative overflow-hidden"
+                        className="group bg-white rounded-3xl p-5 sm:p-6 border border-dark-100/60 shadow-sm hover:shadow-2xl hover:shadow-primary-500/10 hover:border-primary-300 hover:-translate-y-1 transition-all duration-300 block relative overflow-hidden"
                       >
                         <div className="absolute top-0 right-0 w-32 h-32 bg-primary-400/10 rounded-full blur-2xl -mr-10 -mt-10 transition-opacity opacity-0 group-hover:opacity-100"></div>
                         <div className="flex items-start justify-between mb-4 relative z-10">
                           <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-dark-50 to-dark-100 border border-dark-200/50 flex items-center justify-center shrink-0 shadow-sm group-hover:scale-110 group-hover:shadow-md group-hover:from-primary-50 group-hover:to-primary-100 group-hover:border-primary-200 transition-all duration-300">
+                            <div className="w-12 h-12 rounded-xl bg-linear-to-br from-dark-50 to-dark-100 border border-dark-200/50 flex items-center justify-center shrink-0 shadow-sm group-hover:scale-110 group-hover:shadow-md group-hover:from-primary-50 group-hover:to-primary-100 group-hover:border-primary-200 transition-all duration-300">
                               <config.icon className="w-6 h-6 text-dark-600 group-hover:text-primary-600 transition-colors" />
                             </div>
                             <div>
@@ -482,10 +482,10 @@ useEffect(() => {
                   </div>
                 ) : (
                   certificados.map(cert => (
-                    <div key={cert.id} className="group bg-gradient-to-b from-white to-dark-50/30 rounded-[1.5rem] p-5 sm:p-6 border border-dark-100/80 shadow-sm hover:shadow-xl hover:shadow-green-500/10 hover:border-green-300 hover:-translate-y-1 transition-all duration-300 flex flex-col h-full relative overflow-hidden">
+                    <div key={cert.id} className="group bg-linear-to-b from-white to-dark-50/30 rounded-3xl p-5 sm:p-6 border border-dark-100/80 shadow-sm hover:shadow-xl hover:shadow-green-500/10 hover:border-green-300 hover:-translate-y-1 transition-all duration-300 flex flex-col h-full relative overflow-hidden">
                       <div className="absolute bottom-0 left-0 w-32 h-32 bg-green-400/10 rounded-full blur-2xl -ml-10 -mb-10 transition-opacity opacity-0 group-hover:opacity-100 pointer-events-none"></div>
                       <div className="flex-1 flex items-start gap-4 mb-5 relative z-10">
-                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-dark-50 to-dark-100 border border-dark-200/50 flex items-center justify-center shrink-0 shadow-sm group-hover:scale-110 group-hover:shadow-md group-hover:from-green-50 group-hover:to-green-100 group-hover:border-green-200 transition-all duration-300">
+                        <div className="w-12 h-12 rounded-xl bg-linear-to-br from-dark-50 to-dark-100 border border-dark-200/50 flex items-center justify-center shrink-0 shadow-sm group-hover:scale-110 group-hover:shadow-md group-hover:from-green-50 group-hover:to-green-100 group-hover:border-green-200 transition-all duration-300">
                           <FileCheck className="w-6 h-6 text-dark-600 group-hover:text-green-600 transition-colors" />
                         </div>
                         <div>
@@ -521,10 +521,10 @@ useEffect(() => {
                       href={getAuthImageUrl(doc.url)} 
                       target="_blank" 
                       rel="noopener noreferrer" 
-                      className="group bg-white rounded-[1.5rem] p-4 border border-dark-100/80 shadow-sm hover:shadow-xl hover:shadow-blue-500/10 hover:border-blue-300 hover:-translate-y-1 transition-all duration-300 flex items-center gap-4 relative overflow-hidden"
+                      className="group bg-white rounded-3xl p-4 border border-dark-100/80 shadow-sm hover:shadow-xl hover:shadow-blue-500/10 hover:border-blue-300 hover:-translate-y-1 transition-all duration-300 flex items-center gap-4 relative overflow-hidden"
                     >
-                      <div className="absolute inset-0 bg-gradient-to-r from-blue-50/0 to-blue-50/0 group-hover:from-blue-50/50 transition-colors pointer-events-none"></div>
-                      <div className="relative z-10 w-12 h-12 rounded-xl bg-gradient-to-br from-dark-50 to-dark-100 border border-dark-200/50 flex items-center justify-center shrink-0 shadow-sm group-hover:scale-110 group-hover:shadow-md group-hover:from-blue-50 group-hover:to-blue-100 group-hover:border-blue-200 transition-all duration-300">
+                      <div className="absolute inset-0 bg-linear-to-r from-blue-50/0 to-blue-50/0 group-hover:from-blue-50/50 transition-colors pointer-events-none"></div>
+                      <div className="relative z-10 w-12 h-12 rounded-xl bg-linear-to-br from-dark-50 to-dark-100 border border-dark-200/50 flex items-center justify-center shrink-0 shadow-sm group-hover:scale-110 group-hover:shadow-md group-hover:from-blue-50 group-hover:to-blue-100 group-hover:border-blue-200 transition-all duration-300">
                         <FileText className="w-6 h-6 text-dark-600 group-hover:text-blue-600 transition-colors" />
                       </div>
                       <div className="min-w-0 relative z-10">
@@ -565,19 +565,19 @@ useEffect(() => {
                     return (
                       <div 
                         key={sol.id} 
-                        className={`group bg-white rounded-[1.5rem] border ${sol.estado === 'cotizada' && !sol.cotizacion_leida_por_cliente ? 'border-blue-400 shadow-blue-500/20 shadow-xl ring-2 ring-blue-50' : 'border-dark-100/80 shadow-sm hover:shadow-2xl hover:shadow-dark-900/5 hover:-translate-y-1'} transition-all duration-300 overflow-hidden relative`}
+                        className={`group bg-white rounded-3xl border ${sol.estado === 'cotizada' && !sol.cotizacion_leida_por_cliente ? 'border-blue-400 shadow-blue-500/20 shadow-xl ring-2 ring-blue-50' : 'border-dark-100/80 shadow-sm hover:shadow-2xl hover:shadow-dark-900/5 hover:-translate-y-1'} transition-all duration-300 overflow-hidden relative`}
                         onMouseEnter={() => sol.estado === 'cotizada' && !sol.cotizacion_leida_por_cliente && marcarLeida(sol)}
                       >
                         {/* Soft full-card color gradient on hover using custom cyan #76EFF5 */}
-                        <div className="absolute inset-0 pointer-events-none opacity-0 transition-opacity duration-500 group-hover:opacity-100 bg-gradient-to-br from-[#76EFF5]/10 to-[#76EFF5]/30"></div>
+                        <div className="absolute inset-0 pointer-events-none opacity-0 transition-opacity duration-500 group-hover:opacity-100 bg-linear-to-br from-[#76EFF5]/10 to-[#76EFF5]/30"></div>
 
                         <div className="p-5 sm:p-6 flex flex-col sm:flex-row gap-5 items-start justify-between relative z-10">
                           <div className="flex gap-4 sm:gap-5 items-start w-full">
                             <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center shrink-0 border ${
-                              sol.estado === 'cotizada' ? 'bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 text-blue-600' : 
-                              sol.estado === 'aceptada' || sol.estado === 'convertida' ? 'bg-gradient-to-br from-emerald-50 to-emerald-100 border-emerald-200 text-emerald-600' :
-                              sol.estado === 'rechazada' ? 'bg-gradient-to-br from-red-50 to-red-100 border-red-200 text-red-600' :
-                              'bg-gradient-to-br from-amber-50 to-amber-100 border-amber-200 text-amber-600'
+                              sol.estado === 'cotizada' ? 'bg-linear-to-br from-blue-50 to-blue-100 border-blue-200 text-blue-600' : 
+                              sol.estado === 'aceptada' || sol.estado === 'convertida' ? 'bg-linear-to-br from-emerald-50 to-emerald-100 border-emerald-200 text-emerald-600' :
+                              sol.estado === 'rechazada' ? 'bg-linear-to-br from-red-50 to-red-100 border-red-200 text-red-600' :
+                              'bg-linear-to-br from-amber-50 to-amber-100 border-amber-200 text-amber-600'
                             }`}>
                               <ClipboardList className="w-6 h-6 sm:w-7 sm:h-7" />
                             </div>
@@ -616,7 +616,7 @@ useEffect(() => {
                         </div>
 
                         {sol.estado === 'cotizada' && (
-                          <div className="mx-5 sm:mx-6 mb-5 sm:mb-6 p-6 bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 rounded-2xl relative overflow-hidden animate-in fade-in slide-in-from-top-4">
+                          <div className="mx-5 sm:mx-6 mb-5 sm:mb-6 p-6 bg-linear-to-br from-blue-50 to-indigo-50 border border-blue-100 rounded-2xl relative overflow-hidden animate-in fade-in slide-in-from-top-4">
                             <div className="absolute top-0 right-0 w-32 h-32 bg-blue-200/40 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
                             
                             <div className="relative z-10">

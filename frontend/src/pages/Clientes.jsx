@@ -214,13 +214,13 @@ export default function Clientes() {
   return (
     <div className="animate-in fade-in duration-500 pb-12">
       {/* Background decoration */}
-      <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-primary-50/50 to-transparent -z-10 pointer-events-none" />
+      <div className="absolute top-0 left-0 w-full h-96 bg-linear-to-b from-primary-50/50 to-transparent -z-10 pointer-events-none" />
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-8 mt-2">
         <div className="space-y-1">
           <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-gradient-to-br from-primary-500 to-primary-700 rounded-xl shadow-lg shadow-primary-500/20">
+            <div className="p-2 bg-linear-to-br from-primary-500 to-primary-700 rounded-xl shadow-lg shadow-primary-500/20">
               <Building2 className="w-5 h-5 text-white" />
             </div>
             <span className="inline-flex items-center gap-1.5 py-1 px-3 rounded-full text-xs font-semibold bg-primary-50 text-primary-700 ring-1 ring-inset ring-primary-600/10">
@@ -296,7 +296,7 @@ export default function Clientes() {
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-4">
                       <div className="relative">
-                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-dark-50 to-dark-100 border border-dark-200/50 flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 group-hover:shadow-md transition-all duration-300">
+                        <div className="w-12 h-12 rounded-2xl bg-linear-to-br from-dark-50 to-dark-100 border border-dark-200/50 flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 group-hover:shadow-md transition-all duration-300">
                           {c.tipo === 'residencial' ? <Home className="w-5 h-5 text-dark-600" /> : <Building2 className="w-5 h-5 text-dark-600" />}
                         </div>
                         {c.activo && <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-green-500 border-2 border-white rounded-full"></div>}
@@ -352,14 +352,14 @@ export default function Clientes() {
 
       {/* Modal Premium */}
       {showModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-100 flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
           <div className="absolute inset-0 bg-dark-900/30 backdrop-blur-sm transition-opacity" onClick={closeModal} />
           
-          <div className="relative bg-white/95 backdrop-blur-xl rounded-[2rem] shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col border border-white/40 ring-1 ring-dark-900/5">
+          <div className="relative bg-white/95 backdrop-blur-xl rounded-4xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col border border-white/40 ring-1 ring-dark-900/5">
             {/* Header Modal */}
             <div className="shrink-0 px-8 py-6 border-b border-dark-100/50 bg-white/50 flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary-50 to-primary-100 border border-primary-200/50 flex items-center justify-center shadow-sm">
+                <div className="w-12 h-12 rounded-2xl bg-linear-to-br from-primary-50 to-primary-100 border border-primary-200/50 flex items-center justify-center shadow-sm">
                   <Building2 className="w-6 h-6 text-primary-600" />
                 </div>
                 <div>
@@ -490,7 +490,7 @@ export default function Clientes() {
                 {isAdmin && (
                   <div className="pt-4 border-t border-dark-100">
                     {tieneUsuario ? (
-                      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-5 rounded-2xl border border-blue-100/50 flex items-start sm:items-center gap-4">
+                      <div className="bg-linear-to-r from-blue-50 to-indigo-50 p-5 rounded-2xl border border-blue-100/50 flex items-start sm:items-center gap-4">
                         <div className="p-2 bg-blue-100 text-blue-600 rounded-full shrink-0">
                           <UserCheck className="w-5 h-5" />
                         </div>
