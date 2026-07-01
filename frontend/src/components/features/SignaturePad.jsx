@@ -70,7 +70,7 @@ export default function SignaturePad({ onSave, onCancel }) {
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-dark-200 overflow-hidden shadow-xl max-w-lg w-full">
+    <div  className="bg-white rounded-2xl border border-dark-200 overflow-hidden shadow-xl max-w-lg w-full">
       <div className="p-4 border-b border-dark-100 flex items-center justify-between bg-dark-50">
         <h3 className="font-bold text-dark-900">Firma del Técnico</h3>
         <button onClick={onCancel} className="p-1 hover:bg-dark-200 rounded-lg transition-colors">
