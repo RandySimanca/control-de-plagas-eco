@@ -39,6 +39,7 @@ export default function PortalCliente() {
     direccion: profile?.direccion || '',
     fecha_preferida: ''
   })
+  const [otroServicio, setOtroServicio] = useState('')
 
 useEffect(() => {
     async function load() {
@@ -157,7 +158,7 @@ useEffect(() => {
       const token = localStorage.getItem('token')
       const data = await api.post('/solicitudes-servicio', {
         cliente_id: profile.cliente_id,
-        tipo_servicio: form.tipo_servicio,
+        tipo_servicio: form.tipo_servicio === 'Otro' ? (otroServicio || 'Otro') : form.tipo_servicio,
         descripcion: form.descripcion,
         direccion: form.direccion,
         fecha_preferida: form.fecha_preferida || null,
@@ -167,6 +168,7 @@ useEffect(() => {
       setShowModal(false)
       setSolicitudes([data, ...solicitudes]) // Add directly to UI
       setForm({ tipo_servicio: 'Desinsectación', descripcion: '', direccion: profile?.direccion || '', fecha_preferida: '' })
+      setOtroServicio('')
       setTab('solicitudes')
     } catch (err) {
       console.error('Error al enviar solicitud:', err)
@@ -242,6 +244,17 @@ useEffect(() => {
                   <option value="Otro">Otro servicio</option>
                 </select>
               </div>
+
+              {form.tipo_servicio === 'Otro' && (
+                <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <label className="text-sm font-semibold text-dark-700">Especifique el servicio *</label>
+                  <input 
+                    type="text" 
+                    className="w-full bg-white border border-dark-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 rounded-xl px-4 py-3 text-sm transition-all shadow-sm placeholder:text-dark-300" 
+                    placeholder="Ej: Reubicación de panal de abejas..." required={form.tipo_servicio === 'Otro'} value={otroServicio} onChange={(e) => setOtroServicio(e.target.value)} 
+                  />
+                </div>
+              )}
 
               <div className="space-y-1.5">
                 <label className="text-sm font-semibold text-dark-700">Dirección del Servicio</label>
@@ -353,7 +366,12 @@ useEffect(() => {
           <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-blue-600/10 rounded-full blur-3xl -translate-x-1/3 translate-y-1/3 pointer-events-none" />
           
           <div className="max-w-5xl mx-auto relative z-10">
-            <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white mb-2">¡Hola, {profile?.nombre_completo?.split(' ')[0]}!</h1>
+            <div className="flex items-center gap-3 mb-2">
+              <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white">¡Hola, {profile?.nombre_completo?.split(' ')[0]}!</h1>
+              <div className="bg-white/10 hover:bg-white/20 rounded-full transition-colors flex items-center justify-center">
+                <HelpButton title="Portal del Cliente" content={HELP_CONTENT.portalCliente} />
+              </div>
+            </div>
             <p className="text-base text-dark-300">Bienvenido a tu panel de control. Aquí puedes gestionar todos tus servicios.</p>
           </div>
         </div>
@@ -391,9 +409,6 @@ useEffect(() => {
             <PlusCircle className="w-4 h-4" /> Solicitudes {solicitudes.length > 0 && `(${solicitudes.length})`}
             {hasUnreadQuotes && <span className="absolute top-2.5 right-2.5 h-2 w-2 bg-red-500 rounded-full animate-pulse ring-2 ring-white" />}
           </button>
-          <div className="flex-none flex items-center justify-center px-2">
-            <HelpButton title="Portal del Cliente" content={HELP_CONTENT.portalCliente} />
-          </div>
         </div>
 
         {!profile?.cliente_id ? (

@@ -16,6 +16,7 @@ export default function PortalSolicitudForm() {
     direccion: profile?.direccion || '',
     fecha_preferida: ''
   })
+  const [otroServicio, setOtroServicio] = useState('')
 
 async function handleSubmit(e) {
       e.preventDefault()
@@ -32,7 +33,7 @@ async function handleSubmit(e) {
         const token = localStorage.getItem('token')
         await api.post('/solicitudes-servicio', {
           cliente_id: profile.cliente_id,
-          tipo_servicio: formData.tipo_servicio,
+          tipo_servicio: formData.tipo_servicio === 'Otro' ? (otroServicio || 'Otro') : formData.tipo_servicio,
           descripcion: formData.descripcion,
           direccion: formData.direccion,
           fecha_preferida: formData.fecha_preferida || null,
@@ -88,6 +89,20 @@ async function handleSubmit(e) {
                 <option value="Otro">Otro servicio</option>
               </select>
             </div>
+
+            {formData.tipo_servicio === 'Otro' && (
+              <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+                <label className="label-field">Especifique el servicio *</label>
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder="Ej: Reubicación de panal de abejas..."
+                  value={otroServicio}
+                  onChange={(e) => setOtroServicio(e.target.value)}
+                  required={formData.tipo_servicio === 'Otro'}
+                />
+              </div>
+            )}
 
             <div>
               <label className="label-field">Dirección del Servicio</label>

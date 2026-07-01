@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { HelpCircle, X } from 'lucide-react'
 
 /**
@@ -31,9 +32,9 @@ export default function HelpButton({ title, content }) {
         </div>
       </div>
 
-      {open && (
+      {open && createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-dark-900/40 backdrop-blur-sm"
+          className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-dark-900/40 backdrop-blur-sm"
           onClick={() => setOpen(false)}
         >
           <div
@@ -75,7 +76,8 @@ export default function HelpButton({ title, content }) {
               Entendido
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   )
