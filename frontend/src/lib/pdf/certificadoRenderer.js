@@ -44,11 +44,22 @@ export async function renderCertificado(data) {
     doc.rect(margin, headerY, 50, headerHeight)
     if (logoData) doc.addImage(logoData, 'PNG', margin + 2, headerY + 2, 45, 18)
 
-    const companyName = config?.nombre_empresa || 'DEROSH S.A.S'
+    const companyName = config?.nombre_empresa || 'Nombre de la empresa'
+    const nitText = config?.nit ? `NIT: ${config.nit}` : ''
+    const contactText = [config?.telefono_contacto, config?.email_contacto].filter(Boolean).join(' | ')
+    const addressText = config?.direccion_fiscal || ''
+
     doc.rect(margin + 50, headerY, pageWidth - 2 * margin - 100, headerHeight)
-    doc.setFontSize(9); doc.setFont(undefined, 'bold'); doc.setTextColor(30, 41, 59)
-    doc.text(companyName, margin + (pageWidth - 2 * margin) / 2, headerY + 8, { align: 'center' })
-    doc.text('INFORME TÉCNICO DEL SERVICIO', margin + (pageWidth - 2 * margin) / 2, headerY + 14, { align: 'center' })
+    
+    doc.setFontSize(10); doc.setFont(undefined, 'bold'); doc.setTextColor(30, 41, 59)
+    doc.text('INFORME TÉCNICO DEL SERVICIO', margin + (pageWidth - 2 * margin) / 2, headerY + 5, { align: 'center' })
+    
+    doc.setFontSize(8); doc.setFont(undefined, 'bold')
+    doc.text(`${companyName}${nitText ? ` - ${nitText}` : ''}`, margin + (pageWidth - 2 * margin) / 2, headerY + 10, { align: 'center' })
+    
+    doc.setFontSize(7); doc.setFont(undefined, 'normal')
+    if (contactText) doc.text(contactText, margin + (pageWidth - 2 * margin) / 2, headerY + 14, { align: 'center' })
+    if (addressText) doc.text(addressText, margin + (pageWidth - 2 * margin) / 2, headerY + 18, { align: 'center' })
 
     const metaX = pageWidth - margin - 50
     doc.rect(metaX, headerY, 50, headerHeight)
@@ -182,6 +193,13 @@ export async function renderCertificado(data) {
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i)
     if (i >= 2) drawHeader(i - 1, totalPages - 1)
+    // Footer de texto configurable
+    if (i >= 2 && config?.footer_pdf) {
+      doc.setFontSize(7)
+      doc.setFont(undefined, 'italic')
+      doc.setTextColor(120, 120, 120)
+      doc.text(config.footer_pdf, pageWidth / 2, pageHeight - 8, { align: 'center' })
+    }
     doc.setLineWidth(8); doc.setDrawColor(250, 175, 0)
     doc.line(pageWidth - 45, pageHeight + 5, pageWidth + 5, pageHeight - 35)
   }

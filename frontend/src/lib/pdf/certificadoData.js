@@ -86,7 +86,7 @@ export async function prepareCertificadoData(params) {
       productoPrincipal = 'desinfectante'
   }
 
-  const diagnosisText = `Se realizó aplicación de ${productoPrincipal} a zonas: ${areasTrabajadas}. Con el objetivo de ${objetivo}`
+  const diagnosisText = `Se realizó aplicación de ${productoPrincipal} a las siguientes zonas: ${areasTrabajadas}. Con el objetivo de ${objetivo}`
 
   // 3. Carga de recursos (imágenes)
   const logoData = config?.logo_url ? await getImgData(config.logo_url) : null

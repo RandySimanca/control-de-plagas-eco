@@ -9,9 +9,11 @@ import {
 import Badge from '../components/ui/Badge'
 import HelpButton from '../components/features/HelpButton'
 import { HELP_CONTENT } from '../lib/helpContent'
+import { useConfig } from '../contexts/ConfigContext'
 
 export default function Dashboard() {
   const { profile, isAdmin } = useAuth()
+  const { nombreEmpresa } = useConfig()
   const [stats, setStats] = useState({ clientes: 0, pendientes: 0, completadas: 0, tecnicos: 0 })
   const [recentOrders, setRecentOrders] = useState([])
   const [loading, setLoading] = useState(true)
@@ -101,7 +103,7 @@ export default function Dashboard() {
             <HelpButton title="Dashboard" content={HELP_CONTENT.dashboard} />
           </div>
           <p className="page-subtitle text-dark-500 mt-1">
-            {isAdmin ? 'Resumen general de PlagControl' : 'Tus tareas asignadas para hoy'}
+            {isAdmin ? `Resumen general de ${nombreEmpresa}` : 'Tus tareas asignadas para hoy'}
           </p>
         </div>
         {isAdmin && (

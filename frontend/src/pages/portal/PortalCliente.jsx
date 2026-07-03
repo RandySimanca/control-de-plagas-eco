@@ -14,8 +14,10 @@ import api from '../../lib/api'
 import { getAuthImageUrl } from '../../utils/imageUtils'
 import HelpButton from '../../components/features/HelpButton'
 import { HELP_CONTENT } from '../../lib/helpContent'
+import { useConfig } from '../../contexts/ConfigContext'
 export default function PortalCliente() {
   const { profile, logout } = useAuth()
+  const { nombreEmpresa } = useConfig()
   const navigate = useNavigate()
   const location = useLocation()
   const { canInstall, promptInstall } = useInstallPrompt()
@@ -319,7 +321,7 @@ useEffect(() => {
               <div className="p-2 bg-linear-to-br from-primary-500 to-primary-600 rounded-xl shadow-md">
                 <Bug className="w-5 h-5 text-white" />
               </div>
-              <span className="font-bold text-white tracking-tight hidden sm:block">PlagControl Portal</span>
+              <span className="font-bold text-white tracking-tight hidden sm:block">Portal de {nombreEmpresa}</span>
             </div>
             <div className="flex items-center gap-2 sm:gap-3">
               {canInstall && (
