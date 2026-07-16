@@ -36,6 +36,7 @@ router.delete('/estaciones-usadas', controller.deleteEstacionesByOrden)
 
 router.get('/productos-usados', controller.listProductos)
 router.post('/productos-usados', controller.createProducto)
+router.patch('/productos-usados/:id', controller.updateProducto)
 router.delete('/productos-usados/:id', controller.deleteProducto)
 
 // 2. Base routes for when mounted at /ordenes or /servicios (Relative paths)

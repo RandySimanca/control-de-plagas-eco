@@ -17,7 +17,8 @@ import {
   OrdenActividades,
   OrdenFotos,
   OrdenCertificado,
-  OrdenTecnicoDetalles
+  OrdenTecnicoDetalles,
+  OrdenEditarModal
 } from '../components/features/orden'
 
 export default function OrdenDetalle() {
@@ -35,6 +36,7 @@ export default function OrdenDetalle() {
   const [certificado, setCertificado] = useState(null)
   const [actividades, setActividades] = useState([])
   const [loading, setLoading] = useState(true)
+  const [showEditModal, setShowEditModal] = useState(false)
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load() }, [id])
@@ -114,6 +116,9 @@ export default function OrdenDetalle() {
   async function cambiarEstado(nuevoEstado) {
     try {
       const updates = { id, estado: nuevoEstado, updated_at: new Date().toISOString() }
+      if (nuevoEstado === 'en_progreso' && !orden.fecha_inicio) {
+        updates.fecha_inicio = new Date().toISOString().split('T')[0]
+      }
       if (nuevoEstado === 'completada') {
         updates.fecha_completada = new Date().toISOString().split('T')[0]
         if (!certificado) {
@@ -155,11 +160,20 @@ export default function OrdenDetalle() {
         isAssignedTecnico={isAssignedTecnico}
         onDeleteOrden={handleDeleteOrden}
         onChangeEstado={cambiarEstado}
+        onEditClick={() => setShowEditModal(true)}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* 2. Productos */}
-        <OrdenProductos productos={productos} />
+        <OrdenProductos 
+          ordenId={id}
+          productos={productos} 
+          setProductos={setProductos}
+          isAssignedTecnico={isAssignedTecnico}
+          ordenEstado={orden.estado}
+          queueOrExecute={queueOrExecute}
+          ordenTipoPlaga={orden.tipo_plaga}
+        />
 
         {/* 3. Estaciones */}
         <OrdenEstaciones 
@@ -216,6 +230,19 @@ export default function OrdenDetalle() {
         certificado={certificado}
         setCertificado={setCertificado}
       />
+
+      {/* Modal de Edición de Orden (solo admin) */}
+      {showEditModal && isAdmin && (
+        <OrdenEditarModal 
+          orden={orden} 
+          onClose={() => setShowEditModal(false)}
+          onSave={(updatedOrden) => {
+            setOrden(updatedOrden)
+            setShowEditModal(false)
+          }}
+          queueOrExecute={queueOrExecute}
+        />
+      )}
     </div>
   )
 }

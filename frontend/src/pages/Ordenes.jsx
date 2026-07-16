@@ -7,11 +7,13 @@ import { api } from '../lib/api'
 import { confirmDelete, successAlert } from '../lib/alerts'
 import HelpButton from '../components/features/HelpButton'
 import { HELP_CONTENT } from '../lib/helpContent'
+import { parseTipoPlaga } from '../utils/tipoPlaga'
 
 const EMPTY_FORM = {
   cliente_id: '', tecnico_id: '', fecha_programada: new Date().toISOString().split('T')[0],
   tipo_plaga: '', observaciones: '', estado: 'programada'
 }
+
 
 export default function Ordenes() {
   const { isAdmin, profile } = useAuth()
@@ -200,6 +202,51 @@ export default function Ordenes() {
                 </div>
               </div>
 
+{/**para cambiar a botones de selección múltiple en lugar de un select */}
+        
+  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+  <div>
+    <label className="label-field">Tipo de Control</label>
+    <div className="flex flex-wrap gap-2 p-2 border rounded-md">
+      {['Desinsectación', 'Desratización', 'Desinfección', 'Desodoracion'].map(tipo => {
+        const seleccionado = (form.tipo_plaga || []).includes(tipo);
+        return (
+          <button
+            key={tipo}
+            type="button"
+            onClick={() =>
+              setForm(p => {
+                const actuales = p.tipo_plaga || [];
+                const nuevos = actuales.includes(tipo)
+                  ? actuales.filter(t => t !== tipo) // quitar si ya estaba
+                  : [...actuales, tipo];              // agregar si no estaba
+                return { ...p, tipo_plaga: nuevos };
+              })
+            }
+            className={`px-3 py-1 rounded-full text-sm border transition-colors ${
+              seleccionado
+                ? 'bg-blue-600 text-white border-blue-600'
+                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+            }`}
+          >
+            {tipo}
+          </button>
+        );
+      })}
+    </div>
+  </div>
+
+  <div>
+    <label className="label-field">Estado</label>
+    <select className="input-field" value={form.estado} onChange={e => setForm(p => ({ ...p, estado: e.target.value }))}>
+      <option value="programada">Programada</option>
+      <option value="en_progreso">En Progreso</option>
+      <option value="completada">Completada</option>
+    </select>
+  </div>
+</div>
+
+{/**
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="label-field">Tipo de Control</label>
@@ -219,7 +266,7 @@ export default function Ordenes() {
                   </select>
                 </div>
               </div>
-
+**/}
               <div>
                 <label className="label-field">Observaciones</label>
                 <textarea className="input-field" rows={2} value={form.observaciones || ''} onChange={e => setForm(p => ({ ...p, observaciones: e.target.value }))} placeholder="Notas adicionales del servicio..." />
@@ -307,8 +354,15 @@ export default function Ordenes() {
                       <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> {orden.fecha_programada ? new Date(orden.fecha_programada).toLocaleDateString() : 'Sin fecha'}</span>
                       <span className="flex items-center gap-1"><User className="w-3.5 h-3.5" /> {orden.tecnico_nombre || 'Sin asignar'}</span>
                     </div>
-                    {orden.tipo_plaga && <p className="text-xs text-dark-500 mt-1">{orden.tipo_plaga}</p>}
-                  </div>
+                    {/**nuevo código para mostrar tipo de plaga parseado */}
+                    {orden.tipo_plaga && parseTipoPlaga(orden.tipo_plaga).length > 0 && (
+                        <p className="text-xs text-dark-500 mt-1">
+                          {parseTipoPlaga(orden.tipo_plaga).join(', ')}
+                        </p>
+                    )}
+                   { /** codigo antiguo 
+                    {orden.tipo_plaga && <p className="text-xs text-dark-500 mt-1">{orden.tipo_plaga}</p>}*/}
+                  </div> 
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
                   <span className={estadoBadge[orden.estado]}>{estadoLabel[orden.estado]}</span>

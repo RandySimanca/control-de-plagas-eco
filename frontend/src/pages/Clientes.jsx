@@ -10,7 +10,7 @@ import { HELP_CONTENT } from '../lib/helpContent'
 
 const EMPTY_FORM = {
   nombre: '', razon_social: '', identificacion: '',
-  direccion: '', telefono: '', email: '',
+  direccion: '', municipio: '', telefono: '', email: '',
   nombre_contacto: '', telefono_contacto: '',
   tipo: 'residencial', notas: ''
 }
@@ -102,7 +102,7 @@ export default function Clientes() {
       if (isEdit) {
         const { data: updatedCliente } = await api.put(`/clientes/${editingId}`, {
           nombre: form.nombre, razon_social: form.razon_social, identificacion: form.identificacion,
-          direccion: form.direccion, telefono: form.telefono, email: form.email,
+          direccion: form.direccion, municipio: form.municipio, telefono: form.telefono, email: form.email,
           nombre_contacto: form.nombre_contacto, telefono_contacto: form.telefono_contacto,
           tipo: form.tipo, notas: form.notas
         }, { token })
@@ -133,7 +133,7 @@ export default function Clientes() {
       } else {
         const { data: newCliente } = await api.post('/clientes', {
           nombre: form.nombre, razon_social: form.razon_social, identificacion: form.identificacion,
-          direccion: form.direccion, telefono: form.telefono, email: form.email,
+          direccion: form.direccion, municipio: form.municipio, telefono: form.telefono, email: form.email,
           nombre_contacto: form.nombre_contacto, telefono_contacto: form.telefono_contacto,
           tipo: form.tipo, notas: form.notas
         }, { token })
@@ -192,8 +192,9 @@ export default function Clientes() {
   const filtered = clientes.filter(c => {
     const nombre = c.nombre?.toLowerCase() || ''
     const direccion = c.direccion?.toLowerCase() || ''
+    const municipio = c.municipio?.toLowerCase() || ''
     const searchTerm = search.toLowerCase()
-    const matchSearch = nombre.includes(searchTerm) || direccion.includes(searchTerm)
+    const matchSearch = nombre.includes(searchTerm) || direccion.includes(searchTerm) || municipio.includes(searchTerm)
     const matchTipo = filtroTipo === 'todos' || c.tipo === filtroTipo
     return matchSearch && matchTipo
   })
@@ -258,7 +259,7 @@ export default function Clientes() {
           />
         </div>
         <div className="flex gap-1 p-1 bg-dark-50/50 rounded-xl overflow-x-auto no-scrollbar">
-          {['todos', 'residencial', 'industrial', 'comercial'].map(tipo => (
+          {['todos', 'residencial', 'industrial', 'comercial', 'educativo', 'hospitalario'].map(tipo => (
             <button
               key={tipo}
               onClick={() => setFiltroTipo(tipo)}
@@ -320,7 +321,9 @@ export default function Clientes() {
                     </div>
                   </td>
                   <td className="px-6 py-4 hidden lg:table-cell">
-                    <span className="text-sm text-dark-600 max-w-xs truncate block">{c.direccion || '—'}</span>
+                    <span className="text-sm text-dark-600 max-w-xs truncate block">
+                      {c.direccion || '—'}{c.municipio ? `, ${c.municipio}` : ''}
+                    </span>
                   </td>
                   <td className="px-6 py-4 text-center">
                     {c.activo ? (
@@ -420,6 +423,8 @@ export default function Clientes() {
                         <option value="residencial">Residencial</option>
                         <option value="industrial">Industrial</option>
                         <option value="comercial">Comercial</option>
+                        <option value="educativo">Educativo</option>
+                        <option value="hospitalario">Hospitalario</option>
                       </select>
                     </div>
                   </div>
@@ -452,12 +457,21 @@ export default function Clientes() {
                     </div>
                   </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-semibold text-dark-700">Dirección Física</label>
-                    <input 
-                      className="w-full bg-white border border-dark-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 rounded-xl px-4 py-2.5 text-sm transition-all shadow-sm placeholder:text-dark-300" 
-                      value={form.direccion} onChange={e => handleChange('direccion', e.target.value)} placeholder="Calle Principal #123, Ciudad" 
-                    />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-semibold text-dark-700">Dirección Física</label>
+                      <input 
+                        className="w-full bg-white border border-dark-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 rounded-xl px-4 py-2.5 text-sm transition-all shadow-sm placeholder:text-dark-300" 
+                        value={form.direccion} onChange={e => handleChange('direccion', e.target.value)} placeholder="Calle Principal #123, Ciudad" 
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-semibold text-dark-700">Municipio / Ciudad</label>
+                      <input 
+                        className="w-full bg-white border border-dark-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 rounded-xl px-4 py-2.5 text-sm transition-all shadow-sm placeholder:text-dark-300" 
+                        value={form.municipio} onChange={e => handleChange('municipio', e.target.value)} placeholder="Ej: Medellín" 
+                      />
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-dark-50/50 p-5 rounded-2xl border border-dark-100">

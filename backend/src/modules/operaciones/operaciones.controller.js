@@ -32,8 +32,9 @@ export const createEstacion = catchAsync(async (req, res) => res.status(201).jso
 export const deleteEstacion = catchAsync(async (req, res) => { await service.deleteEstacion(req.params.id, req.user); res.status(204).send() })
 export const deleteEstacionesByOrden = catchAsync(async (req, res) => { await service.deleteEstacionesByOrden(req.query.orden_id || req.body?.orden_id, req.user); res.status(204).send() })
 
-export const listProductos = catchAsync(async (req, res) => res.json({ success: true, data: await service.listProductos(req.query.orden_id, req.user) }))
+export async function listProductos(req, res) { res.json({ success: true, data: await service.listProductos(req.query.orden_id, req.user) }) }
 export const createProducto = catchAsync(async (req, res) => res.status(201).json({ success: true, data: await service.createProducto(req.body, req.user) }))
+export const updateProducto = catchAsync(async (req, res) => res.json({ success: true, data: await service.updateProducto(req.params.id, req.body, req.user) }))
 export const deleteProducto = catchAsync(async (req, res) => { await service.deleteProducto(req.params.id, req.user); res.status(204).send() })
 
 export const listSolicitudes = catchAsync(async (req, res) => res.json({ success: true, data: await service.listSolicitudes(req.user, req.query) }))

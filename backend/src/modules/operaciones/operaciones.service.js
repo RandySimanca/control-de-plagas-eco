@@ -90,7 +90,7 @@ export async function createOrden(body, user) {
 
 export async function updateOrden(id, body, user) {
   await assertOrdenAccess(id, user)
-  const allowed = ['cliente_id', 'tecnico_id', 'fecha_programada', 'tipo_plaga', 'observaciones', 'estado', 'recomendaciones', 'areas_intervenidas', 'metodos_aplicacion']
+  const allowed = ['cliente_id', 'tecnico_id', 'fecha_programada', 'fecha_inicio', 'tipo_plaga', 'observaciones', 'estado', 'recomendaciones', 'areas_intervenidas', 'metodos_aplicacion', 'fecha_completada']
   const sets = []
   const vals = []
   for (const key of allowed) {
@@ -267,10 +267,26 @@ export async function listProductos(ordenId, user) {
 export async function createProducto(body, user) {
   await assertOrdenAccess(body.orden_id, user)
   const { rows } = await pool.query(
-    `INSERT INTO productos_usados (id, orden_id, nombre_producto, ingrediente_activo, cantidad, tipo_producto)
-     VALUES (COALESCE($1, gen_random_uuid()), $2, $3, $4, $5, $6) RETURNING *`,
-    [body.id || null, body.orden_id, body.nombre_producto || null, body.ingrediente_activo || null, body.cantidad || null, body.tipo_producto || null]
+    `INSERT INTO productos_usados (id, orden_id, ingrediente_activo, cantidad, tipo_producto, dosis, nombre_comercial)
+     VALUES (COALESCE($1, gen_random_uuid()), $2, $3, $4, $5, $6, $7) RETURNING *`,
+    [body.id || null, body.orden_id, body.ingrediente_activo || null, body.cantidad || null, body.tipo_producto || null, body.dosis || null, body.nombre_comercial || null]
   )
+  return rows[0]
+}
+export async function updateProducto(id, body, user) {
+  const { rows: prodRows } = await pool.query('SELECT orden_id FROM productos_usados WHERE id = $1', [id])
+  if (prodRows[0]) await assertOrdenAccess(prodRows[0].orden_id, user)
+  const { rows } = await pool.query(
+    `UPDATE productos_usados 
+     SET ingrediente_activo = COALESCE($2, ingrediente_activo),
+         cantidad = COALESCE($3, cantidad),
+         tipo_producto = COALESCE($4, tipo_producto),
+         dosis = COALESCE($5, dosis),
+         nombre_comercial = COALESCE($6, nombre_comercial)
+     WHERE id = $1 RETURNING *`,
+    [id, body.ingrediente_activo, body.cantidad, body.tipo_producto, body.dosis, body.nombre_comercial]
+  )
+  if (!rows[0]) throw new AppError('Producto no encontrado', 404)
   return rows[0]
 }
 export async function deleteProducto(id, user) {

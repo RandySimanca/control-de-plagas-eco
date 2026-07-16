@@ -88,18 +88,22 @@ export async function renderCertificado(data) {
   y = 42
   // Sección 1: Identificación
   y = drawSectionHeader('1. Identificación del Cliente', y)
-  doc.setFontSize(8.5); doc.setTextColor(50, 50, 50)
+  doc.setFontSize(11); doc.setTextColor(50, 50, 50)
   const col1 = margin + 3; const col2 = margin + 60
 
   doc.setFont(undefined, 'bold'); doc.text('FECHA DE EJECUCIÓN:', col1, y); doc.setFont(undefined, 'normal'); doc.text(fechaEjecucion, col2, y); y += 5
   doc.setFont(undefined, 'bold'); doc.text('NOMBRE O RAZÓN SOCIAL:', col1, y); doc.setFont(undefined, 'normal'); doc.text(cliente?.nombre || 'N/A', col2, y); y += 5
   doc.setFont(undefined, 'bold'); doc.text('DIRECCIÓN:', col1, y); doc.setFont(undefined, 'normal'); doc.text(cliente?.direccion || 'N/A', col2, y); y += 5
-  doc.setFont(undefined, 'bold'); doc.text('PROCESO EJECUTADO:', col1, y); doc.setFont(undefined, 'normal'); doc.text('', col2, y);
-  doc.text(`${tipoPlagaTitle}, diagnóstico técnico integral.`, col2, y); y += 5
+  doc.setFont(undefined, 'bold'); doc.text('MUNICIPIO:', col1, y); doc.setFont(undefined, 'normal'); doc.text(cliente?.municipio || 'N/A', col2, y); y += 5
+  doc.setFont(undefined, 'bold'); doc.text('PROCESO EJECUTADO:', col1, y); doc.setFont(undefined, 'normal');
+  const procesoText = `${tipoPlagaTitle}, diagnóstico técnico integral.`;
+  const procesoLines = doc.splitTextToSize(procesoText, pageWidth - col2 - margin);
+  doc.text(procesoLines, col2, y); 
+  y += (procesoLines.length * 5);
 
   // Sección 2: Objetivos
   y = drawSectionHeader('2. Objetivos', y)
-  doc.setFontSize(8.5); doc.setFont(undefined, 'bold')
+  doc.setFontSize(11); doc.setFont(undefined, 'bold')
   doc.text('Objetivo General:', margin + 3, y); y += 4
   doc.setFont(undefined, 'normal')
   doc.text(doc.splitTextToSize("Realizar un diagnóstico técnico que permita validar las condiciones locativas, madrigueras o condiciones que propicien la proliferación de plagas.", pageWidth - 2 * margin - 5), margin + 3, y); y += 8
@@ -111,56 +115,170 @@ export async function renderCertificado(data) {
   y += 6
 
   // Sección 3: Áreas
+  const areasParsed = (() => {
+    if (!orden.areas_intervenidas) return []
+    try {
+      const parsed = JSON.parse(orden.areas_intervenidas)
+      if (Array.isArray(parsed)) return parsed
+    } catch {}
+    // legacy string
+    return orden.areas_intervenidas.split(', ').filter(Boolean).map(a => ({ tipo: 'General', area: a }))
+  })()
+
   if (y > pageHeight - 60) { doc.addPage(); y = 42 }
   y = drawSectionHeader('3. Áreas Intervenidas', y)
-  doc.setFontSize(8.5); doc.setFont(undefined, 'normal')
-  const areasList = orden.areas_intervenidas ? orden.areas_intervenidas.split(', ') : ['General']
-  areasList.forEach(l => {
-    if (y > pageHeight - 20) { doc.addPage(); y = 42 }
-    doc.circle(margin + 5, y - 1, 0.5, 'F'); doc.text(l, margin + 8, y); y += 4
-  })
-  y += 6
+  
+  if (areasParsed.length === 0) {
+    doc.setFontSize(11); doc.setFont(undefined, 'normal');
+    doc.text('No se han especificado áreas.', margin + 3, y); y += 6;
+  } else {
+    const areasPorTipo = areasParsed.reduce((acc, a) => {
+      if (!acc[a.tipo]) acc[a.tipo] = []
+      acc[a.tipo].push(a.area)
+      return acc
+    }, {})
+
+    for (const [tipo, areas] of Object.entries(areasPorTipo)) {
+      if (y > pageHeight - 20) { doc.addPage(); y = 42 }
+      doc.setFont(undefined, 'bold'); doc.setFontSize(10); doc.setTextColor(60, 80, 160)
+      doc.text(tipo.toUpperCase(), margin + 3, y); y += 4
+      doc.setFont(undefined, 'normal'); doc.setTextColor(50, 50, 50)
+      areas.forEach(a => {
+        if (y > pageHeight - 15) { doc.addPage(); y = 42 }
+        doc.circle(margin + 5, y - 1, 0.4, 'F')
+        doc.text(a, margin + 8, y); y += 4
+      })
+      y += 2
+    }
+    y += 2
+  }
 
   // Sección 4: Actividades
   if (y > pageHeight - 60) { doc.addPage(); y = 42 }
   y = drawSectionHeader('4. Actividades Ejecutadas / Diagnosis', y)
-  doc.setFontSize(8.5); doc.setFont(undefined, 'bold'); doc.text(`4.1. ${tipoPlagaTitle}`, margin + 3, y); y += 5
+  doc.setFontSize(11); doc.setFont(undefined, 'bold'); doc.text(`4.1. ${tipoPlagaTitle}`, margin + 3, y); y += 5
   doc.setFont(undefined, 'normal')
   const txLines = doc.splitTextToSize(diagnosisText, pageWidth - 2 * margin - 5)
   doc.text(txLines, margin + 3, y); y += (txLines.length * 4) + 4
 
   if (productos.length > 0) {
+    if (y > pageHeight - 30) { doc.addPage(); y = 42; }
     doc.setFont(undefined, 'bold'); doc.text('Trazabilidad de Productos:', margin + 3, y); y += 4
-    doc.setFont(undefined, 'normal')
+    
     productos.forEach(p => {
+      if (y > pageHeight - 20) { doc.addPage(); y = 42; }
+      
+      const controlName = p.tipo_producto ? `[${p.tipo_producto}] ` : ''
+      const productName = p.nombre_comercial || p.nombre_producto || 'Producto sin nombre'
+      const activeIng = p.ingrediente_activo ? ` (I.A: ${p.ingrediente_activo})` : ''
+      
       doc.circle(margin + 5, y - 1, 0.4, 'F')
-      doc.text(`${p.nombre_comercial || p.tipo_producto} - Dosis: ${p.cantidad || 'N/A'}`, margin + 7, y); y += 4
+      doc.setFont(undefined, 'bold')
+      doc.text(`${controlName}${productName}${activeIng}`, margin + 7, y)
+      y += 4
+      
+      const details = []
+      if (p.dosis) details.push(`Dosis: ${p.dosis}`)
+      if (p.cantidad) details.push(`Cantidad usada: ${p.cantidad}`)
+      
+      if (details.length > 0) {
+        doc.setFont(undefined, 'normal')
+        doc.text(details.join(' | '), margin + 7, y)
+        y += 4
+      } else {
+        y += 1
+      }
     })
-    y += 4
+    y += 2
+  }
+
+  // Sección 5: Métodos de Aplicación
+  const metodosParsed = (() => {
+    if (!orden.metodos_aplicacion) return []
+    try {
+      const parsed = JSON.parse(orden.metodos_aplicacion)
+      if (Array.isArray(parsed)) return parsed
+    } catch {}
+    // legacy string
+    return orden.metodos_aplicacion.split(', ').filter(Boolean).map(m => ({ tipo: 'General', metodo: m }))
+  })()
+
+  if (metodosParsed.length > 0) {
+    if (y > pageHeight - 40) { doc.addPage(); y = 42 }
+    y = drawSectionHeader('5. Métodos de Aplicación', y)
+    
+    const metodosPorTipo = metodosParsed.reduce((acc, m) => {
+      if (!acc[m.tipo]) acc[m.tipo] = []
+      acc[m.tipo].push(m.metodo)
+      return acc
+    }, {})
+
+    for (const [tipo, metodos] of Object.entries(metodosPorTipo)) {
+      if (y > pageHeight - 20) { doc.addPage(); y = 42 }
+      doc.setFont(undefined, 'bold'); doc.setFontSize(10); doc.setTextColor(60, 80, 160)
+      doc.text(tipo.toUpperCase(), margin + 3, y); y += 4
+      doc.setFont(undefined, 'normal'); doc.setTextColor(50, 50, 50)
+      metodos.forEach(met => {
+        if (y > pageHeight - 15) { doc.addPage(); y = 42 }
+        doc.circle(margin + 5, y - 1, 0.4, 'F')
+        doc.text(met, margin + 8, y); y += 4
+      })
+      y += 2
+    }
+    y += 2
   }
 
   // Sección 6: Fotos
   if (evidences.length > 0) {
     doc.addPage(); y = 42; y = drawSectionHeader('6. Resultados y Registro Fotográfico', y)
-    const imgW = 65; const imgH = 45
-    for (let i = 0; i < evidences.length; i++) {
-      const ev = evidences[i]
-      const imgData = ev.data
-      if (!imgData) continue
+    
+    const groupedEvidences = evidences.reduce((acc, ev) => {
+      const label = ev.label || 'Evidencia General';
+      if (!acc[label]) acc[label] = [];
+      acc[label].push(ev);
+      return acc;
+    }, {});
 
-      const col = i % 2; const row = Math.floor((i % 6) / 2)
-      if (i > 0 && i % 6 === 0) { doc.addPage(); y = 42; drawSectionHeader('6. Registro Fotográfico (Cont.)', y) }
+    const imgW = 75; const imgH = 55;
+    const spacingX = 15; const spacingY = 15;
 
-      const posX = margin + 25 + col * (imgW + 30); const posY = y + row * (imgH + 15)
-      doc.addImage(imgData, posX, posY, imgW, imgH)
-      doc.setFillColor(31, 41, 55); doc.rect(posX - 15, posY + 10, 25, 18, 'F')
-      doc.setTextColor(255, 255, 255); doc.setFontSize(7)
-      const lbl = doc.splitTextToSize(ev.label || 'Evidencia', 21)
-      doc.text(lbl, posX - 15 + 12.5, posY + 10 + 9, { align: 'center' })
+    for (const [label, photos] of Object.entries(groupedEvidences)) {
+      if (y > pageHeight - 40) {
+        doc.addPage(); y = 42; 
+        y = drawSectionHeader('6. Registro Fotográfico (Cont.)', y) 
+      }
+      
+      doc.setFontSize(10); doc.setFont(undefined, 'bold'); doc.setTextColor(30, 41, 59);
+      doc.text(label.toUpperCase(), margin + 3, y + 4);
+      y += 10;
+      
+      let col = 0;
+      for (let i = 0; i < photos.length; i++) {
+        const imgData = photos[i].data;
+        if (!imgData) continue;
+        
+        if (y + imgH > pageHeight - 20) {
+          doc.addPage(); y = 42; 
+          y = drawSectionHeader('6. Registro Fotográfico (Cont.) - ' + label, y);
+          col = 0;
+        }
+        
+        const posX = margin + 10 + col * (imgW + spacingX);
+        const posY = y;
+        
+        doc.addImage(imgData, posX, posY, imgW, imgH);
+        
+        col++;
+        if (col >= 2) {
+          col = 0;
+          y += imgH + spacingY;
+        }
+      }
+      
+      if (col > 0) {
+        y += imgH + spacingY;
+      }
     }
-    // Actualizar y a la posición por debajo de la última fila de imágenes
-    const lastRow = Math.floor(((evidences.length - 1) % 6) / 2)
-    y = y + (lastRow + 1) * (imgH + 15)
   }
 
   // --- FINAL: FIRMA Y CIERRE ---

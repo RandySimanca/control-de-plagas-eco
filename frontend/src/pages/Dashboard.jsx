@@ -10,6 +10,7 @@ import Badge from '../components/ui/Badge'
 import HelpButton from '../components/features/HelpButton'
 import { HELP_CONTENT } from '../lib/helpContent'
 import { useConfig } from '../contexts/ConfigContext'
+import { parseTipoPlaga } from '../utils/tipoPlaga'
 
 export default function Dashboard() {
   const { profile, isAdmin } = useAuth()
@@ -181,8 +182,8 @@ export default function Dashboard() {
                       {order.cliente_nombre}
                     </p>
                     <p className="text-xs text-dark-400 font-medium">
-                      {order.tipo_plaga || 'Servicio general'} • {order.fecha_programada ? new Date(order.fecha_programada).toLocaleDateString() : 'Sin fecha'}
-                    </p>
+  {parseTipoPlaga(order.tipo_plaga).length > 0 ? parseTipoPlaga(order.tipo_plaga).join(', ') : 'Servicio general'} • {order.fecha_programada ? new Date(order.fecha_programada).toLocaleDateString() : 'Sin fecha'}
+</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">

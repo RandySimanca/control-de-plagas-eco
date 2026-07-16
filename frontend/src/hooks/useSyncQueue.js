@@ -35,22 +35,22 @@ export function useSyncQueue() {
 
       try {
         if (operation === 'insert') {
-          const data = await api.post(endpoint, payload, { token })
-          result = { data: [data], error: null }
+          const res = await api.post(endpoint, payload, { token })
+          result = { data: [res.data || res], error: null }
         } else if (operation === 'update') {
           const { id, ...rest } = payload
-          const data = await api.patch(`${endpoint}/${id}`, rest, { token })
-          result = { data: [data], error: null }
+          const res = await api.patch(`${endpoint}/${id}`, rest, { token })
+          result = { data: [res.data || res], error: null }
         } else if (operation === 'delete') {
           await api.delete(`${endpoint}/${payload.id}`, { token })
           result = { data: null, error: null }
         } else if (operation === 'upsert') {
-          const data = await api.put(endpoint, payload, { token })
-          result = { data: [data], error: null }
+          const res = await api.put(endpoint, payload, { token })
+          result = { data: [res.data || res], error: null }
         }
         return { ...result, queued: false }
       } catch (error) {
-        return { data: null, error, queued: false }
+        throw error
       }
     }
 
