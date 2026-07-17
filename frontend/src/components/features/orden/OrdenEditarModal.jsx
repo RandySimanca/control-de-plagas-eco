@@ -24,6 +24,7 @@ export default function OrdenEditarModal({ orden, onClose, onSave, queueOrExecut
         const res = await api.get('/profiles', { token, params: { rol: 'tecnico', activo: true } })
         setTecnicos(res.data || [])
       } catch (err) {
+        console.error('Error loading tecnicos:', err)
         toast.error('Error al cargar técnicos')
       } finally {
         setLoadingTecnicos(false)
