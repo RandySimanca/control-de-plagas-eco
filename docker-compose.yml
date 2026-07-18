@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: plagcontrol-db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Valeria13
+      POSTGRES_DB: plagcontrol
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  backend:
+    build: ./backend
+    container_name: plagcontrol-backend
+    restart: always
+    environment:
+      - PORT=3001
+      - NODE_ENV=production
+      - FRONTEND_URL=http://localhost
+      - DATABASE_URL=postgresql://postgres:Valeria13@db:5432/plagcontrol
+      - JWT_SECRET=mi_clave_super_segura_123
+      - JWT_EXPIRES_IN=1d
+    ports:
+      - "3001:3001"
+    depends_on:
+      - db
+    volumes:
+      - ./backend/uploads:/app/uploads
+
+  frontend:
+    build: 
+      context: ./frontend
+      args:
+        # Aquí defines hacia dónde apuntará el frontend. Si ambos corren en tu PC, 'localhost' es correcto.
+        - VITE_API_URL=http://localhost:3001/api
+    container_name: plagcontrol-frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
