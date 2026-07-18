@@ -1,7 +1,10 @@
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
 
 function buildHeaders(token, hasBody) {
-  const headers = {}
+  const headers = {
+    'X-Tunnel-Skip-AntiPhishing-Page': 'true',
+    'ngrok-skip-browser-warning': 'true' // Optional, for ngrok support
+  }
   if (hasBody) headers['Content-Type'] = 'application/json'
   if (token) headers.Authorization = `Bearer ${token}`
   return headers
@@ -22,6 +25,7 @@ export async function apiRequest(path, { method = 'GET', body, token, params } =
 
   const res = await fetch(url, {
     method,
+    credentials: 'include', 
     headers: buildHeaders(token, body !== undefined),
     body: body !== undefined ? JSON.stringify(body) : undefined
   })

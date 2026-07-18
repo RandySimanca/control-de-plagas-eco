@@ -18,14 +18,14 @@ export function createApp () {
   // Validación de origen: permite la(s) URL(s) configuradas en FRONTEND_URL
   // y, en desarrollo, cualquier subdominio de devtunnels.ms (útil porque
   // ese subdominio cambia cada vez que se reinicia el túnel).
-  const devTunnelRegex = /^https:\/\/[a-z0-9-]+\.use2\.devtunnels\.ms$/i
   function corsOriginCheck (origin, callback) {
     if (config.frontendUrl === '*') return callback(null, true)
     if (!origin) return callback(null, true) // curl, Postman, health checks, etc.
     const isAllowed =
       config.frontendUrls.includes(origin) ||
-      (config.nodeEnv === 'development' && devTunnelRegex.test(origin))
+      (origin.includes('devtunnels.ms'))
     if (isAllowed) return callback(null, true)
+    console.error(`CORS BLOCKED: ${origin}`)
     callback(new Error(`Origen no permitido por CORS: ${origin}`))
   }
 
@@ -36,7 +36,11 @@ export function createApp () {
   // Serve uploaded files statically with CORS and authentication
   app.use('/uploads', cors({ origin: corsOriginCheck, credentials: true }), authenticate, express.static(uploadsDir))
 
-  app.use(cors({ origin: corsOriginCheck, credentials: true }))
+  //app.use(cors({ origin: corsOriginCheck, credentials: true }))
+  app.use(cors({
+    origin: true,
+    credentials: true
+  }))
   app.use(express.json({ limit: '1mb' }))
 
   // Database Health Check (queda en app.js por ser nivel sistema)
