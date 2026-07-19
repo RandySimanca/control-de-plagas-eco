@@ -41,7 +41,7 @@ export default function OrdenEditarModal({ orden, onClose, onSave, queueOrExecut
         id: orden.id,
         tecnico_id: form.tecnico_id || null,
         fecha_programada: form.fecha_programada || null,
-        tipo_plaga: form.tipo_plaga,
+        tipo_plaga: Array.isArray(form.tipo_plaga) ? form.tipo_plaga.join(', ') : form.tipo_plaga,
         observaciones: form.observaciones,
         estado: form.estado,
         updated_at: new Date().toISOString()

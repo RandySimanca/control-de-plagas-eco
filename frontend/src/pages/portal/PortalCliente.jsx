@@ -15,6 +15,7 @@ import { getAuthImageUrl } from '../../utils/imageUtils'
 import HelpButton from '../../components/features/HelpButton'
 import { HELP_CONTENT } from '../../lib/helpContent'
 import { useConfig } from '../../contexts/ConfigContext'
+import { parseTipoPlaga } from '../../utils/tipoPlaga'
 export default function PortalCliente() {
   const { profile, logout } = useAuth()
   const { nombreEmpresa } = useConfig()
@@ -479,7 +480,9 @@ useEffect(() => {
                           <span className={badgeStyles}>{config.label}</span>
                         </div>
                         <div className="bg-dark-50 rounded-xl p-3 flex items-center justify-between group-hover:bg-primary-50 transition-colors relative z-10 border border-transparent group-hover:border-primary-100">
-                          <span className="text-sm font-bold text-dark-600 group-hover:text-primary-800">{o.tipo_plaga || 'Servicio General'}</span>
+                          <span className="text-sm font-bold text-dark-600 group-hover:text-primary-800">
+                            {parseTipoPlaga(o.tipo_plaga).join(', ') || 'Servicio General'}
+                          </span>
                           <ChevronRight className="w-4 h-4 text-dark-300 group-hover:text-primary-600 transition-colors" />
                         </div>
                       </Link>

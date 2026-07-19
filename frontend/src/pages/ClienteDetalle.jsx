@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { confirmDelete, successAlert } from '../lib/alerts'
+import { parseTipoPlaga } from '../utils/tipoPlaga'
 
 export default function ClienteDetalle() {
   const { id } = useParams()
@@ -175,7 +176,7 @@ export default function ClienteDetalle() {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-dark-900">{o.fecha_programada}</p>
-                    <p className="text-xs text-dark-400">{o.tipo_plaga || 'Sin especificar'} — {o.tecnico_nombre || 'Sin asignar'}</p>
+                    <p className="text-xs text-dark-400">{parseTipoPlaga(o.tipo_plaga).join(', ') || 'Sin especificar'} — {o.tecnico_nombre || 'Sin asignar'}</p>
                   </div>
                 </div>
                 <span className={estadoBadge[o.estado]}>{estadoLabel[o.estado]}</span>

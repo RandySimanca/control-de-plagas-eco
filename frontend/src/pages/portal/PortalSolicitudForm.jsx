@@ -11,7 +11,7 @@ export default function PortalSolicitudForm() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
-    tipo_servicio: 'Desinsectación',
+    tipo_servicio: ['Desinsectación'],
     descripcion: '',
     direccion: profile?.direccion || '',
     fecha_preferida: ''
@@ -33,7 +33,9 @@ async function handleSubmit(e) {
         const token = localStorage.getItem('token')
         await api.post('/solicitudes-servicio', {
           cliente_id: profile.cliente_id,
-          tipo_servicio: formData.tipo_servicio === 'Otro' ? (otroServicio || 'Otro') : formData.tipo_servicio,
+          tipo_servicio: formData.tipo_servicio.includes('Otro') && otroServicio 
+            ? formData.tipo_servicio.map(t => t === 'Otro' ? otroServicio : t).join(', ') 
+            : formData.tipo_servicio.join(', '),
           descripcion: formData.descripcion,
           direccion: formData.direccion,
           fecha_preferida: formData.fecha_preferida || null,
@@ -77,20 +79,36 @@ async function handleSubmit(e) {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label className="label-field">Tipo de Servicio</label>
-              <select
-                className="input-field"
-                value={formData.tipo_servicio}
-                onChange={(e) => setFormData({ ...formData, tipo_servicio: e.target.value })}
-              >
-                <option value="Desinsectación">Desinsectación (Cucarachas, Hormigas, etc.)</option>
-                <option value="Desratización">Desratización (Roedores)</option>
-                <option value="Desinfección">Desinfección (Virus, Bacterias)</option>
-                <option value="Control de Aves">Control de Aves</option>
-                <option value="Otro">Otro servicio</option>
-              </select>
+              <div className="flex flex-wrap gap-2 p-2 border border-dark-200 rounded-xl bg-white">
+                {['Desinsectación', 'Desratización', 'Desinfección', 'Control de Aves', 'Otro'].map(tipo => {
+                  const seleccionado = formData.tipo_servicio.includes(tipo);
+                  return (
+                    <button
+                      key={tipo}
+                      type="button"
+                      onClick={() =>
+                        setFormData(p => {
+                          const actuales = p.tipo_servicio || [];
+                          const nuevos = actuales.includes(tipo)
+                            ? actuales.filter(t => t !== tipo)
+                            : [...actuales, tipo];
+                          return { ...p, tipo_servicio: nuevos.length ? nuevos : ['Desinsectación'] };
+                        })
+                      }
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                        seleccionado
+                          ? 'bg-primary-600 text-white shadow-md shadow-primary-600/20'
+                          : 'bg-dark-50 text-dark-600 hover:bg-dark-100'
+                      }`}
+                    >
+                      {tipo}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
-            {formData.tipo_servicio === 'Otro' && (
+            {formData.tipo_servicio.includes('Otro') && (
               <div className="animate-in fade-in slide-in-from-top-2 duration-300">
                 <label className="label-field">Especifique el servicio *</label>
                 <input
@@ -99,7 +117,7 @@ async function handleSubmit(e) {
                   placeholder="Ej: Reubicación de panal de abejas..."
                   value={otroServicio}
                   onChange={(e) => setOtroServicio(e.target.value)}
-                  required={formData.tipo_servicio === 'Otro'}
+                  required={formData.tipo_servicio.includes('Otro')}
                 />
               </div>
             )}

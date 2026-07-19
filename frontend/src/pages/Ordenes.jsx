@@ -11,7 +11,7 @@ import { parseTipoPlaga } from '../utils/tipoPlaga'
 
 const EMPTY_FORM = {
   cliente_id: '', tecnico_id: '', fecha_programada: new Date().toISOString().split('T')[0],
-  tipo_plaga: '', observaciones: '', estado: 'programada'
+  tipo_plaga: [], observaciones: '', estado: 'programada'
 }
 
 
@@ -43,10 +43,14 @@ export default function Ordenes() {
   }, [profile, isAdmin, location])
 
    async function openModal(prefillData = null) {
+     const parsedPrefill = prefillData ? { ...prefillData } : null;
+     if (parsedPrefill && parsedPrefill.tipo_plaga) {
+       parsedPrefill.tipo_plaga = parseTipoPlaga(parsedPrefill.tipo_plaga);
+     }
      setForm({ 
        ...EMPTY_FORM, 
        tecnico_id: profile?.id || '',
-       ...prefillData 
+       ...parsedPrefill 
      })
      
      // Fetch clients and technicians if they haven't been loaded yet
@@ -80,7 +84,7 @@ export default function Ordenes() {
          cliente_id: form.cliente_id,
          tecnico_id: form.tecnico_id || profile?.id,
          fecha_programada: form.fecha_programada,
-         tipo_plaga: form.tipo_plaga,
+         tipo_plaga: Array.isArray(form.tipo_plaga) ? form.tipo_plaga.join(', ') : form.tipo_plaga,
          observaciones: form.observaciones,
          estado: form.estado
        }, { token })

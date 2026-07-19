@@ -9,6 +9,7 @@ import {
 import toast from 'react-hot-toast'
 import { abrirCertificado } from '../../lib/generarCertificado'
 import { getAuthImageUrl } from '../../utils/imageUtils'
+import { parseTipoPlaga } from '../../utils/tipoPlaga'
 
 export default function PortalOrdenDetalle() {
   const { id } = useParams()
@@ -138,7 +139,7 @@ export default function PortalOrdenDetalle() {
                   <Package className="w-5 h-5 text-primary-600" />
                   <div>
                     <p className="text-xs uppercase tracking-wider font-bold text-dark-400">Tipo de Control</p>
-                    <p className="font-medium text-dark-800">{orden.tipo_plaga || 'Servicio Integral'}</p>
+                    <p className="font-medium text-dark-800">{parseTipoPlaga(orden.tipo_plaga).join(', ') || 'Servicio Integral'}</p>
                   </div>
                 </div>
               </div>
