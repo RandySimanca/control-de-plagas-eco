@@ -5,7 +5,7 @@ WORKDIR /app
 
 # --- Capa de dependencias (se cachea mientras package*.json no cambie) ---
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 
 # --- Capa de código fuente ---
 COPY . .
