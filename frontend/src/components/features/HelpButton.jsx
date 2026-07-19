@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { HelpCircle, X } from 'lucide-react'
+import { useConfig } from '../../contexts/ConfigContext'
 
 /**
  * HelpButton — Ícono de ayuda contextual por módulo.
@@ -12,6 +13,9 @@ import { HelpCircle, X } from 'lucide-react'
  */
 export default function HelpButton({ title, content }) {
   const [open, setOpen] = useState(false)
+  const { nombreEmpresa } = useConfig()
+
+  const parseContent = (text) => text.replace(/\{\{empresa\}\}/g, nombreEmpresa)
 
   return (
     <>
@@ -61,11 +65,11 @@ export default function HelpButton({ title, content }) {
               {Array.isArray(content) ? (
                 <ul className="list-disc pl-5 space-y-1.5">
                   {content.map((item, i) => (
-                    <li key={i}>{item}</li>
+                    <li key={i}>{parseContent(item)}</li>
                   ))}
                 </ul>
               ) : (
-                <p>{content}</p>
+                <p>{parseContent(content)}</p>
               )}
             </div>
 

@@ -18,7 +18,7 @@ import { useConfig } from '../../contexts/ConfigContext'
 import { parseTipoPlaga } from '../../utils/tipoPlaga'
 export default function PortalCliente() {
   const { profile, logout } = useAuth()
-  const { nombreEmpresa } = useConfig()
+  const { nombreEmpresa, logoUrl } = useConfig()
   const navigate = useNavigate()
   const location = useLocation()
   const { canInstall, promptInstall } = useInstallPrompt()
@@ -37,7 +37,7 @@ export default function PortalCliente() {
   const [showPwdModal, setShowPwdModal] = useState(false)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({
-    tipo_servicio: 'Desinsectación',
+    tipo_servicio: ['Desinsectación'],
     descripcion: '',
     direccion: profile?.direccion || '',
     fecha_preferida: ''
@@ -161,7 +161,9 @@ useEffect(() => {
       const token = localStorage.getItem('token')
       const data = await api.post('/solicitudes-servicio', {
         cliente_id: profile.cliente_id,
-        tipo_servicio: form.tipo_servicio === 'Otro' ? (otroServicio || 'Otro') : form.tipo_servicio,
+        tipo_servicio: form.tipo_servicio.includes('Otro') && otroServicio 
+          ? form.tipo_servicio.map(t => t === 'Otro' ? otroServicio : t).join(', ') 
+          : form.tipo_servicio.join(', '),
         descripcion: form.descripcion,
         direccion: form.direccion,
         fecha_preferida: form.fecha_preferida || null,
@@ -170,7 +172,7 @@ useEffect(() => {
       toast.success('Solicitud enviada correctamente')
       setShowModal(false)
       setSolicitudes([data, ...solicitudes]) // Add directly to UI
-      setForm({ tipo_servicio: 'Desinsectación', descripcion: '', direccion: profile?.direccion || '', fecha_preferida: '' })
+      setForm({ tipo_servicio: ['Desinsectación'], descripcion: '', direccion: profile?.direccion || '', fecha_preferida: '' })
       setOtroServicio('')
       setTab('solicitudes')
     } catch (err) {
@@ -236,25 +238,42 @@ useEffect(() => {
             <form onSubmit={handleCreateSolicitud} className="flex-1 overflow-y-auto p-8 space-y-7 bg-white/40 custom-scrollbar">
               <div className="space-y-1.5">
                 <label className="text-sm font-semibold text-dark-700">Tipo de Servicio</label>
-                <select 
-                  className="w-full bg-white border border-dark-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 rounded-xl px-4 py-3 text-sm transition-all shadow-sm" 
-                  value={form.tipo_servicio} onChange={(e) => setForm({ ...form, tipo_servicio: e.target.value })}
-                >
-                  <option value="Desinsectación">Desinsectación (Cucarachas, Hormigas, etc.)</option>
-                  <option value="Desratización">Desratización (Roedores)</option>
-                  <option value="Desinfección">Desinfección (Virus, Bacterias)</option>
-                  <option value="Control de Aves">Control de Aves</option>
-                  <option value="Otro">Otro servicio</option>
-                </select>
+                <div className="flex flex-wrap gap-2 p-2 bg-white border border-dark-200 rounded-xl shadow-sm">
+                  {['Desinsectación', 'Desratización', 'Desinfección', 'Control de Aves', 'Otro'].map(tipo => {
+                    const seleccionado = form.tipo_servicio.includes(tipo);
+                    return (
+                      <button
+                        key={tipo}
+                        type="button"
+                        onClick={() =>
+                          setForm(p => {
+                            const actuales = p.tipo_servicio || [];
+                            const nuevos = actuales.includes(tipo)
+                              ? actuales.filter(t => t !== tipo)
+                              : [...actuales, tipo];
+                            return { ...p, tipo_servicio: nuevos.length ? nuevos : ['Desinsectación'] };
+                          })
+                        }
+                        className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                          seleccionado
+                            ? 'bg-primary-600 text-white shadow-md shadow-primary-600/20'
+                            : 'bg-dark-50 text-dark-600 hover:bg-dark-100 border border-transparent'
+                        }`}
+                      >
+                        {tipo}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
-              {form.tipo_servicio === 'Otro' && (
+              {form.tipo_servicio.includes('Otro') && (
                 <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-300">
                   <label className="text-sm font-semibold text-dark-700">Especifique el servicio *</label>
                   <input 
                     type="text" 
                     className="w-full bg-white border border-dark-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 rounded-xl px-4 py-3 text-sm transition-all shadow-sm placeholder:text-dark-300" 
-                    placeholder="Ej: Reubicación de panal de abejas..." required={form.tipo_servicio === 'Otro'} value={otroServicio} onChange={(e) => setOtroServicio(e.target.value)} 
+                    placeholder="Ej: Reubicación de panal de abejas..." required={form.tipo_servicio.includes('Otro')} value={otroServicio} onChange={(e) => setOtroServicio(e.target.value)} 
                   />
                 </div>
               )}
@@ -319,9 +338,15 @@ useEffect(() => {
         <header className="sticky top-0 z-40 bg-dark-900/90 backdrop-blur-xl border-b border-dark-800">
           <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-linear-to-br from-primary-500 to-primary-600 rounded-xl shadow-md">
-                <Bug className="w-5 h-5 text-white" />
-              </div>
+              {logoUrl ? (
+                <div className="w-10 h-10 bg-white rounded-xl shadow-md flex items-center justify-center p-1 shrink-0 overflow-hidden">
+                  <img src={getAuthImageUrl(logoUrl)} alt="Logo Empresa" className="w-full h-full object-contain" />
+                </div>
+              ) : (
+                <div className="p-2 bg-linear-to-br from-primary-500 to-primary-600 rounded-xl shadow-md">
+                  <Bug className="w-5 h-5 text-white" />
+                </div>
+              )}
               <span className="font-bold text-white tracking-tight hidden sm:block">Portal de {nombreEmpresa}</span>
             </div>
             <div className="flex items-center gap-2 sm:gap-3">
@@ -370,7 +395,7 @@ useEffect(() => {
           
           <div className="max-w-5xl mx-auto relative z-10">
             <div className="flex items-center gap-3 mb-2">
-              <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white">¡Hola, {profile?.nombre_completo?.split(' ')[0]}!</h1>
+              <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white">¡Hola, {profile?.nombre_completo}!</h1>
               <div className="bg-white/10 hover:bg-white/20 rounded-full transition-colors flex items-center justify-center">
                 <HelpButton title="Portal del Cliente" content={HELP_CONTENT.portalCliente} />
               </div>

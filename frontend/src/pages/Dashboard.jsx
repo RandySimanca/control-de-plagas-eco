@@ -93,7 +93,7 @@ export default function Dashboard() {
     return <div className="flex justify-center py-20"><div className="w-8 h-8 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin" /></div>
   }
 
-  const primerNombre = profile?.nombre_completo?.split(' ')[0] || 'Usuario'
+  const primerNombre = profile?.nombre_completo || 'Usuario'
 
   return (
     <div>

@@ -40,10 +40,10 @@ export const HELP_CONTENT = {
   ],
 
   portalCliente: [
-    'Este es tu portal personal como cliente de ControlPlag.',
+    'Este es tu portal personal como cliente de {{empresa}}.',
     'En "Historial" puedes ver todos los servicios realizados en tu propiedad.',
     'En "Certificados" puedes descargar los certificados de cada servicio finalizado.',
-    'En "Documentos" puedes visualizar y descargar los documentos que validan y acreditan a ControlPlag.',
+    'En "Documentos" puedes visualizar y descargar los documentos que validan y acreditan a {{empresa}}.',
     'En "Solicitudes" puedes pedir un nuevo servicio y hacer seguimiento a su estado (pendiente, cotizada, programada).',
   ],
 
