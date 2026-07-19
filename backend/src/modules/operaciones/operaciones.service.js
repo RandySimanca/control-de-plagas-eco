@@ -350,7 +350,7 @@ export async function updateSolicitud(id, body, user) {
     if (sol.cliente_id !== profile?.cliente_id) throw new AppError('No autorizado', 403)
     
     // Un cliente solo puede actualizar estos campos específicos al responder a una cotización
-    const allowedClientKeys = ['respuesta_cliente', 'respuesta_fecha', 'motivo_rechazo', 'cotizacion_leida_por_cliente']
+    const allowedClientKeys = ['estado', 'respuesta_cliente', 'respuesta_fecha', 'motivo_rechazo', 'cotizacion_leida_por_cliente']
     const keys = Object.keys(body).filter(k => allowedClientKeys.includes(k))
     
     if (keys.length === 0) throw new AppError('No tienes permiso para actualizar estos campos', 403)
