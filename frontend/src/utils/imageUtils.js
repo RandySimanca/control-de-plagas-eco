@@ -1,14 +1,18 @@
 export function getAuthImageUrl(url) {
   if (!url) return url;
   
-  // Solo interceptamos URLs que contengan /uploads/
-  if (typeof url === 'string' && url.includes('/uploads/')) {
-    const token = localStorage.getItem('token');
-    if (token) {
-      // Evitar duplicar el token si ya está presente
-      if (url.includes('token=')) return url;
-      const separator = url.includes('?') ? '&' : '?';
-      return `${url}${separator}token=${token}`;
+  if (typeof url === 'string') {
+    const uploadsIndex = url.indexOf('/uploads/');
+    if (uploadsIndex !== -1) {
+      // Extraemos solo el path a partir de /uploads/ para evitar problemas de CORS o dominios locales (ej. localhost en un devtunnel)
+      let path = url.substring(uploadsIndex);
+      
+      const token = localStorage.getItem('token');
+      if (token && !path.includes('token=')) {
+        const separator = path.includes('?') ? '&' : '?';
+        path = `${path}${separator}token=${token}`;
+      }
+      return path;
     }
   }
   return url;

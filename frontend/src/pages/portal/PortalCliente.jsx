@@ -592,7 +592,8 @@ useEffect(() => {
                       key={doc.id} 
                       href={getAuthImageUrl(doc.url)} 
                       target="_blank" 
-                      rel="noopener noreferrer" 
+                      rel="noopener noreferrer"
+                      download
                       className="group bg-white rounded-3xl p-4 border border-dark-100/80 shadow-sm hover:shadow-xl hover:shadow-blue-500/10 hover:border-blue-300 hover:-translate-y-1 transition-all duration-300 flex items-center gap-4 relative overflow-hidden"
                     >
                       <div className="absolute inset-0 bg-linear-to-r from-blue-50/0 to-blue-50/0 group-hover:from-blue-50/50 transition-colors pointer-events-none"></div>

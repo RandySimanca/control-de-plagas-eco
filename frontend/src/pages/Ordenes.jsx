@@ -77,13 +77,14 @@ export default function Ordenes() {
    async function handleSubmit(e) {
      e.preventDefault()
      if (!form.cliente_id) { toast.error('Selecciona un cliente'); return }
+     if (!form.tecnico_id) { toast.error('Selecciona un técnico'); return }
      if (!form.fecha_programada) { toast.error('Selecciona una fecha'); return }
      setSaving(true)
      try {
        const token = localStorage.getItem('token')
        const { data } = await api.post('/ordenes-servicio', {
          cliente_id: form.cliente_id,
-         tecnico_id: form.tecnico_id || profile?.id,
+         tecnico_id: form.tecnico_id,
          fecha_programada: form.fecha_programada,
          tipo_plaga: Array.isArray(form.tipo_plaga) ? form.tipo_plaga.join(', ') : form.tipo_plaga,
          observaciones: form.observaciones,
@@ -197,9 +198,9 @@ export default function Ordenes() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="label-field">Técnico</label>
+                  <label className="label-field">Técnico *</label>
                   <select className="input-field" value={form.tecnico_id || ''} onChange={e => setForm(p => ({ ...p, tecnico_id: e.target.value }))}>
-                    <option value="">Sin asignar</option>
+                    <option value="">Seleccione un técnico...</option>
                     {tecnicos.map(t => <option key={t.id} value={t.id}>{t.nombre_completo}</option>)}
                   </select>
                 </div>
