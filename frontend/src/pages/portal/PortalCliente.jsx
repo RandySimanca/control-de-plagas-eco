@@ -43,6 +43,7 @@ export default function PortalCliente() {
     fecha_preferida: ''
   })
   const [otroServicio, setOtroServicio] = useState('')
+  const [cantidadTanques, setCantidadTanques] = useState('')
 
 useEffect(() => {
     async function load() {
@@ -159,12 +160,18 @@ useEffect(() => {
     setSaving(true)
     try {
       const token = localStorage.getItem('token')
+      const tiposFinales = form.tipo_servicio.includes('Otro') && otroServicio
+        ? form.tipo_servicio.map(t => t === 'Otro' ? otroServicio : t)
+        : form.tipo_servicio
+
+      const infotanques = form.tipo_servicio.includes('Lavado de Tanques') && cantidadTanques
+        ? `\n\n[Lavado de Tanques] Cantidad de tanques a lavar: ${cantidadTanques}`
+        : ''
+
       const data = await api.post('/solicitudes-servicio', {
         cliente_id: profile.cliente_id,
-        tipo_servicio: form.tipo_servicio.includes('Otro') && otroServicio 
-          ? form.tipo_servicio.map(t => t === 'Otro' ? otroServicio : t).join(', ') 
-          : form.tipo_servicio.join(', '),
-        descripcion: form.descripcion,
+        tipo_servicio: tiposFinales.join(', '),
+        descripcion: form.descripcion + infotanques,
         direccion: form.direccion,
         fecha_preferida: form.fecha_preferida || null,
         estado: 'pendiente'
@@ -174,6 +181,7 @@ useEffect(() => {
       setSolicitudes([data, ...solicitudes]) // Add directly to UI
       setForm({ tipo_servicio: ['Desinsectación'], descripcion: '', direccion: profile?.direccion || '', fecha_preferida: '' })
       setOtroServicio('')
+      setCantidadTanques('')
       setTab('solicitudes')
     } catch (err) {
       console.error('Error al enviar solicitud:', err)
@@ -239,7 +247,7 @@ useEffect(() => {
               <div className="space-y-1.5">
                 <label className="text-sm font-semibold text-dark-700">Tipo de Servicio</label>
                 <div className="flex flex-wrap gap-2 p-2 bg-white border border-dark-200 rounded-xl shadow-sm">
-                  {['Desinsectación', 'Desratización', 'Desinfección', 'Control de Aves', 'Otro'].map(tipo => {
+                  {['Desinsectación', 'Desratización', 'Desinfección', 'Control de Aves', 'Lavado de Tanques', 'Otro'].map(tipo => {
                     const seleccionado = form.tipo_servicio.includes(tipo);
                     return (
                       <button
@@ -266,6 +274,25 @@ useEffect(() => {
                   })}
                 </div>
               </div>
+
+              {form.tipo_servicio.includes('Lavado de Tanques') && (
+                <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <label className="text-sm font-semibold text-dark-700">¿Cuántos tanques se van a lavar? *</label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="number"
+                      min="1"
+                      max="999"
+                      className="w-full bg-white border border-dark-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 rounded-xl px-4 py-3 text-sm transition-all shadow-sm"
+                      placeholder="Ej: 3"
+                      value={cantidadTanques}
+                      onChange={(e) => setCantidadTanques(e.target.value)}
+                      required={form.tipo_servicio.includes('Lavado de Tanques')}
+                    />
+                  </div>
+                  <p className="text-xs text-dark-400">Esta información nos ayuda a darte una cotización exacta.</p>
+                </div>
+              )}
 
               {form.tipo_servicio.includes('Otro') && (
                 <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-300">

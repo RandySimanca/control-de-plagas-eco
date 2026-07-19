@@ -17,6 +17,7 @@ export default function PortalSolicitudForm() {
     fecha_preferida: ''
   })
   const [otroServicio, setOtroServicio] = useState('')
+  const [cantidadTanques, setCantidadTanques] = useState('')
 
 async function handleSubmit(e) {
       e.preventDefault()
@@ -31,12 +32,19 @@ async function handleSubmit(e) {
 
       try {
         const token = localStorage.getItem('token')
+        const tiposFinales = formData.tipo_servicio.includes('Otro') && otroServicio
+            ? formData.tipo_servicio.map(t => t === 'Otro' ? otroServicio : t)
+            : formData.tipo_servicio
+
+        // Añadir cantidad de tanques a la descripción si aplica
+        const infotanques = formData.tipo_servicio.includes('Lavado de Tanques') && cantidadTanques
+          ? `\n\n[Lavado de Tanques] Cantidad de tanques a lavar: ${cantidadTanques}`
+          : ''
+
         await api.post('/solicitudes-servicio', {
           cliente_id: profile.cliente_id,
-          tipo_servicio: formData.tipo_servicio.includes('Otro') && otroServicio 
-            ? formData.tipo_servicio.map(t => t === 'Otro' ? otroServicio : t).join(', ') 
-            : formData.tipo_servicio.join(', '),
-          descripcion: formData.descripcion,
+          tipo_servicio: tiposFinales.join(', '),
+          descripcion: formData.descripcion + infotanques,
           direccion: formData.direccion,
           fecha_preferida: formData.fecha_preferida || null,
           estado: 'pendiente'
@@ -80,7 +88,7 @@ async function handleSubmit(e) {
             <div>
               <label className="label-field">Tipo de Servicio</label>
               <div className="flex flex-wrap gap-2 p-2 border border-dark-200 rounded-xl bg-white">
-                {['Desinsectación', 'Desratización', 'Desinfección', 'Control de Aves', 'Otro'].map(tipo => {
+                {['Desinsectación', 'Desratización', 'Desinfección', 'Control de Aves', 'Lavado de Tanques', 'Otro'].map(tipo => {
                   const seleccionado = formData.tipo_servicio.includes(tipo);
                   return (
                     <button
@@ -107,6 +115,25 @@ async function handleSubmit(e) {
                 })}
               </div>
             </div>
+
+            {formData.tipo_servicio.includes('Lavado de Tanques') && (
+              <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+                <label className="label-field">¿Cuántos tanques se van a lavar? *</label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="number"
+                    min="1"
+                    max="999"
+                    className="input-field w-36 text-center text-lg font-bold"
+                    placeholder="Ej: 3"
+                    value={cantidadTanques}
+                    onChange={(e) => setCantidadTanques(e.target.value)}
+                    required={formData.tipo_servicio.includes('Lavado de Tanques')}
+                  />
+                  <p className="text-sm text-dark-500">Esta información nos ayuda a darte una cotización exacta.</p>
+                </div>
+              </div>
+            )}
 
             {formData.tipo_servicio.includes('Otro') && (
               <div className="animate-in fade-in slide-in-from-top-2 duration-300">
