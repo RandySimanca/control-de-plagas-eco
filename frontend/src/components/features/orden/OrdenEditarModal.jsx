@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X, Save, Loader2 } from 'lucide-react'
+import { X, Save, Loader2, Droplets } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../../../lib/api'
 import { parseTipoPlaga } from '../../../utils/tipoPlaga'
@@ -14,7 +14,9 @@ export default function OrdenEditarModal({ orden, onClose, onSave, queueOrExecut
     fecha_programada: orden.fecha_programada ? orden.fecha_programada.split('T')[0] : '',
     tipo_plaga: parseTipoPlaga(orden.tipo_plaga),
     observaciones: orden.observaciones || '',
-    estado: orden.estado || 'programada'
+    estado: orden.estado || 'programada',
+    lavado_tanques: orden.lavado_tanques || false,
+    lavado_tanques_cantidad: orden.lavado_tanques_cantidad || 1
   })
 
   useEffect(() => {
@@ -44,6 +46,8 @@ export default function OrdenEditarModal({ orden, onClose, onSave, queueOrExecut
         tipo_plaga: Array.isArray(form.tipo_plaga) ? form.tipo_plaga.join(', ') : form.tipo_plaga,
         observaciones: form.observaciones,
         estado: form.estado,
+        lavado_tanques: form.lavado_tanques,
+        lavado_tanques_cantidad: form.lavado_tanques ? form.lavado_tanques_cantidad : 0,
         updated_at: new Date().toISOString()
       }
       
@@ -122,7 +126,7 @@ export default function OrdenEditarModal({ orden, onClose, onSave, queueOrExecut
           <div>
             <label className="label-field">Tipo de Control</label>
             <div className="flex flex-wrap gap-2 p-2 border rounded-md">
-              {['Desinsectación', 'Desratización', 'Desinfección', 'Desodoracion'].map(tipo => {
+              {['Desinsectación', 'Desratización', 'Desinfección', 'Desodoracion', 'Lavado de Tanques'].map(tipo => {
                 const seleccionado = form.tipo_plaga.includes(tipo);
                 return (
                   <button
@@ -132,7 +136,17 @@ export default function OrdenEditarModal({ orden, onClose, onSave, queueOrExecut
                       const nuevos = seleccionado 
                         ? form.tipo_plaga.filter(t => t !== tipo)
                         : [...form.tipo_plaga, tipo];
-                      setForm(f => ({ ...f, tipo_plaga: nuevos }))
+                      
+                      if (tipo === 'Lavado de Tanques') {
+                        setForm(f => ({ 
+                          ...f, 
+                          tipo_plaga: nuevos,
+                          lavado_tanques: !seleccionado,
+                          lavado_tanques_cantidad: !seleccionado ? (f.lavado_tanques_cantidad || 1) : 0
+                        }))
+                      } else {
+                        setForm(f => ({ ...f, tipo_plaga: nuevos }))
+                      }
                     }}
                     className={`px-3 py-1 rounded-full text-sm border transition-colors ${
                       seleccionado
@@ -145,6 +159,18 @@ export default function OrdenEditarModal({ orden, onClose, onSave, queueOrExecut
                 )
               })}
             </div>
+            {form.lavado_tanques && (
+              <div className="mt-3 flex items-center gap-2 p-2 bg-cyan-50 border border-cyan-200 rounded-md">
+                <label className="text-sm text-cyan-800 font-medium">Cantidad de tanques:</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={form.lavado_tanques_cantidad || 1}
+                  onChange={e => setForm(f => ({ ...f, lavado_tanques_cantidad: parseInt(e.target.value) || 1 }))}
+                  className="w-16 text-center border border-cyan-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                />
+              </div>
+            )}
           </div>
 
           <div>
@@ -157,6 +183,8 @@ export default function OrdenEditarModal({ orden, onClose, onSave, queueOrExecut
               placeholder="Notas adicionales..."
             />
           </div>
+
+
 
           <div className="flex gap-3 pt-2">
             <button type="submit" disabled={saving} className="btn-primary flex-1">

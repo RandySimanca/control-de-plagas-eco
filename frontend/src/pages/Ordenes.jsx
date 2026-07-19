@@ -11,7 +11,8 @@ import { parseTipoPlaga } from '../utils/tipoPlaga'
 
 const EMPTY_FORM = {
   cliente_id: '', tecnico_id: '', fecha_programada: new Date().toISOString().split('T')[0],
-  tipo_plaga: [], observaciones: '', estado: 'programada'
+  tipo_plaga: [], observaciones: '', estado: 'programada',
+  lavado_tanques: false, lavado_tanques_cantidad: 1
 }
 
 
@@ -86,7 +87,9 @@ export default function Ordenes() {
          fecha_programada: form.fecha_programada,
          tipo_plaga: Array.isArray(form.tipo_plaga) ? form.tipo_plaga.join(', ') : form.tipo_plaga,
          observaciones: form.observaciones,
-         estado: form.estado
+         estado: form.estado,
+         lavado_tanques: form.lavado_tanques,
+         lavado_tanques_cantidad: form.lavado_tanques ? form.lavado_tanques_cantidad : 0
        }, { token })
        
        // Si viene de una solicitud, actualizar el estado de la misma
@@ -212,7 +215,7 @@ export default function Ordenes() {
   <div>
     <label className="label-field">Tipo de Control</label>
     <div className="flex flex-wrap gap-2 p-2 border rounded-md">
-      {['Desinsectación', 'Desratización', 'Desinfección', 'Desodoracion'].map(tipo => {
+      {['Desinsectación', 'Desratización', 'Desinfección', 'Desodoracion', 'Lavado de Tanques'].map(tipo => {
         const seleccionado = (form.tipo_plaga || []).includes(tipo);
         return (
           <button
@@ -221,9 +224,19 @@ export default function Ordenes() {
             onClick={() =>
               setForm(p => {
                 const actuales = p.tipo_plaga || [];
-                const nuevos = actuales.includes(tipo)
+                const isSelected = actuales.includes(tipo);
+                const nuevos = isSelected
                   ? actuales.filter(t => t !== tipo) // quitar si ya estaba
                   : [...actuales, tipo];              // agregar si no estaba
+                
+                if (tipo === 'Lavado de Tanques') {
+                  return { 
+                    ...p, 
+                    tipo_plaga: nuevos,
+                    lavado_tanques: !isSelected,
+                    lavado_tanques_cantidad: !isSelected ? (p.lavado_tanques_cantidad || 1) : 0
+                  };
+                }
                 return { ...p, tipo_plaga: nuevos };
               })
             }
@@ -238,6 +251,18 @@ export default function Ordenes() {
         );
       })}
     </div>
+    {form.lavado_tanques && (
+      <div className="mt-3 flex items-center gap-2 p-2 bg-cyan-50 border border-cyan-200 rounded-md">
+        <label className="text-sm text-cyan-800 font-medium">Cantidad de tanques:</label>
+        <input
+          type="number"
+          min="1"
+          value={form.lavado_tanques_cantidad || 1}
+          onChange={e => setForm(p => ({ ...p, lavado_tanques_cantidad: parseInt(e.target.value) || 1 }))}
+          className="w-16 text-center border border-cyan-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400"
+        />
+      </div>
+    )}
   </div>
 
   <div>
@@ -275,6 +300,8 @@ export default function Ordenes() {
                 <label className="label-field">Observaciones</label>
                 <textarea className="input-field" rows={2} value={form.observaciones || ''} onChange={e => setForm(p => ({ ...p, observaciones: e.target.value }))} placeholder="Notas adicionales del servicio..." />
               </div>
+
+
 
               <div className="flex gap-3 pt-1 pb-1">
                 <button type="submit" disabled={saving} className="btn-primary flex-1">

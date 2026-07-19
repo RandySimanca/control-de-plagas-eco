@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { ArrowLeft, Edit, Calendar, User, MapPin, Play, CheckCircle2, Trash2, MessageSquare } from 'lucide-react'
+import { ArrowLeft, Edit, Calendar, User, MapPin, Play, CheckCircle2, Trash2, MessageSquare, Droplets } from 'lucide-react'
 import { parseTipoPlaga } from '../../../utils/tipoPlaga'
 
 export default function OrdenHeader({ 
@@ -143,6 +143,25 @@ export default function OrdenHeader({
     )}
   </div>
 </div>
+
+      {/* Lavado de Tanques */}
+      {orden.lavado_tanques && (
+        <div className="card lg:col-span-2 relative mb-6 border-l-4 border-cyan-500 bg-cyan-50">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-cyan-100 flex items-center justify-center shrink-0">
+              <Droplets className="w-5 h-5 text-cyan-600" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-cyan-800">Lavado de Tanques</h2>
+              <p className="text-sm text-cyan-700">
+                Esta orden incluye el lavado de{' '}
+                <span className="font-bold text-cyan-900 text-lg">{orden.lavado_tanques_cantidad}</span>{' '}
+                tanque{orden.lavado_tanques_cantidad !== 1 ? 's' : ''}.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="card lg:col-span-2 relative mb-6">
         <h2 className="text-lg font-bold text-dark-900 flex items-center gap-2 mb-4">
