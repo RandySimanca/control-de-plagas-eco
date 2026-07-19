@@ -70,6 +70,7 @@ async function seedDemoData () {
     RETURNING id, nombre
   `)
   console.log(`  🏢 ${clientes.length} clientes de demo creados.`)
+  void clientes
 
   // ── 2. Técnicos ───────────────────────────────────────────────────────────
   const techPassword = await bcrypt.hash('Tecnico123', SALT_ROUNDS)
@@ -81,63 +82,8 @@ async function seedDemoData () {
     RETURNING id, nombre_completo
   `, [techPassword])
   console.log(`  👷 ${tecnicos.length} técnicos de demo creados.`)
-
-  // ── 3. Órdenes de servicio ────────────────────────────────────────────────
-  const hoy        = new Date()
-  const hace7dias  = new Date(hoy); hace7dias.setDate(hoy.getDate() - 7)
-  const hace14dias = new Date(hoy); hace14dias.setDate(hoy.getDate() - 14)
-  const manana     = new Date(hoy); manana.setDate(hoy.getDate() + 1)
-  const en5dias    = new Date(hoy); en5dias.setDate(hoy.getDate() + 5)
-
-  const toDate = (d) => d.toISOString().split('T')[0]
-
-  const { rows: ordenes } = await pool.query(`
-    INSERT INTO ordenes_servicio (cliente_id, tecnico_id, estado, fecha_programada, tipo_plaga, observaciones, recomendaciones, areas_intervenidas, metodos_aplicacion)
-    VALUES
-      ($1, $3, 'completada',  $5, 'Cucarachas y hormigas',   'Infestación moderada en área de cocina y bodega. Se aplicó gel y barrera perimetral.', 'Sellar fisuras en paredes. Mantener recipientes cerrados.', 'Cocina, Bodega, Baños',        'Gel tóxico, Barrera perimetral'),
-      ($2, $4, 'completada',  $6, 'Roedores',                'Evidencia de roedores en zona de almacenamiento. Se instalaron trampas y cebaderos.', 'Revisar puntos de entrada. Limpiar residuos de alimentos.', 'Almacén, Zona de carga',       'Trampas mecánicas, Cebaderos anticoagulantes'),
-      ($1, $3, 'en_proceso',  $7, 'Insectos voladores',      'Presencia de moscas y mosquitos. Cliente reporta incomodidad para empleados.',         'Instalar mallas en ventanas. Revisar desagües.',            'Oficinas, Baños, Cafetería',   'Nebulización, Trampas adhesivas'),
-      ($2, $4, 'pendiente',   $8, 'Cucarachas',              'Primera visita de diagnóstico. Posible nido detrás de paredes.',                       'No recomendaciones hasta diagnóstico completo.',            NULL,                           NULL),
-      ($1, $3, 'programada',  $9, 'Control preventivo',      'Visita de seguimiento programada. Cliente en contrato anual.',                          'Continuar con el protocolo de mantenimiento.',              'Todas las áreas del contrato', 'Aspersión residual')
-    RETURNING id
-  `, [
-    clientes[0].id,        // $1 — Empresa Demo
-    clientes[1].id,        // $2 — Restaurante El Fogón
-    tecnicos[0].id,        // $3 — Carlos Mendoza
-    tecnicos[1].id,        // $4 — Laura Jiménez
-    toDate(hace14dias),    // $5
-    toDate(hace7dias),     // $6
-    toDate(hoy),           // $7
-    toDate(manana),        // $8
-    toDate(en5dias)        // $9
-  ])
-  console.log(`  📋 ${ordenes.length} órdenes de servicio de demo creadas.`)
-
-  // ── 4. Productos usados (en las órdenes completadas) ─────────────────────
-  await pool.query(`
-    INSERT INTO productos_usados (orden_id, nombre_producto, ingrediente_activo, cantidad, tipo_producto)
-    VALUES
-      ($1, 'Raid Gel Max',        'Indoxacarb 0.6%',    '2 jeringas',  'insecticida'),
-      ($1, 'Blattanex SC',        'Cipermetrina 10%',   '250 ml',      'insecticida'),
-      ($2, 'Pelgar CS',           'Alfacipermetrina 6%','500 ml',      'rodenticida'),
-      ($2, 'Klerat Pellets',      'Brodifacum 0.005%',  '10 cebos',    'rodenticida'),
-      ($3, 'Alfacide Plus',       'Alfacipermetrina 4%','1 litro',     'insecticida')
-  `, [ordenes[0].id, ordenes[0].id, ordenes[1].id, ordenes[1].id, ordenes[2].id])
-  console.log('  🧪 Productos usados de demo creados.')
-
-  // ── 5. Actividades de servicio ────────────────────────────────────────────
-  await pool.query(`
-    INSERT INTO actividades_servicio (orden_id, descripcion)
-    VALUES
-      ($1, 'Inspección inicial de todas las áreas del contrato.'),
-      ($1, 'Aplicación de gel tóxico en bordes de gabinetes y electrodomésticos.'),
-      ($1, 'Aplicación de barrera perimetral con Blattanex SC.'),
-      ($2, 'Identificación de 3 puntos de ingreso de roedores.'),
-      ($2, 'Instalación de 8 cebaderos en puntos estratégicos.'),
-      ($3, 'Nebulización de oficinas y baños con Alfacide Plus.')
-  `, [ordenes[0].id, ordenes[0].id, ordenes[0].id, ordenes[1].id, ordenes[1].id, ordenes[2].id])
-  console.log('  📝 Actividades de servicio de demo creadas.')
 }
+
 
 // ─────────────────────────────────────────────
 //  Punto de entrada principal

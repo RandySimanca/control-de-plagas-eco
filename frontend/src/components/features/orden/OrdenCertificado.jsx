@@ -4,6 +4,8 @@ import toast from 'react-hot-toast'
 import api from '../../../lib/api'
 import { abrirCertificado } from '../../../lib/generarCertificado'
 import logoDerosh from '../../../assets/logo Derosh.png'
+import { useConfig } from '../../../contexts/ConfigContext'
+import { generateFolio } from '../../../utils/empresaUtils'
 
 export default function OrdenCertificado({
   orden,
@@ -15,6 +17,7 @@ export default function OrdenCertificado({
   setCertificado
 }) {
   const [generando, setGenerando] = useState(false)
+  const { nombreEmpresa } = useConfig()
 
   async function prepareDataForReport(folioValue) {
     const token = localStorage.getItem('token')
@@ -58,7 +61,7 @@ export default function OrdenCertificado({
   async function handleGenerarCertificado() {
     setGenerando(true)
     try {
-      const folio = `PC-${Date.now().toString(36).toUpperCase()}`
+      const folio = generateFolio(nombreEmpresa)
       
       // Guardar registro del certificado
       if (!certificado) {

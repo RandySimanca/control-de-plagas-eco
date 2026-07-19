@@ -9,6 +9,8 @@ import toast from 'react-hot-toast'
 import { confirmDelete, successAlert } from '../lib/alerts'
 import HelpButton from '../components/features/HelpButton'
 import { HELP_CONTENT } from '../lib/helpContent'
+import { useConfig } from '../contexts/ConfigContext'
+import { generateFolio } from '../utils/empresaUtils'
 
 import {
   OrdenHeader,
@@ -23,6 +25,7 @@ import {
 
 export default function OrdenDetalle() {
   const { id } = useParams()
+  const { nombreEmpresa } = useConfig()
   const navigate = useNavigate()
   const { isAdmin, profile } = useAuth()
   const { isOnline } = useOffline()
@@ -122,7 +125,7 @@ export default function OrdenDetalle() {
       if (nuevoEstado === 'completada') {
         updates.fecha_completada = new Date().toISOString().split('T')[0]
         if (!certificado) {
-          const folio = `PC-${Date.now().toString(36).toUpperCase()}`
+          const folio = generateFolio(nombreEmpresa)
           await queueOrExecute('certificados', 'insert', { orden_id: id, folio }, id)
           setCertificado({ folio })
         }
