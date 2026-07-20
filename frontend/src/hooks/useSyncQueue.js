@@ -33,7 +33,6 @@ export function useSyncQueue() {
       const endpoint = `/${table.replace(/_/g, '-')}` // Convertir table_name a table-name
       let result
 
-      try {
         if (operation === 'insert') {
           const res = await api.post(endpoint, payload, { token })
           result = { data: [res.data || res], error: null }
@@ -49,9 +48,6 @@ export function useSyncQueue() {
           result = { data: [res.data || res], error: null }
         }
         return { ...result, queued: false }
-      } catch (error) {
-        throw error
-      }
     }
 
     // Sin conexión: encolar la operación
