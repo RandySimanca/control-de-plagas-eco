@@ -69,7 +69,7 @@ export default defineConfig({
         clientsClaim: true,
         skipWaiting: true,
         navigateFallback: 'index.html',
-        navigateFallbackAllowlist: [/^\/(?!api)/]
+        navigateFallbackAllowlist: [/^\/(?!api|uploads)/]
       }
     })
   ],

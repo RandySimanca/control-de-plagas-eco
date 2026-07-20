@@ -3,6 +3,7 @@ import { api } from '../../lib/api'
 import { FileText, Upload, Trash2, FilePlus, Loader2, ExternalLink } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { confirmDelete, successAlert } from '../../lib/alerts'
+import { getAuthImageUrl } from '../../utils/imageUtils'
 
 export default function DocumentosLegales() {
   const [documentos, setDocumentos] = useState([])
@@ -82,8 +83,12 @@ export default function DocumentosLegales() {
 
   async function descargarDoc(doc) {
     try {
-      // Open the public URL in a new tab to download
-      window.open(doc.url, '_blank')
+      const urlWithToken = getAuthImageUrl(doc.url)
+      const a = document.createElement('a')
+      a.href = urlWithToken
+      a.target = '_blank'
+      a.download = doc.nombre + '.pdf'
+      a.click()
     } catch (err) {
       console.error(err)
       toast.error('Error al descargar documento')
