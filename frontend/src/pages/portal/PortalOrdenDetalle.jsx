@@ -4,7 +4,7 @@ import api from '../../lib/api'
 
 import { 
   ArrowLeft, Calendar, User, MapPin, Package, 
-  FileText, Camera, Clock, History, MessageSquare, Download, CheckCircle2
+  FileText, Camera, Clock, History, MessageSquare, Download, CheckCircle2, ShieldCheck
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { abrirCertificado } from '../../lib/generarCertificado'
@@ -295,7 +295,10 @@ export default function PortalOrdenDetalle() {
                 <CheckCircle2 className="w-8 h-8" />
                 <h3 className="text-xl font-bold">Servicio Finalizado Exitosamente</h3>
               </div>
-              <p className="text-primary-100">Ya puede descargar su certificado de control de plagas y el informe detallado.</p>
+              {certificado
+                ? <p className="text-primary-100">Ya puede descargar su certificado de control de plagas y el informe detallado.</p>
+                : <p className="text-primary-100">Su certificado está siendo revisado por nuestro equipo. Lo notificaremos cuando esté disponible.</p>
+              }
             </div>
             {certificado ? (
               <button 
@@ -307,7 +310,10 @@ export default function PortalOrdenDetalle() {
                 Descargar Certificado PDF
               </button>
             ) : (
-              <p className="bg-primary-500/50 px-4 py-2 rounded-lg text-sm">El certificado se está procesando...</p>
+              <div className="bg-primary-500/50 px-4 py-3 rounded-xl text-sm flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 opacity-80" />
+                <span>En revisión por el administrador...</span>
+              </div>
             )}
           </div>
         )}

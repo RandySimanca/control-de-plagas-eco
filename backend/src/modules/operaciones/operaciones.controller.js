@@ -17,6 +17,8 @@ export const getLatestCertificadoByOrden = catchAsync(async (req, res) => res.js
 export const listCertificados = catchAsync(async (req, res) => res.json({ success: true, data: await service.listCertificados(req.user) }))
 export const createCertificado = catchAsync(async (req, res) => res.status(201).json({ success: true, data: await service.createCertificado(req.body, req.user) }))
 export const updateCertificado = catchAsync(async (req, res) => res.json({ success: true, data: await service.updateCertificado(req.params.id, req.body, req.user) }))
+export const aprobarCertificado = catchAsync(async (req, res) => res.json({ success: true, data: await service.aprobarCertificado(req.params.id, req.user) }))
+export const rechazarCertificado = catchAsync(async (req, res) => res.json({ success: true, data: await service.rechazarCertificado(req.params.id, req.user) }))
 
 export const listActividades = catchAsync(async (req, res) => res.json({ success: true, data: await service.listActividades(req.query.orden_id, req.user) }))
 export const createActividad = catchAsync(async (req, res) => res.status(201).json({ success: true, data: await service.createActividad(req.body, req.user) }))

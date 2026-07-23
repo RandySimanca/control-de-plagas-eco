@@ -151,21 +151,29 @@ export async function getEstacionesByOrden(ordenId, user) {
 }
 export async function getLatestCertificadoByOrden(ordenId, user) {
   await assertOrdenAccess(ordenId, user)
-  const { rows } = await pool.query('SELECT * FROM certificados WHERE orden_id = $1 ORDER BY created_at DESC LIMIT 1', [ordenId])
+  // Los clientes solo pueden ver certificados aprobados
+  const aprobadoFilter = user.role === 'cliente' ? ' AND aprobado = true' : ''
+  const { rows } = await pool.query(`SELECT * FROM certificados WHERE orden_id = $1${aprobadoFilter} ORDER BY created_at DESC LIMIT 1`, [ordenId])
   return rows[0] || null
 }
 
 export async function listCertificados(user) {
   const params = []
-  let where = ''
+  const conditions = []
+
   if (user.role === 'tecnico') {
     params.push(user.id)
-    where = `WHERE o.tecnico_id = $1`
+    conditions.push(`o.tecnico_id = $${params.length}`)
   } else if (user.role === 'cliente') {
     const profile = await getProfile(user.id)
     params.push(profile?.cliente_id || null)
-    where = `WHERE o.cliente_id = $1`
+    conditions.push(`o.cliente_id = $${params.length}`)
+    // Los clientes solo ven certificados aprobados por el admin
+    conditions.push('c.aprobado = true')
   }
+
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
+
   const { rows } = await pool.query(
     `
       SELECT c.*, row_to_json(o) AS ordenes_servicio
@@ -182,6 +190,32 @@ export async function listCertificados(user) {
     params
   )
   return rows
+}
+
+export async function aprobarCertificado(id, user) {
+  if (user.role !== 'admin') throw new AppError('Solo administradores pueden aprobar certificados', 403)
+  const { rows } = await pool.query(
+    `UPDATE certificados
+     SET aprobado = true, aprobado_por = $2, fecha_aprobacion = NOW(), updated_at = NOW()
+     WHERE id = $1
+     RETURNING *`,
+    [id, user.id]
+  )
+  if (!rows[0]) throw new AppError('Certificado no encontrado', 404)
+  return rows[0]
+}
+
+export async function rechazarCertificado(id, user) {
+  if (user.role !== 'admin') throw new AppError('Solo administradores pueden gestionar certificados', 403)
+  const { rows } = await pool.query(
+    `UPDATE certificados
+     SET aprobado = false, aprobado_por = NULL, fecha_aprobacion = NULL, updated_at = NOW()
+     WHERE id = $1
+     RETURNING *`,
+    [id]
+  )
+  if (!rows[0]) throw new AppError('Certificado no encontrado', 404)
+  return rows[0]
 }
 export async function createCertificado(body, user) {
   await assertOrdenAccess(body.orden_id, user)

@@ -552,7 +552,14 @@ useEffect(() => {
                 {certificados.length === 0 ? (
                   <div className="col-span-full p-12 text-center bg-white rounded-3xl border border-dark-100 shadow-sm">
                     <FileCheck className="w-12 h-12 text-dark-200 mx-auto mb-3" />
-                    <p className="text-dark-500 font-medium">No hay certificados emitidos</p>
+                    {ordenes.some(o => o.estado === 'completada') ? (
+                      <>
+                        <p className="text-dark-700 font-semibold">Su certificado está en revisión</p>
+                        <p className="text-dark-400 text-sm mt-1">Nuestro equipo está verificando el documento. Le notificaremos cuando esté disponible para descarga.</p>
+                      </>
+                    ) : (
+                      <p className="text-dark-500 font-medium">No hay certificados emitidos</p>
+                    )}
                   </div>
                 ) : (
                   certificados.map(cert => (
@@ -579,6 +586,7 @@ useEffect(() => {
                 )}
               </div>
             )}
+
 
             {/* TAB CONTENT: DOCUMENTOS */}
             {tab === 'documentos' && (

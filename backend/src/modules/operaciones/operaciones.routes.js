@@ -17,6 +17,8 @@ router.delete('/solicitudes-servicio/:id', controller.deleteSolicitud)
 router.get('/certificados', controller.listCertificados)
 router.post('/certificados', controller.createCertificado)
 router.put('/certificados/:id', controller.updateCertificado)
+router.patch('/certificados/:id/aprobar', controller.aprobarCertificado)
+router.patch('/certificados/:id/rechazar', controller.rechazarCertificado)
 
 // Explicit routes for compatibility with older endpoints are now handled by routes.js mounts
 
