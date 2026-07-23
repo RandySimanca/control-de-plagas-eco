@@ -362,40 +362,42 @@ useEffect(() => {
 
       {/* -- Page Content -- */}
       <div className="bg-dark-900">
-        <header className="sticky top-0 z-40 bg-dark-900/90 backdrop-blur-xl border-b border-dark-800">
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+        <header className="relative z-40 bg-primary-700 sm:bg-dark-900/90 sm:backdrop-blur-xl border-b border-primary-800 sm:border-dark-800 text-white shadow-md sm:shadow-none">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3.5 sm:py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               {logoUrl ? (
-                <div className="w-10 h-10 bg-white rounded-xl shadow-md flex items-center justify-center p-1 shrink-0 overflow-hidden">
+                <div className="w-9 h-9 sm:w-10 sm:h-10 bg-white rounded-xl shadow-md flex items-center justify-center p-1 shrink-0 overflow-hidden">
                   <img src={getAuthImageUrl(logoUrl)} alt="Logo Empresa" className="w-full h-full object-contain" />
                 </div>
               ) : (
-                <div className="p-2 bg-linear-to-br from-primary-500 to-primary-600 rounded-xl shadow-md">
+                <div className="p-2 bg-white/20 sm:bg-linear-to-br sm:from-primary-500 sm:to-primary-600 rounded-xl shadow-md">
                   <Bug className="w-5 h-5 text-white" />
                 </div>
               )}
-              <span className="font-bold text-white tracking-tight hidden sm:block">Portal de {nombreEmpresa}</span>
+              <span className="font-bold text-white tracking-tight text-base sm:text-lg truncate max-w-[180px] sm:max-w-none">
+                <span className="hidden sm:inline">Portal de </span>{nombreEmpresa}
+              </span>
             </div>
             <div className="flex items-center gap-2 sm:gap-3">
               {canInstall && (
                 <button 
                   onClick={promptInstall} 
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-dark-900 bg-white hover:bg-primary-50 rounded-lg transition-colors shadow-sm"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-primary-900 bg-white hover:bg-primary-50 rounded-lg transition-colors shadow-xs"
                 >
                   <Download className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Instalar App</span>
                 </button>
               )}
               <button 
                 onClick={() => setShowPwdModal(true)} 
-                className="p-2.5 text-dark-300 hover:text-white hover:bg-dark-800 rounded-xl transition-colors"
+                className="p-2 sm:p-2.5 text-white/80 hover:text-white hover:bg-white/10 rounded-xl transition-colors"
                 title="Cambiar Contraseña"
               >
                 <Key className="w-5 h-5" />
               </button>
-              <div className="w-px h-6 bg-dark-700 mx-1"></div>
+              <div className="w-px h-6 bg-white/20 sm:bg-dark-700 mx-0.5 sm:mx-1"></div>
               <button 
                 onClick={handleLogout} 
-                className="p-2.5 text-red-400 hover:bg-red-500/10 hover:text-red-300 rounded-xl transition-colors flex items-center gap-2" 
+                className="p-2 sm:p-2.5 text-red-200 hover:bg-red-500/20 hover:text-white rounded-xl transition-colors flex items-center gap-2" 
                 title="Cerrar Sesión"
               >
                 <LogOut className="w-5 h-5" />

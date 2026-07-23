@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import {
   LayoutDashboard, Users, ClipboardList, FileCheck, UserCog,
   Menu, X, LogOut, Shield, Bug, Download, ClipboardCheck,
-  WifiOff, RefreshCw, Key
+  WifiOff, RefreshCw, Key, Search, Bell, ChevronDown
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useInstallPrompt } from '../../hooks/useInstallPrompt'
@@ -89,9 +89,9 @@ export default function Layout() {
   }
 
   const linkClasses = ({ isActive }) =>
-    `flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200 text-sm font-medium ${isActive
-      ? 'bg-primary-600 text-white shadow-md shadow-primary-600/25'
-      : 'text-dark-600 hover:bg-dark-100 hover:text-dark-900'
+    `flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200 text-sm font-semibold ${isActive
+      ? 'bg-primary-50 text-primary-700'
+      : 'text-dark-500 hover:bg-dark-50 hover:text-dark-900'
     }`
 
   return (
@@ -114,36 +114,21 @@ export default function Layout() {
         </div>
       )}
 
-      {/* Cabecera móvil */}
-      <header className={`md:hidden flex items-center justify-between px-4 py-3 bg-white border-b border-dark-200 z-30`}>
-        <div className="flex items-center gap-2">
-          {logoUrl ? (
-            <img src={getAuthImageUrl(logoUrl)} alt="Logo Empresa" className="w-8 h-8 rounded-lg object-contain bg-white" />
-          ) : (
-            <Bug className="w-6 h-6 text-primary-600" />
-          )}
-          <span className="font-bold text-lg text-dark-900 truncate max-w-[150px]">{nombreEmpresa}</span>
-        </div>
-        <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 rounded-lg hover:bg-dark-100">
-          {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-        </button>
-      </header>
-
       {/* Fondo oscuro (overlay) */}
       {sidebarOpen && (
-        <div className="md:hidden fixed inset-0 bg-black/40 z-20" onClick={() => setSidebarOpen(false)} />
+        <div className="md:hidden fixed inset-0 bg-black/50 z-40" onClick={() => setSidebarOpen(false)} />
       )}
 
       {/* Barra lateral */}
       <aside className={`
-         fixed md:static inset-y-0 left-0 z-30 w-64 bg-green-200 border-r border-dark-200
+         fixed md:static inset-y-0 left-0 z-50 w-64 bg-white border-r border-dark-100
          transform transition-transform duration-300 ease-in-out
          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0
-         flex flex-col
+         flex flex-col shadow-[4px_0_24px_rgba(0,0,0,0.02)]
        `}>
         {/* Logo */}
-        <div className="hidden md:flex items-center gap-3 px-6 py-5 border-b border-dark-100 shrink-0">
-          <div className="w-10 h-10 bg-primary-600 rounded-xl flex items-center justify-center shrink-0 overflow-hidden">
+        <div className="hidden md:flex items-center gap-3 px-6 py-6 shrink-0">
+          <div className="w-10 h-10 bg-primary-600 rounded-xl flex items-center justify-center shrink-0 overflow-hidden shadow-sm shadow-primary-600/20">
             {logoUrl ? (
               <img src={getAuthImageUrl(logoUrl)} alt="Logo Empresa" className="w-full h-full object-contain bg-white" />
             ) : (
@@ -154,7 +139,7 @@ export default function Layout() {
             <h1 className={`font-bold ${nombreEmpresa.length > 15 ? 'text-base' : 'text-lg'} text-dark-900 leading-tight truncate`} title={nombreEmpresa}>
               {nombreEmpresa}
             </h1>
-            <p className="text-xs text-dark-400 truncate" title="Panel operativo de control de plagas">Panel operativo</p>
+            <p className="text-xs font-medium text-dark-400 truncate">Control de Plagas</p>
           </div>
         </div>
       
@@ -236,9 +221,64 @@ export default function Layout() {
       </aside>
 
       {/* Contenido Principal */}
-      <main className="flex-1 overflow-y-auto">
-        <div className="max-w-7xl mx-auto px-4 md:px-8 py-6 md:py-8">
-          <Outlet />
+      <main className="flex-1 flex flex-col overflow-hidden bg-dark-50/50">
+        
+        {/* Cabecera Desktop (Oculta en móvil porque ya hay una) */}
+        <header className="hidden md:flex items-center justify-between px-8 py-4 bg-white/60 backdrop-blur-xl border-b border-dark-100/50 sticky top-0 z-20">
+          <div className="flex-1 flex items-center">
+            {/* El título se renderizará dinámicamente en el Outlet o podemos dejarlo vacío aquí */}
+          </div>
+          <div className="flex items-center gap-6">
+            <div className="relative group">
+              <Search className="w-4 h-4 text-dark-400 absolute left-3 top-1/2 -translate-y-1/2 group-focus-within:text-primary-600 transition-colors" />
+              <input 
+                type="text" 
+                placeholder="Buscar cliente, orden, técnico..." 
+                className="pl-9 pr-4 py-2 w-[280px] bg-white border border-dark-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400 transition-all shadow-sm"
+              />
+            </div>
+            <button className="relative p-2 text-dark-400 hover:text-dark-900 transition-colors">
+              <Bell className="w-5 h-5" />
+              {requestCount > 0 && (
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary-500 rounded-full ring-2 ring-white"></span>
+              )}
+            </button>
+            <div className="flex items-center gap-2 cursor-pointer hover:bg-dark-50 py-1 px-2 rounded-xl transition-colors">
+              <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center border border-primary-200">
+                <Shield className="w-4 h-4 text-primary-700" />
+              </div>
+              <ChevronDown className="w-4 h-4 text-dark-400" />
+            </div>
+          </div>
+        </header>
+
+        <div className="flex-1 overflow-y-auto">
+          {/* Cabecera móvil en color verde para técnico/admin */}
+          <header className="md:hidden flex items-center justify-between px-4 py-3 bg-primary-700 text-white border-b border-primary-800 shadow-sm shrink-0">
+            <div className="flex items-center gap-2.5 min-w-0">
+              {logoUrl ? (
+                <div className="w-8 h-8 rounded-lg bg-white p-0.5 shadow-xs overflow-hidden flex items-center justify-center shrink-0">
+                  <img src={getAuthImageUrl(logoUrl)} alt="Logo Empresa" className="w-full h-full object-contain" />
+                </div>
+              ) : (
+                <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center shrink-0">
+                  <Bug className="w-5 h-5 text-white" />
+                </div>
+              )}
+              <span className="font-bold text-base text-white truncate max-w-[180px]">{nombreEmpresa}</span>
+            </div>
+            <button 
+              onClick={() => setSidebarOpen(!sidebarOpen)} 
+              className="p-2 rounded-xl text-white hover:bg-white/10 active:bg-white/20 transition-colors"
+              aria-label="Abrir menú"
+            >
+              {sidebarOpen ? <X className="w-6 h-6 text-white" /> : <Menu className="w-6 h-6 text-white" />}
+            </button>
+          </header>
+
+          <div className="max-w-[1400px] mx-auto px-4 md:px-8 py-6 md:py-8">
+            <Outlet />
+          </div>
         </div>
       </main>
 
