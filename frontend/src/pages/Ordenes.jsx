@@ -258,8 +258,9 @@ export default function Ordenes() {
         <input
           type="number"
           min="1"
-          value={form.lavado_tanques_cantidad || 1}
-          onChange={e => setForm(p => ({ ...p, lavado_tanques_cantidad: parseInt(e.target.value) || 1 }))}
+          value={form.lavado_tanques_cantidad}
+          onChange={e => setForm(p => ({ ...p, lavado_tanques_cantidad: e.target.value === '' ? '' : parseInt(e.target.value) || 1 }))}
+          onBlur={e => setForm(p => ({ ...p, lavado_tanques_cantidad: parseInt(e.target.value) || 1 }))}
           className="w-16 text-center border border-cyan-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400"
         />
       </div>

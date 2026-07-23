@@ -1,7 +1,7 @@
 import { jsPDF } from 'jspdf'
 
 export async function renderCertificado(data) {
-  const { cliente, orden, productos, config, normalized } = data
+  const { cliente, orden, productos, actividades = [], config, normalized } = data
   const { logoData, firmaData, evidences, tipoPlagaTitle, diagnosisText, fechaEjecucion } = normalized
 
   const doc = new jsPDF()
@@ -192,7 +192,35 @@ export async function renderCertificado(data) {
     y += 2
   }
 
-  // Sección 5: Métodos de Aplicación
+  // Sección 5: Bitácora de Actividades
+  const actividadesOrdenadas = [...actividades].sort(
+    (a, b) => new Date(a.created_at) - new Date(b.created_at)
+  )
+
+  if (actividadesOrdenadas.length > 0) {
+    if (y > pageHeight - 50) { doc.addPage(); y = 42 }
+    y = drawSectionHeader('5. Bitácora de Actividades del Servicio', y)
+
+    actividadesOrdenadas.forEach(act => {
+      if (y > pageHeight - 20) { doc.addPage(); y = 42 }
+
+      const fecha = new Date(act.created_at)
+      const hora = fecha.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: false })
+      const dia = fecha.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      const timestamp = `[${dia} ${hora}]`
+
+      doc.setFontSize(9); doc.setFont(undefined, 'bold'); doc.setTextColor(60, 80, 160)
+      doc.text(timestamp, margin + 3, y)
+
+      const descLines = doc.splitTextToSize(act.descripcion || '', pageWidth - 2 * margin - 30)
+      doc.setFont(undefined, 'normal'); doc.setTextColor(50, 50, 50)
+      doc.text(descLines, margin + 35, y)
+      y += Math.max(descLines.length * 4.5, 5) + 3
+    })
+    y += 4
+  }
+
+  // Sección 6: Métodos de Aplicación
   const metodosParsed = (() => {
     if (!orden.metodos_aplicacion) return []
     try {
@@ -205,7 +233,7 @@ export async function renderCertificado(data) {
 
   if (metodosParsed.length > 0) {
     if (y > pageHeight - 40) { doc.addPage(); y = 42 }
-    y = drawSectionHeader('5. Métodos de Aplicación', y)
+    y = drawSectionHeader('6. Métodos de Aplicación', y)
     
     const metodosPorTipo = metodosParsed.reduce((acc, m) => {
       if (!acc[m.tipo]) acc[m.tipo] = []
@@ -228,9 +256,9 @@ export async function renderCertificado(data) {
     y += 2
   }
 
-  // Sección 6: Fotos
+  // Sección 7: Fotos
   if (evidences.length > 0) {
-    doc.addPage(); y = 42; y = drawSectionHeader('6. Resultados y Registro Fotográfico', y)
+    doc.addPage(); y = 42; y = drawSectionHeader('7. Resultados y Registro Fotográfico', y)
     
     const groupedEvidences = evidences.reduce((acc, ev) => {
       const label = ev.label || 'Evidencia General';
@@ -245,7 +273,7 @@ export async function renderCertificado(data) {
     for (const [label, photos] of Object.entries(groupedEvidences)) {
       if (y > pageHeight - 40) {
         doc.addPage(); y = 42; 
-        y = drawSectionHeader('6. Registro Fotográfico (Cont.)', y) 
+        y = drawSectionHeader('7. Registro Fotográfico (Cont.)', y) 
       }
       
       doc.setFontSize(10); doc.setFont(undefined, 'bold'); doc.setTextColor(30, 41, 59);
@@ -259,7 +287,7 @@ export async function renderCertificado(data) {
         
         if (y + imgH > pageHeight - 20) {
           doc.addPage(); y = 42; 
-          y = drawSectionHeader('6. Registro Fotográfico (Cont.) - ' + label, y);
+          y = drawSectionHeader('7. Registro Fotográfico (Cont.) - ' + label, y);
           col = 0;
         }
         
