@@ -7,6 +7,8 @@ import logoDerosh from '../../../assets/logo Derosh.png'
 import { useConfig } from '../../../contexts/ConfigContext'
 import { generateFolio } from '../../../utils/empresaUtils'
 
+import { getAuthImageUrl } from '../../../utils/imageUtils'
+
 export default function OrdenCertificado({
   orden,
   productos,
@@ -23,24 +25,18 @@ export default function OrdenCertificado({
     const token = localStorage.getItem('token')
     const configRes = await api.get('/configuracion', { token })
     const config = configRes.data
-    
-    const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api').replace('/api', '').replace(/\/$/, '')
 
     // Mapear fotos generales
     const fotosMapeadas = fotos.map(f => {
-      let url = f.url
-      if (!url && f.storage_path) {
-        const cleanPath = f.storage_path.replace(/^\//, '')
-        url = `${API_BASE}/uploads/${cleanPath}`
-      }
-      return { ...f, url }
+      let url = f.url || f.storage_path
+      return { ...f, url: getAuthImageUrl(url) }
     })
 
     // Mapear fotos de estaciones
     const estacionesMapeadas = estaciones.map(e => ({
       ...e,
-      foto_antes_url: e.foto_antes_url ? (e.foto_antes_url.startsWith('http') ? e.foto_antes_url : `${API_BASE}/uploads/${e.foto_antes_url.replace(/^\//, '')}`) : null,
-      foto_despues_url: e.foto_despues_url ? (e.foto_despues_url.startsWith('http') ? e.foto_despues_url : `${API_BASE}/uploads/${e.foto_despues_url.replace(/^\//, '')}`) : null
+      foto_antes_url: e.foto_antes_url ? getAuthImageUrl(e.foto_antes_url) : null,
+      foto_despues_url: e.foto_despues_url ? getAuthImageUrl(e.foto_despues_url) : null
     }))
 
     return {

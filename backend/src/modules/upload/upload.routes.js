@@ -6,24 +6,33 @@ import fs from 'fs';
 
 const router = Router();
 
-// Tipos MIME permitidos
+// Tipos MIME permitidos (incluyendo formatos comunes de cámaras móviles como HEIC/HEIF)
 const ALLOWED_MIME_TYPES = new Set([
   'image/jpeg',
+  'image/jpg',
+  'image/pjpeg',
   'image/png',
+  'image/x-png',
   'image/webp',
-  'application/pdf'
+  'image/heic',
+  'image/heif',
+  'application/pdf',
+  'application/octet-stream'
 ]);
 
-// Configure multer to store file in memory
+// Configure multer to store file in memory with 25MB limit for high-res mobile photos
 const storage = multer.memoryStorage();
 const upload = multer({
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  limits: { fileSize: 25 * 1024 * 1024 }, // 25MB limit
   fileFilter (_req, file, cb) {
-    if (ALLOWED_MIME_TYPES.has(file.mimetype)) {
+    const isImageOrPdf = ALLOWED_MIME_TYPES.has(file.mimetype) || 
+      file.mimetype.startsWith('image/') || 
+      /\.(jpg|jpeg|png|webp|heic|heif|pdf)$/i.test(file.originalname);
+    if (isImageOrPdf) {
       cb(null, true)
     } else {
-      cb(new Error(`Tipo de archivo no permitido: ${file.mimetype}. Solo se aceptan JPEG, PNG, WebP y PDF.`))
+      cb(new Error(`Tipo de archivo no permitido: ${file.mimetype}.`))
     }
   }
 });
@@ -58,9 +67,7 @@ router.post('/', authenticate, upload.single('file'), (req, res) => {
   const destPath = path.join(destDir, fileName);
   fs.writeFileSync(destPath, req.file.buffer);
 
-  const protocol = req.protocol;
-  const host = req.get('host');
-  const publicUrl = `${protocol}://${host}/uploads/${safeBucket}/${safeFilePath}`;
+  const publicUrl = `/uploads/${safeBucket}/${safeFilePath}`;
 
   res.json({ publicUrl });
 });

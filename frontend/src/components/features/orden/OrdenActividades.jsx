@@ -36,10 +36,14 @@ export default function OrdenActividades({
 
       if (activityPhotos.length > 0) {
         for (const file of activityPhotos) {
-          const path = `actividades/act_${ordenId}_${Date.now()}_${file.name}`
+          const safeName = file.name ? file.name.replace(/[^a-zA-Z0-9.-]/g, '_') : 'photo.jpg'
+          const path = `actividades/act_${ordenId}_${Date.now()}_${safeName}`
           const dbPayload = { id: generateUUID(), orden_id: ordenId, storage_path: path, descripcion: newActivity.substring(0, 50) }
-          const { publicUrl } = await queuePhoto('fotos-servicio', path, file, file.type, 'fotos_servicio', dbPayload, ordenId)
-          if (!queued) {
+          const { publicUrl, error: photoErr } = await queuePhoto('fotos-servicio', path, file, file.type || 'image/jpeg', 'fotos_servicio', dbPayload, ordenId)
+          if (photoErr) {
+            console.error('Error subiendo foto de actividad:', photoErr)
+            toast.error('Error con foto: ' + photoErr.message)
+          } else if (!queued && publicUrl) {
             setFotos(prev => [...prev, { ...dbPayload, url: publicUrl }])
           }
         }

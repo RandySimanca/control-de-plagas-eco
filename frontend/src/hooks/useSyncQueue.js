@@ -2,6 +2,7 @@ import { useCallback } from 'react'
 import api from '../lib/api'
 import db from '../lib/db'
 import { useOffline } from '../contexts/OfflineContext'
+import { compressImage } from '../utils/imageCompressor'
 
 /**
  * useSyncQueue
@@ -64,14 +65,18 @@ export function useSyncQueue() {
    * Sube una foto si hay conexión, o almacena un Blob localmente para subirlo después.
    * @param {string} bucket - Nombre del bucket de almacenamiento
    * @param {string} path - Ruta destino en el bucket
-   * @param {File|Blob} file - El archivo a subir
+   * @param {File|Blob} rawFile - El archivo a subir
    * @param {string} contentType - Tipo MIME
    * @param {string|null} dbTable - Si se provee, inserta una fila en esta tabla tras la subida exitosa
    * @param {object|null} dbPayload - Payload para el insert en BD (el campo url se rellena automáticamente)
    * @param {string} [ordenId]
    * @returns {{ publicUrl, error, queued }}
    */
-  const queuePhoto = useCallback(async (bucket, path, file, contentType, dbTable = null, dbPayload = null, ordenId = null) => {
+  const queuePhoto = useCallback(async (bucket, path, rawFile, contentType, dbTable = null, dbPayload = null, ordenId = null) => {
+    // Comprimir imagen automáticamente si es un archivo de imagen
+    const file = await compressImage(rawFile)
+    const finalContentType = file.type || contentType || 'image/jpeg'
+
     if (isOnline) {
       const token = localStorage.getItem('token')
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
@@ -85,7 +90,9 @@ export function useSyncQueue() {
         
         if (dbPayload) {
           Object.keys(dbPayload).forEach(key => {
-            formData.append(key, dbPayload[key])
+            if (dbPayload[key] !== undefined && dbPayload[key] !== null) {
+              formData.append(key, dbPayload[key])
+            }
           })
         }
 
@@ -98,8 +105,16 @@ export function useSyncQueue() {
         })
 
         if (!response.ok) {
-          const error = await response.json().catch(() => ({ message: 'Upload failed' }))
-          return { publicUrl: null, error: new Error(error.message || 'Upload failed'), queued: false }
+          let errorMsg = `Error al subir imagen (${response.status})`
+          try {
+            const errData = await response.json()
+            errorMsg = errData.error || errData.message || errorMsg
+          } catch {
+            const text = await response.text().catch(() => '')
+            if (text.includes('413')) errorMsg = 'La imagen es demasiado grande para el servidor'
+          }
+          console.error('Upload failure:', errorMsg)
+          return { publicUrl: null, error: new Error(errorMsg), queued: false }
         }
 
         const data = await response.json()
@@ -112,14 +127,15 @@ export function useSyncQueue() {
 
         return { publicUrl, error: null, queued: false }
       } catch (error) {
+        console.error('Error enviando foto:', error)
         return { publicUrl: null, error, queued: false }
       }
     }
 
     // Sin conexión: almacenar el blob en IndexedDB
-    const blobData = file instanceof Blob ? file : new Blob([file], { type: contentType })
+    const blobData = file instanceof Blob ? file : new Blob([file], { type: finalContentType })
     await db.fotos_pendientes.add({
-      bucket, path, blobData, contentType,
+      bucket, path, blobData, contentType: finalContentType,
       dbTable, dbPayload, ordenId,
       attempts: 0, createdAt: Date.now()
     })

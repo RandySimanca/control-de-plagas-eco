@@ -1,3 +1,4 @@
+import { getAuthImageUrl } from '../../utils/imageUtils'
 import { parseTipoPlaga } from '../../utils/tipoPlaga'
 
 /**
@@ -6,21 +7,12 @@ import { parseTipoPlaga } from '../../utils/tipoPlaga'
 export async function getImgData(url) {
   if (!url) return null
   
-  // Asegurar URL absoluta
-  let finalUrl = url
-  if (!url.startsWith('http') && !url.startsWith('data:')) {
-    const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api').replace('/api', '').replace(/\/$/, '')
-    finalUrl = `${API_BASE}/uploads/${url.replace(/^\//, '')}`
+  if (typeof url === 'string' && url.startsWith('data:')) {
+    return url
   }
 
-  // Agregar token para evitar autenticación en el backend
-  if (finalUrl.includes('/uploads/')) {
-    const token = localStorage.getItem('token');
-    if (token && !finalUrl.includes('token=')) {
-      const separator = finalUrl.includes('?') ? '&' : '?';
-      finalUrl = `${finalUrl}${separator}token=${token}`;
-    }
-  }
+  const finalUrl = getAuthImageUrl(url)
+  if (!finalUrl) return null
 
   try {
     const res = await fetch(finalUrl)
@@ -32,7 +24,7 @@ export async function getImgData(url) {
       reader.readAsDataURL(blob)
     })
   } catch (err) {
-    console.error('Error al obtener la imagen:', finalUrl, err)
+    console.error('Error al obtener la imagen:', url, '->', finalUrl, err)
     return null
   }
 }
