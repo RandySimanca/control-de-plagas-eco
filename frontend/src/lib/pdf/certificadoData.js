@@ -43,7 +43,7 @@ export async function prepareCertificadoData(params) {
 
   // 1. Normalizar Fotos y Evidencias (convirtiendo a Base64 para incluir el token y evitar problemas async en el renderer)
   const rawEvidences = [
-    ...fotos.map(f => ({ url: f.url, label: f.descripcion, type: 'ambiente' })),
+    ...fotos.map(f => ({ url: f.url, label: f.descripcion, type: 'ambiente', created_at: f.created_at })),
     ...estaciones.filter(e => e.foto_antes_url).map(e => ({ 
       url: e.foto_antes_url, 
       label: `Estado Inicial: ${e.tipo_estacion}`, 
@@ -155,6 +155,28 @@ export async function prepareCertificadoData(params) {
     fechaEjecucion = formatFecha(orden.fecha_programada) || new Date().toLocaleDateString();
   }
 
+  // Procesar imágenes de tanques si existen
+  let normalizedTanques = []
+  if (params.tanques && params.tanques.length > 0) {
+    normalizedTanques = await Promise.all(params.tanques.map(async (t) => {
+      const fotoData = t.foto_url ? await getImgData(t.foto_url) : null
+      
+      const normalizedBitacora = await Promise.all((t.bitacora || []).map(async (b) => {
+        const normalizedFotos = await Promise.all((b.fotos || []).map(async (f) => {
+          const imgData = await getImgData(f.url)
+          return { ...f, data: imgData }
+        }))
+        return { ...b, fotos: normalizedFotos }
+      }))
+
+      return {
+        ...t,
+        fotoData,
+        bitacora: normalizedBitacora
+      }
+    }))
+  }
+
   return {
     ...params,
     normalized: {
@@ -163,7 +185,8 @@ export async function prepareCertificadoData(params) {
       diagnosisText,
       logoData,
       firmaData,
-      fechaEjecucion
+      fechaEjecucion,
+      tanques: normalizedTanques
     }
   }
 }

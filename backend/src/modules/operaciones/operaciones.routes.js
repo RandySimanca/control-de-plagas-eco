@@ -41,6 +41,20 @@ router.post('/productos-usados', controller.createProducto)
 router.patch('/productos-usados/:id', controller.updateProducto)
 router.delete('/productos-usados/:id', controller.deleteProducto)
 
+// Lavado de tanques rutas estáticas
+router.post('/tanques', controller.createTanque)
+router.patch('/tanques/:id', controller.updateTanque)
+router.put('/tanques/:id', controller.updateTanque)
+router.delete('/tanques/:id', controller.deleteTanque)
+
+router.post('/bitacora-tanques', controller.createBitacoraTanque)
+router.patch('/bitacora-tanques/:id', controller.updateBitacoraTanque)
+router.put('/bitacora-tanques/:id', controller.updateBitacoraTanque)
+router.delete('/bitacora-tanques/:id', controller.deleteBitacoraTanque)
+
+router.post('/fotos-bitacora-tanques', controller.createFotoBitacoraTanque)
+router.delete('/fotos-bitacora-tanques/:id', controller.deleteFotoBitacoraTanque)
+
 // 2. Base routes for when mounted at /ordenes or /servicios (Relative paths)
 router.get('/', controller.listOrdenes)
 router.post('/', controller.createOrden)
@@ -58,5 +72,6 @@ router.get('/:id/fotos', controller.getFotosByOrden)
 router.get('/:id/actividades', controller.getActividadesByOrden)
 router.get('/:id/estaciones', controller.getEstacionesByOrden)
 router.get('/:id/certificado', controller.getLatestCertificadoByOrden)
+router.get('/:id/tanques', controller.getTanquesByOrden)
 
 export default router

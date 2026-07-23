@@ -80,6 +80,9 @@ export async function getOrdenDetalle(id, user) {
 
 export async function createOrden(body, user) {
   if (user.role !== 'admin') throw new AppError('Solo administradores', 403)
+  const isLavado = body.lavado_tanques === true
+  const cantidadTanques = body.lavado_tanques_cantidad ? parseInt(body.lavado_tanques_cantidad, 10) : 0
+  
   const { rows } = await pool.query(
     `INSERT INTO ordenes_servicio (cliente_id, tecnico_id, fecha_programada, tipo_plaga, observaciones, estado, lavado_tanques, lavado_tanques_cantidad)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
@@ -90,11 +93,23 @@ export async function createOrden(body, user) {
       body.tipo_plaga || null,
       body.observaciones || null,
       body.estado || 'programada',
-      body.lavado_tanques === true,
-      body.lavado_tanques_cantidad ? parseInt(body.lavado_tanques_cantidad, 10) : 0
+      isLavado,
+      cantidadTanques
     ]
   )
-  return rows[0]
+  
+  const newOrden = rows[0]
+  
+  if (isLavado && cantidadTanques > 0) {
+    for (let i = 1; i <= cantidadTanques; i++) {
+      await pool.query(
+        `INSERT INTO tanques_servicio (orden_id, numero, nombre) VALUES ($1, $2, $3)`,
+        [newOrden.id, `TQ-${String(i).padStart(3, '0')}`, `Tanque ${i}`]
+      )
+    }
+  }
+  
+  return newOrden
 }
 
 export async function updateOrden(id, body, user) {
@@ -462,4 +477,122 @@ export async function countSolicitudes(filters = {}) {
   
   const { rows } = await pool.query(sql, params)
   return parseInt(rows[0].count, 10)
+}
+
+// --- LAVADO DE TANQUES ---
+
+export async function getTanquesByOrden(ordenId, user) {
+  await assertOrdenAccess(ordenId, user)
+  
+  const { rows: tanques } = await pool.query('SELECT * FROM tanques_servicio WHERE orden_id = $1 ORDER BY created_at ASC', [ordenId])
+  if (!tanques.length) return []
+  
+  const tanqueIds = tanques.map(t => t.id)
+  
+  const { rows: bitacoras } = await pool.query('SELECT * FROM bitacora_tanques WHERE tanque_id = ANY($1) ORDER BY created_at ASC', [tanqueIds])
+  
+  const bitacoraIds = bitacoras.map(b => b.id)
+  let fotos = []
+  
+  if (bitacoraIds.length) {
+    const { rows: fotosRows } = await pool.query('SELECT * FROM fotos_bitacora_tanques WHERE bitacora_id = ANY($1) ORDER BY created_at ASC', [bitacoraIds])
+    fotos = fotosRows
+  }
+  
+  for (const b of bitacoras) {
+    b.fotos = fotos.filter(f => f.bitacora_id === b.id)
+  }
+  
+  for (const t of tanques) {
+    t.bitacora = bitacoras.filter(b => b.tanque_id === t.id)
+  }
+  
+  return tanques
+}
+
+export async function createTanque(body, user) {
+  await assertOrdenAccess(body.orden_id, user)
+  const { rows } = await pool.query(
+    'INSERT INTO tanques_servicio (orden_id, numero, nombre, foto_url, tipo_tanque, material, capacidad_valor, capacidad_unidad, ubicacion) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *',
+    [body.orden_id, body.numero || '', body.nombre || '', body.foto_url, body.tipo_tanque, body.material, body.capacidad_valor, body.capacidad_unidad, body.ubicacion]
+  )
+  return rows[0]
+}
+
+export async function updateTanque(id, body, user) {
+  const { rows: tRows } = await pool.query('SELECT orden_id FROM tanques_servicio WHERE id = $1', [id])
+  if (tRows[0]) await assertOrdenAccess(tRows[0].orden_id, user)
+  
+  const allowed = ['numero', 'nombre', 'foto_url', 'tipo_tanque', 'material', 'capacidad_valor', 'capacidad_unidad', 'ubicacion']
+  const sets = []
+  const vals = []
+  for (const key of allowed) {
+    if (body[key] !== undefined) {
+      vals.push(body[key])
+      sets.push(`${key} = $${vals.length}`)
+    }
+  }
+  if (!sets.length) return tRows[0]
+  vals.push(id)
+  const { rows } = await pool.query(`UPDATE tanques_servicio SET ${sets.join(', ')} WHERE id = $${vals.length} RETURNING *`, vals)
+  return rows[0]
+}
+
+export async function deleteTanque(id, user) {
+  const { rows: tRows } = await pool.query('SELECT orden_id FROM tanques_servicio WHERE id = $1', [id])
+  if (tRows[0]) await assertOrdenAccess(tRows[0].orden_id, user)
+  await pool.query('DELETE FROM tanques_servicio WHERE id = $1', [id])
+}
+
+export async function createBitacoraTanque(body, user) {
+  const { rows: tRows } = await pool.query('SELECT orden_id FROM tanques_servicio WHERE id = $1', [body.tanque_id])
+  if (tRows[0]) await assertOrdenAccess(tRows[0].orden_id, user)
+  
+  const { rows } = await pool.query(
+    'INSERT INTO bitacora_tanques (tanque_id, tipo_evento, descripcion) VALUES ($1,$2,$3) RETURNING *',
+    [body.tanque_id, body.tipo_evento, body.descripcion]
+  )
+  return rows[0]
+}
+
+export async function updateBitacoraTanque(id, body, user) {
+  const { rows: bRows } = await pool.query(`
+    SELECT t.orden_id FROM bitacora_tanques b JOIN tanques_servicio t ON t.id = b.tanque_id WHERE b.id = $1
+  `, [id])
+  if (bRows[0]) await assertOrdenAccess(bRows[0].orden_id, user)
+  
+  const { rows } = await pool.query(
+    'UPDATE bitacora_tanques SET tipo_evento = COALESCE($2, tipo_evento), descripcion = COALESCE($3, descripcion) WHERE id = $1 RETURNING *',
+    [id, body.tipo_evento, body.descripcion]
+  )
+  return rows[0]
+}
+
+export async function deleteBitacoraTanque(id, user) {
+  const { rows: bRows } = await pool.query(`
+    SELECT t.orden_id FROM bitacora_tanques b JOIN tanques_servicio t ON t.id = b.tanque_id WHERE b.id = $1
+  `, [id])
+  if (bRows[0]) await assertOrdenAccess(bRows[0].orden_id, user)
+  await pool.query('DELETE FROM bitacora_tanques WHERE id = $1', [id])
+}
+
+export async function createFotoBitacoraTanque(body, user) {
+  const { rows: bRows } = await pool.query(`
+    SELECT t.orden_id FROM bitacora_tanques b JOIN tanques_servicio t ON t.id = b.tanque_id WHERE b.id = $1
+  `, [body.bitacora_id])
+  if (bRows[0]) await assertOrdenAccess(bRows[0].orden_id, user)
+  
+  const { rows } = await pool.query(
+    'INSERT INTO fotos_bitacora_tanques (bitacora_id, url, descripcion, storage_path) VALUES ($1,$2,$3,$4) RETURNING *',
+    [body.bitacora_id, body.url, body.descripcion, body.storage_path]
+  )
+  return rows[0]
+}
+
+export async function deleteFotoBitacoraTanque(id, user) {
+  const { rows: fRows } = await pool.query(`
+    SELECT t.orden_id FROM fotos_bitacora_tanques f JOIN bitacora_tanques b ON b.id = f.bitacora_id JOIN tanques_servicio t ON t.id = b.tanque_id WHERE f.id = $1
+  `, [id])
+  if (fRows[0]) await assertOrdenAccess(fRows[0].orden_id, user)
+  await pool.query('DELETE FROM fotos_bitacora_tanques WHERE id = $1', [id])
 }

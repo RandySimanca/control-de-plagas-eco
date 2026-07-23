@@ -44,3 +44,16 @@ export const createSolicitud = catchAsync(async (req, res) => res.status(201).js
 export const updateSolicitud = catchAsync(async (req, res) => res.json({ success: true, data: await service.updateSolicitud(req.params.id, req.body, req.user) }))
 export const deleteSolicitud = catchAsync(async (req, res) => { await service.deleteSolicitud(req.params.id, req.user); res.status(204).send() })
 export const countSolicitudes = catchAsync(async (req, res) => res.json({ success: true, data: { count: await service.countSolicitudes(req.query) } }))
+
+// --- LAVADO DE TANQUES ---
+export const getTanquesByOrden = catchAsync(async (req, res) => res.json({ success: true, data: await service.getTanquesByOrden(req.params.id, req.user) }))
+export const createTanque = catchAsync(async (req, res) => res.status(201).json({ success: true, data: await service.createTanque(req.body, req.user) }))
+export const updateTanque = catchAsync(async (req, res) => res.json({ success: true, data: await service.updateTanque(req.params.id, req.body, req.user) }))
+export const deleteTanque = catchAsync(async (req, res) => { await service.deleteTanque(req.params.id, req.user); res.status(204).send() })
+
+export const createBitacoraTanque = catchAsync(async (req, res) => res.status(201).json({ success: true, data: await service.createBitacoraTanque(req.body, req.user) }))
+export const updateBitacoraTanque = catchAsync(async (req, res) => res.json({ success: true, data: await service.updateBitacoraTanque(req.params.id, req.body, req.user) }))
+export const deleteBitacoraTanque = catchAsync(async (req, res) => { await service.deleteBitacoraTanque(req.params.id, req.user); res.status(204).send() })
+
+export const createFotoBitacoraTanque = catchAsync(async (req, res) => res.status(201).json({ success: true, data: await service.createFotoBitacoraTanque(req.body, req.user) }))
+export const deleteFotoBitacoraTanque = catchAsync(async (req, res) => { await service.deleteFotoBitacoraTanque(req.params.id, req.user); res.status(204).send() })

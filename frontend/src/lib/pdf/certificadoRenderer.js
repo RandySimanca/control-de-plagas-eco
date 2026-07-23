@@ -259,8 +259,16 @@ export async function renderCertificado(data) {
   // Sección 7: Fotos
   if (evidences.length > 0) {
     doc.addPage(); y = 42; y = drawSectionHeader('7. Resultados y Registro Fotográfico', y)
+
+    // Ordenar fotos de ambiente cronológicamente (más antigua primero)
+    const evidencesSorted = [...evidences].sort((a, b) => {
+      if (!a.created_at && !b.created_at) return 0
+      if (!a.created_at) return 1
+      if (!b.created_at) return -1
+      return new Date(a.created_at) - new Date(b.created_at)
+    })
     
-    const groupedEvidences = evidences.reduce((acc, ev) => {
+    const groupedEvidences = evidencesSorted.reduce((acc, ev) => {
       const label = ev.label || 'Evidencia General';
       if (!acc[label]) acc[label] = [];
       acc[label].push(ev);
@@ -309,7 +317,192 @@ export async function renderCertificado(data) {
     }
   }
 
-  // --- FINAL: FIRMA Y CIERRE ---
+  // Sección: Lavado de Tanques
+  const tanques = normalized.tanques || []
+  if (tanques.length > 0) {
+    const sectionNum = evidences.length > 0 ? '8' : '7'
+    doc.addPage(); y = 42
+    y = drawSectionHeader(`${sectionNum}. Actividades de Lavado y Desinfección de Tanques`, y)
+
+    const formatTimestamp = (isoStr) => {
+      if (!isoStr) return ''
+      const d = new Date(isoStr)
+      return d.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: true })
+    }
+
+    const EVENTO_COLORS = {
+      INICIO: [41, 128, 185],
+      HALLAZGO: [211, 84, 0],
+      DURANTE: [39, 174, 96],
+      DESINFECCION: [142, 68, 173],
+      ENJUAGUE: [22, 160, 133],
+      FINAL: [31, 41, 55]
+    }
+
+    for (let tIdx = 0; tIdx < tanques.length; tIdx++) {
+      const tanque = tanques[tIdx]
+
+      // Nueva página para cada tanque excepto el primero
+      if (tIdx > 0) { doc.addPage(); y = 42 }
+      
+      // === FICHA TÉCNICA DEL TANQUE ===
+      doc.setFillColor(31, 41, 55)
+      doc.rect(margin, y, pageWidth - 2 * margin, 7, 'F')
+      doc.setFontSize(10); doc.setFont(undefined, 'bold'); doc.setTextColor(255, 255, 255)
+      doc.text(`TANQUE: ${tanque.numero || ''}  —  ${tanque.nombre || ''}`, margin + 3, y + 5)
+      y += 12
+
+      // Foto + datos en dos columnas
+      const fichaStartY = y
+      const fichaFotoW = 50
+      const fichaFotoH = 38
+      const fichaDataX = margin + fichaFotoW + 8
+      const fichaDataW = pageWidth - 2 * margin - fichaFotoW - 8
+
+      // Foto general del tanque (columna izquierda)
+      doc.setDrawColor(200, 200, 200); doc.setLineWidth(0.3)
+      if (tanque.fotoData) {
+        try {
+          doc.addImage(tanque.fotoData, margin, fichaStartY, fichaFotoW, fichaFotoH)
+          doc.rect(margin, fichaStartY, fichaFotoW, fichaFotoH)
+        } catch(e) {}
+      } else {
+        doc.rect(margin, fichaStartY, fichaFotoW, fichaFotoH)
+        doc.setFontSize(7); doc.setFont(undefined, 'italic'); doc.setTextColor(160, 160, 160)
+        doc.text('Sin foto', margin + fichaFotoW / 2, fichaStartY + fichaFotoH / 2, { align: 'center' })
+      }
+      doc.setFontSize(7); doc.setFont(undefined, 'italic'); doc.setTextColor(120, 120, 120)
+      doc.text(`Figura ${tIdx + 1}. Fotografía General del Tanque`, margin + fichaFotoW / 2, fichaStartY + fichaFotoH + 4, { align: 'center' })
+
+      // Datos técnicos (columna derecha)
+      let dy = fichaStartY
+      doc.setTextColor(50, 50, 50)
+      const drawRow = (label, value) => {
+        doc.setFontSize(8); doc.setFont(undefined, 'bold')
+        doc.text(`${label}:`, fichaDataX, dy)
+        doc.setFont(undefined, 'normal')
+        const lines = doc.splitTextToSize(value || 'N/A', fichaDataW - 32)
+        doc.text(lines, fichaDataX + 32, dy)
+        dy += Math.max(lines.length * 3.5, 4)
+      }
+
+      drawRow('Código', tanque.numero)
+      drawRow('Tipo', tanque.tipo_tanque)
+      drawRow('Material', tanque.material)
+      drawRow('Capacidad', tanque.capacidad_valor ? `${tanque.capacidad_valor} ${tanque.capacidad_unidad || ''}` : null)
+      drawRow('Ubicación', tanque.ubicacion)
+      drawRow('Técnico', data.tecnico)
+      drawRow('Fecha', fechaEjecucion)
+
+      y = Math.max(fichaStartY + fichaFotoH + 8, dy + 4)
+
+      // === LÍNEA DE TIEMPO DE EVENTOS ===
+      const bitacora = tanque.bitacora || []
+      if (bitacora.length > 0) {
+        doc.setDrawColor(200, 200, 200); doc.setLineWidth(0.3)
+        doc.line(margin, y, pageWidth - margin, y)
+        y += 6
+
+        doc.setFontSize(9); doc.setFont(undefined, 'bold'); doc.setTextColor(31, 41, 55)
+        doc.text('BITÁCORA DE ACTIVIDADES:', margin + 3, y); y += 8
+
+        for (const evento of bitacora) {
+          // Cabecera del evento con línea separadora
+          const [r, g, b] = EVENTO_COLORS[evento.tipo_evento] || [100, 100, 100]
+          
+          // Chequeamos espacio mínimo para la cabecera
+          if (y > pageHeight - 40) { doc.addPage(); y = 42 }
+
+          // Línea divisora con color del evento
+          doc.setFillColor(r, g, b)
+          doc.rect(margin, y, pageWidth - 2 * margin, 6, 'F')
+          doc.setFontSize(8); doc.setFont(undefined, 'bold'); doc.setTextColor(255, 255, 255)
+          const horaEvento = formatTimestamp(evento.created_at)
+          doc.text(`${horaEvento}  ·  ${evento.tipo_evento}`, margin + 3, y + 4.5)
+          y += 9
+
+          // Descripción del evento
+          if (y > pageHeight - 30) { doc.addPage(); y = 42 }
+          doc.setFontSize(9); doc.setFont(undefined, 'normal'); doc.setTextColor(50, 50, 50)
+          const descLines = doc.splitTextToSize(evento.descripcion || '', pageWidth - 2 * margin - 5)
+          doc.text(descLines, margin + 3, y)
+          y += descLines.length * 4.5 + 5
+
+          // === CUADRÍCULA DINÁMICA DE FOTOS DEL EVENTO ===
+          const eventFotos = (evento.fotos || []).filter(f => f.data)
+          if (eventFotos.length > 0) {
+            const contentW = pageWidth - 2 * margin
+            let imgH = 55
+
+            // Calcular anchos dinámicos según cantidad
+            let colDefs = []
+            if (eventFotos.length === 1) {
+              colDefs = [{ w: contentW, x: margin }]
+              imgH = 75
+            } else if (eventFotos.length === 2) {
+              const w = (contentW - 3) / 2
+              colDefs = [
+                { w, x: margin },
+                { w, x: margin + w + 3 }
+              ]
+            } else if (eventFotos.length === 3) {
+              const wHalf = (contentW - 3) / 2
+              colDefs = [
+                { w: wHalf, x: margin },
+                { w: wHalf, x: margin + wHalf + 3 },
+                'newrow',
+                { w: contentW, x: margin }
+              ]
+            } else {
+              // 4 o más: cuadrícula 2x2 agrupando de a 2 en 2
+              const w = (contentW - 3) / 2
+              colDefs = []
+              for (let i = 0; i < eventFotos.length; i++) {
+                colDefs.push({ w, x: margin + (i % 2) * (w + 3) })
+                if (i % 2 === 1 && i + 1 < eventFotos.length) colDefs.push('newrow')
+              }
+            }
+
+            // Checar espacio para al menos una fila de fotos
+            if (y + imgH + 5 > pageHeight - 15) { doc.addPage(); y = 42 }
+
+            let rowY = y
+            let colIdx = 0
+            for (const def of colDefs) {
+              if (def === 'newrow') {
+                rowY += imgH + 3
+                colIdx = 0
+                if (rowY + imgH > pageHeight - 15) { doc.addPage(); rowY = 42 }
+                continue
+              }
+              if (colIdx >= eventFotos.length) break
+              
+              const foto = eventFotos[colIdx]
+              if (!foto.data) { colIdx++; continue }
+
+              try {
+                doc.addImage(foto.data, def.x, rowY, def.w, imgH)
+                doc.setDrawColor(220, 220, 220); doc.setLineWidth(0.2)
+                doc.rect(def.x, rowY, def.w, imgH)
+              } catch (e) {}
+              colIdx++
+            }
+            y = rowY + imgH + 3
+
+            // Pie de foto del evento
+            const figNum = `Figura ${tIdx + 1}.${bitacora.indexOf(evento) + 1}`
+            doc.setFontSize(7); doc.setFont(undefined, 'italic'); doc.setTextColor(120, 120, 120)
+            doc.text(`${figNum}. Evidencias fotográficas — ${evento.tipo_evento} — ${horaEvento}`, margin + 3, y)
+            y += 6
+          }
+
+          y += 4 // Separación entre eventos
+        }
+      }
+    }
+  }
+
+
   if (y > pageHeight - 40) { doc.addPage(); y = 42 }
   y += 10
   doc.setTextColor(30, 41, 59); doc.setFontSize(8.5); doc.setFont(undefined, 'normal')

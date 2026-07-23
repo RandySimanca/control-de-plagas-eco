@@ -38,6 +38,27 @@ export default function OrdenCertificado({
       foto_antes_url: e.foto_antes_url ? getAuthImageUrl(e.foto_antes_url) : null,
       foto_despues_url: e.foto_despues_url ? getAuthImageUrl(e.foto_despues_url) : null
     }))
+    
+    // Obtener tanques si aplica
+    let tanquesMapeados = []
+    if (orden.lavado_tanques) {
+      try {
+        const { data: tanquesData } = await api.get(`/ordenes/${orden.id}/tanques`, { token })
+        tanquesMapeados = tanquesData.map(t => {
+          const bitacora = (t.bitacora || []).map(b => ({
+            ...b,
+            fotos: (b.fotos || []).map(f => ({ ...f, url: getAuthImageUrl(f.url || f.storage_path) }))
+          }))
+          return {
+            ...t,
+            foto_url: t.foto_url ? getAuthImageUrl(t.foto_url) : null,
+            bitacora
+          }
+        })
+      } catch (e) {
+        console.error('Error fetching tanques for report:', e)
+      }
+    }
 
     return {
       folio: folioValue,
@@ -50,7 +71,8 @@ export default function OrdenCertificado({
       firma: certificado?.firma_url,
       firma_tecnico: orden.profiles?.firma_url,
       actividades,
-      fotos: fotosMapeadas
+      fotos: fotosMapeadas,
+      tanques: tanquesMapeados
     }
   }
 

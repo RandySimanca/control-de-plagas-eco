@@ -22,6 +22,7 @@ import {
   OrdenTecnicoDetalles,
   OrdenEditarModal
 } from '../components/features/orden'
+import OrdenLavadoTanques from '../components/features/orden/OrdenLavadoTanques'
 
 export default function OrdenDetalle() {
   const { id } = useParams()
@@ -212,6 +213,16 @@ export default function OrdenDetalle() {
         ordenEstado={orden.estado}
         queuePhoto={queuePhoto}
       />
+
+      {/* 5.5 Lavado de Tanques (Si aplica) */}
+      {orden.lavado_tanques && (
+        <OrdenLavadoTanques 
+          ordenId={id}
+          isAssignedTecnico={isAssignedTecnico}
+          ordenEstado={orden.estado}
+          queuePhoto={queuePhoto}
+        />
+      )}
 
       {/* 6. Detalles Técnicos (Áreas, Métodos, Recomendaciones) */}
       <OrdenTecnicoDetalles 
