@@ -35,8 +35,7 @@ export default function OrdenCertificado({
     // Mapear fotos de estaciones
     const estacionesMapeadas = estaciones.map(e => ({
       ...e,
-      foto_antes_url: e.foto_antes_url ? getAuthImageUrl(e.foto_antes_url) : null,
-      foto_despues_url: e.foto_despues_url ? getAuthImageUrl(e.foto_despues_url) : null
+      fotos: (e.fotos || []).map(f => ({ ...f, url: getAuthImageUrl(f.url || f.storage_path) }))
     }))
     
     // Obtener tanques si aplica

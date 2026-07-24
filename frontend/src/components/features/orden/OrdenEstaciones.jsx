@@ -15,8 +15,8 @@ function buildInitialEdit(estaciones) {
       tipo_estacion: type,
       cantidad: found ? found.cantidad : 0,
       observaciones: found ? found.observaciones : '',
-      foto_antes_url: found ? found.foto_antes_url : null,
-      foto_despues_url: found ? found.foto_despues_url : null,
+      es_nueva_instalacion: found ? !!found.es_nueva_instalacion : false,
+      fotos: found ? (found.fotos || []) : [],
       id: found ? found.id : null,
       active: !!found
     }
@@ -30,6 +30,7 @@ export default function OrdenEstaciones({ ordenId, estaciones, setEstaciones, is
 
   async function handleSaveEstaciones() {
     setSavingEstaciones(true)
+    const token = localStorage.getItem('token')
     try {
       const toInsert = estacionesEdit.filter(e => e.active).map(e => ({
         id: e.id || generateUUID(),
@@ -37,24 +38,62 @@ export default function OrdenEstaciones({ ordenId, estaciones, setEstaciones, is
         tipo_estacion: e.tipo_estacion,
         cantidad: parseInt(e.cantidad) || 0,
         observaciones: e.observaciones || '',
-        foto_antes_url: e.foto_antes_url,
-        foto_despues_url: e.foto_despues_url
+        es_nueva_instalacion: e.es_nueva_instalacion,
+        fotos: e.fotos
       }))
 
       await queueOrExecute('estaciones_usadas', 'delete', { id: `orden_${ordenId}` }, ordenId)
+      
       if (isOnline) {
-        await api.delete('/estaciones-usadas', { params: { orden_id: ordenId }, token: localStorage.getItem('token') })
-        if (toInsert.length > 0) {
-          await Promise.all(
-            toInsert.map(row => api.post('/estaciones-usadas', row, { token: localStorage.getItem('token') }))
-          )
+        await api.delete('/estaciones-usadas', { params: { orden_id: ordenId }, token })
+        
+        for (const row of toInsert) {
+          const { fotos, ...dbPayload } = row
+          const res = await api.post('/estaciones-usadas', dbPayload, { token })
+          const createdEstacion = res.data
+          
+          if (fotos && fotos.length > 0) {
+            await Promise.all(fotos.map(async (foto) => {
+              if (!foto.id || foto.id.startsWith('temp_')) {
+                const fotoPayload = {
+                  estacion_usada_id: createdEstacion.id,
+                  url: foto.url,
+                  storage_path: foto.storage_path,
+                  descripcion: foto.descripcion || ''
+                }
+                await api.post('/fotos-estaciones', fotoPayload, { token })
+              }
+            }))
+          }
         }
-        const data = await api.get('/estaciones-usadas', { params: { orden_id: ordenId }, token: localStorage.getItem('token') })
+        
+        const data = await api.get('/estaciones-usadas', { params: { orden_id: ordenId }, token })
         setEstaciones(data.data || [])
       } else {
         await db.sync_queue.add({ table: 'estaciones_usadas', operation: 'delete_where', payload: { filter: 'orden_id', value: ordenId }, ordenId, attempts: 0, createdAt: Date.now() })
+        
         for (const row of toInsert) {
-          await db.sync_queue.add({ table: 'estaciones_usadas', operation: 'insert', payload: row, ordenId, attempts: 0, createdAt: Date.now() + 1 })
+          const { fotos, ...dbPayload } = row
+          await db.sync_queue.add({ table: 'estaciones_usadas', operation: 'insert', payload: dbPayload, ordenId, attempts: 0, createdAt: Date.now() + 1 })
+          
+          if (fotos && fotos.length > 0) {
+            for (const f of fotos) {
+              await db.sync_queue.add({
+                table: 'fotos_estaciones_usadas',
+                operation: 'insert',
+                payload: {
+                  id: f.id || generateUUID(),
+                  estacion_usada_id: row.id,
+                  url: f.url,
+                  storage_path: f.storage_path,
+                  descripcion: f.descripcion || ''
+                },
+                ordenId,
+                attempts: 0,
+                createdAt: Date.now() + 2
+              })
+            }
+          }
         }
         setEstaciones(toInsert)
       }
@@ -67,18 +106,45 @@ export default function OrdenEstaciones({ ordenId, estaciones, setEstaciones, is
     }
   }
 
-  async function handleUploadEstacionFoto(idx, context, file) {
+  async function handleAddEstacionFoto(idx, file) {
     if (!file) return
     const type = estacionesEdit[idx].tipo_estacion
-    const path = `estaciones/orden_${ordenId}_${type}_${context}_${Date.now()}.jpg`
+    const path = `estaciones/orden_${ordenId}_${type}_${Date.now()}.jpg`
     try {
       const { publicUrl, error } = await queuePhoto('fotos-servicio', path, file, file.type || 'image/jpeg')
       if (error) throw error
-      const field = context === 'antes' ? 'foto_antes_url' : 'foto_despues_url'
-      setEstacionesEdit(prev => prev.map((item, i) => i === idx ? { ...item, [field]: publicUrl } : item))
-      toast.success(`Foto ${context} guardada`)
+      
+      const newFoto = {
+        id: 'temp_' + generateUUID(),
+        url: publicUrl,
+        storage_path: path,
+        descripcion: ''
+      }
+      
+      setEstacionesEdit(prev => prev.map((item, i) => i === idx ? { ...item, fotos: [...item.fotos, newFoto] } : item))
+      toast.success('Foto agregada')
     } catch (err) {
       toast.error('Error con foto: ' + err.message)
+    }
+  }
+
+  async function handleDeleteEstacionFoto(estacionIdx, foto) {
+    const token = localStorage.getItem('token')
+    try {
+      if (foto.id && !foto.id.startsWith('temp_') && isOnline) {
+        await api.delete(`/fotos-estaciones/${foto.id}`, { token })
+      }
+      
+      setEstacionesEdit(prev => prev.map((item, i) => {
+        if (i === estacionIdx) {
+          return { ...item, fotos: item.fotos.filter(f => f.id !== foto.id) }
+        }
+        return item
+      }))
+      
+      toast.success('Foto eliminada')
+    } catch (err) {
+      toast.error('Error al eliminar foto')
     }
   }
 
@@ -130,6 +196,18 @@ export default function OrdenEstaciones({ ordenId, estaciones, setEstaciones, is
                   </div>
                   {e.active && (
                     <div className="flex flex-col gap-2">
+                      <div className="flex items-center gap-3 mb-2">
+                        <label className="flex items-center gap-2 cursor-pointer bg-white px-3 py-1.5 rounded-xl border border-dark-200 text-xs font-bold text-dark-700">
+                          <input
+                            type="checkbox"
+                            checked={e.es_nueva_instalacion}
+                            onChange={(ev) => setEstacionesEdit(prev => prev.map((item, i) => i === idx ? { ...item, es_nueva_instalacion: ev.target.checked } : item))}
+                            className="w-4 h-4 rounded border-dark-300 text-primary-600 focus:ring-primary-500"
+                          />
+                          Nueva Instalación
+                        </label>
+                      </div>
+                      
                       <div className="flex flex-wrap gap-1.5 mt-1">
                         {e.tipo_estacion === 'Cebadero' ? (
                           <>
@@ -159,6 +237,7 @@ export default function OrdenEstaciones({ ordenId, estaciones, setEstaciones, is
                           </>
                         )}
                       </div>
+                      
                       <textarea
                         placeholder="Describa el mantenimiento realizado (ej: Limpieza, cambio de cebo...)"
                         value={e.observaciones || ''}
@@ -166,50 +245,27 @@ export default function OrdenEstaciones({ ordenId, estaciones, setEstaciones, is
                         className="input-field text-sm bg-white"
                         rows={2}
                       />
-                      <div className="grid grid-cols-2 gap-3 mt-2">
-                        {/* Foto antes */}
-                        <div className="space-y-2">
-                          <p className="text-[10px] font-bold text-dark-400 uppercase">Estado Inicial (Antes)</p>
-                          <div className="relative aspect-video rounded-lg border-2 border-dashed border-dark-200 bg-white flex items-center justify-center overflow-hidden">
-                            {e.foto_antes_url ? (
-                              <>
-                                <img src={getAuthImageUrl(e.foto_antes_url)} className="w-full h-full object-cover" alt="Antes" />
-                                <button
-                                  onClick={() => setEstacionesEdit(prev => prev.map((item, i) => i === idx ? { ...item, foto_antes_url: null } : item))}
-                                  className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-md"
-                                >
-                                  <X className="w-3 h-3" />
-                                </button>
-                              </>
-                            ) : (
-                              <label className="cursor-pointer flex flex-col items-center">
-                                <Camera className="w-5 h-5 text-dark-300" />
-                                <input type="file" accept="image/*" onChange={(ev) => handleUploadEstacionFoto(idx, 'antes', ev.target.files[0])} className="hidden" />
-                              </label>
-                            )}
-                          </div>
-                        </div>
-                        {/* Foto después */}
-                        <div className="space-y-2">
-                          <p className="text-[10px] font-bold text-dark-400 uppercase">Estado Final (Después)</p>
-                          <div className="relative aspect-video rounded-lg border-2 border-dashed border-dark-200 bg-white flex items-center justify-center overflow-hidden">
-                            {e.foto_despues_url ? (
-                              <>
-                                <img src={getAuthImageUrl(e.foto_despues_url)} className="w-full h-full object-cover" alt="Después" />
-                                <button
-                                  onClick={() => setEstacionesEdit(prev => prev.map((item, i) => i === idx ? { ...item, foto_despues_url: null } : item))}
-                                  className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-md"
-                                >
-                                  <X className="w-3 h-3" />
-                                </button>
-                              </>
-                            ) : (
-                              <label className="cursor-pointer flex flex-col items-center">
-                                <Camera className="w-5 h-5 text-dark-300" />
-                                <input type="file" accept="image/*" onChange={(ev) => handleUploadEstacionFoto(idx, 'despues', ev.target.files[0])} className="hidden" />
-                              </label>
-                            )}
-                          </div>
+                      
+                      <div className="mt-3">
+                        <p className="text-[10px] font-bold text-dark-400 uppercase mb-2">Evidencias Fotográficas ({e.fotos.length})</p>
+                        <div className="grid grid-cols-3 gap-2">
+                          {e.fotos.map((foto, fIdx) => (
+                            <div key={foto.id || fIdx} className="relative aspect-video rounded-lg border border-dark-200 bg-white overflow-hidden group">
+                              <img src={getAuthImageUrl(foto.url)} className="w-full h-full object-cover" alt="Evidencia" />
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteEstacionFoto(idx, foto)}
+                                className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-md opacity-90 hover:opacity-100"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ))}
+                          <label className="aspect-video rounded-lg border-2 border-dashed border-dark-200 bg-white hover:border-primary-500 hover:bg-primary-50/20 flex flex-col items-center justify-center cursor-pointer transition-all">
+                            <Camera className="w-5 h-5 text-dark-400 mb-0.5" />
+                            <span className="text-[9px] font-bold text-dark-500 uppercase">Añadir</span>
+                            <input type="file" accept="image/*" onChange={(ev) => handleAddEstacionFoto(idx, ev.target.files[0])} className="hidden" />
+                          </label>
                         </div>
                       </div>
                     </div>
@@ -234,26 +290,26 @@ export default function OrdenEstaciones({ ordenId, estaciones, setEstaciones, is
               estaciones.map((e, i) => (
                 <div key={i} className="bg-dark-50 p-3 rounded-xl border border-dark-100">
                   <div className="flex justify-between items-center mb-1">
-                    <span className="text-sm font-bold text-dark-900">{e.tipo_estacion}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-dark-900">{e.tipo_estacion}</span>
+                      {e.es_nueva_instalacion && (
+                        <span className="text-[9px] font-bold bg-primary-100 text-primary-800 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                          Nueva Instalación
+                        </span>
+                      )}
+                    </div>
                     <span className="text-sm font-bold text-dark-800 bg-white px-3 py-0.5 rounded-lg border border-dark-200">Cant: {e.cantidad}</span>
                   </div>
                   {e.observaciones && (
                     <p className="text-xs text-dark-600 mt-2 bg-white/50 p-2 rounded-lg border border-dark-100 italic">{e.observaciones}</p>
                   )}
-                  {(e.foto_antes_url || e.foto_despues_url) && (
-                    <div className="grid grid-cols-2 gap-2 mt-3">
-                      {e.foto_antes_url && (
-                        <div className="space-y-1">
-                          <p className="text-[10px] font-bold text-dark-400 uppercase">Antes</p>
-                          <img src={getAuthImageUrl(e.foto_antes_url)} className="rounded-lg w-full aspect-video object-cover border border-dark-100" alt="Antes" />
+                  {e.fotos && e.fotos.length > 0 && (
+                    <div className="grid grid-cols-3 gap-2 mt-3">
+                      {e.fotos.map((foto, fIdx) => (
+                        <div key={foto.id || fIdx} className="space-y-1">
+                          <img src={getAuthImageUrl(foto.url)} className="rounded-lg w-full aspect-video object-cover border border-dark-100" alt={`Foto ${fIdx + 1}`} />
                         </div>
-                      )}
-                      {e.foto_despues_url && (
-                        <div className="space-y-1">
-                          <p className="text-[10px] font-bold text-dark-400 uppercase">Después</p>
-                          <img src={getAuthImageUrl(e.foto_despues_url)} className="rounded-lg w-full aspect-video object-cover border border-dark-100" alt="Después" />
-                        </div>
-                      )}
+                      ))}
                     </div>
                   )}
                 </div>

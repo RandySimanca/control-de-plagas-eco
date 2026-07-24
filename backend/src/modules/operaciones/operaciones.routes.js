@@ -55,6 +55,9 @@ router.delete('/bitacora-tanques/:id', controller.deleteBitacoraTanque)
 router.post('/fotos-bitacora-tanques', controller.createFotoBitacoraTanque)
 router.delete('/fotos-bitacora-tanques/:id', controller.deleteFotoBitacoraTanque)
 
+router.post('/fotos-estaciones', controller.createFotoEstacion)
+router.delete('/fotos-estaciones/:id', controller.deleteFotoEstacion)
+
 // 2. Base routes for when mounted at /ordenes or /servicios (Relative paths)
 router.get('/', controller.listOrdenes)
 router.post('/', controller.createOrden)

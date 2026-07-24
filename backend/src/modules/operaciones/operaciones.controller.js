@@ -57,3 +57,7 @@ export const deleteBitacoraTanque = catchAsync(async (req, res) => { await servi
 
 export const createFotoBitacoraTanque = catchAsync(async (req, res) => res.status(201).json({ success: true, data: await service.createFotoBitacoraTanque(req.body, req.user) }))
 export const deleteFotoBitacoraTanque = catchAsync(async (req, res) => { await service.deleteFotoBitacoraTanque(req.params.id, req.user); res.status(204).send() })
+
+// --- FOTOS DE ESTACIONES ---
+export const createFotoEstacion = catchAsync(async (req, res) => res.status(201).json({ success: true, data: await service.createFotoEstacion(req.body, req.user) }))
+export const deleteFotoEstacion = catchAsync(async (req, res) => { await service.deleteFotoEstacion(req.params.id, req.user); res.status(204).send() })

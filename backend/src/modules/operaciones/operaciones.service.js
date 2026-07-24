@@ -287,23 +287,32 @@ export async function deleteFoto(id, user) {
   const { rows } = await pool.query('SELECT orden_id FROM fotos_servicio WHERE id = $1', [id])
   if (rows[0]) await assertOrdenAccess(rows[0].orden_id, user)
   await pool.query('DELETE FROM fotos_servicio WHERE id = $1', [id])
-}
-
 export async function listEstaciones(ordenId, user) {
   if (ordenId) await assertOrdenAccess(ordenId, user)
   else if (user.role !== 'admin') throw new AppError('orden_id es obligatorio', 400)
     
-  const { rows } = await pool.query('SELECT * FROM estaciones_usadas WHERE ($1::uuid IS NULL OR orden_id = $1) ORDER BY created_at DESC', [ordenId || null])
-  return rows
+  const { rows: estaciones } = await pool.query('SELECT * FROM estaciones_usadas WHERE ($1::uuid IS NULL OR orden_id = $1) ORDER BY created_at DESC', [ordenId || null])
+  
+  if (estaciones.length > 0) {
+    const ids = estaciones.map(e => e.id)
+    const { rows: fotos } = await pool.query('SELECT * FROM fotos_estaciones_usadas WHERE estacion_usada_id = ANY($1) ORDER BY created_at ASC', [ids])
+    for (const e of estaciones) {
+      e.fotos = fotos.filter(f => f.estacion_usada_id === e.id)
+    }
+  }
+  
+  return estaciones
 }
 export async function createEstacion(body, user) {
   await assertOrdenAccess(body.orden_id, user)
   const { rows } = await pool.query(
-    `INSERT INTO estaciones_usadas (id, orden_id, tipo_estacion, cantidad, observaciones, foto_antes_url, foto_despues_url)
-     VALUES (COALESCE($1, gen_random_uuid()), $2, $3, $4, $5, $6, $7) RETURNING *`,
-    [body.id || null, body.orden_id, body.tipo_estacion, body.cantidad || 0, body.observaciones || null, body.foto_antes_url || null, body.foto_despues_url || null]
+    `INSERT INTO estaciones_usadas (id, orden_id, tipo_estacion, cantidad, observaciones, foto_antes_url, foto_despues_url, es_nueva_instalacion)
+     VALUES (COALESCE($1, gen_random_uuid()), $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+    [body.id || null, body.orden_id, body.tipo_estacion, body.cantidad || 0, body.observaciones || null, body.foto_antes_url || null, body.foto_despues_url || null, body.es_nueva_instalacion || false]
   )
-  return rows[0]
+  const estacion = rows[0]
+  estacion.fotos = []
+  return estacion
 }
 export async function deleteEstacion(id, user) {
   const { rows } = await pool.query('SELECT orden_id FROM estaciones_usadas WHERE id = $1', [id])
@@ -313,6 +322,28 @@ export async function deleteEstacion(id, user) {
 export async function deleteEstacionesByOrden(ordenId, user) {
   await assertOrdenAccess(ordenId, user)
   await pool.query('DELETE FROM estaciones_usadas WHERE orden_id = $1', [ordenId])
+}
+
+// --- FOTOS DE ESTACIONES ---
+export async function createFotoEstacion(body, user) {
+  const { rows: eRows } = await pool.query('SELECT orden_id FROM estaciones_usadas WHERE id = $1', [body.estacion_usada_id])
+  if (eRows[0]) await assertOrdenAccess(eRows[0].orden_id, user)
+  
+  const { rows } = await pool.query(
+    'INSERT INTO fotos_estaciones_usadas (estacion_usada_id, url, descripcion, storage_path) VALUES ($1,$2,$3,$4) RETURNING *',
+    [body.estacion_usada_id, body.url, body.descripcion || null, body.storage_path || null]
+  )
+  return rows[0]
+}
+
+export async function deleteFotoEstacion(id, user) {
+  const { rows: fRows } = await pool.query(`
+    SELECT e.orden_id FROM fotos_estaciones_usadas f 
+    JOIN estaciones_usadas e ON e.id = f.estacion_usada_id 
+    WHERE f.id = $1
+  `, [id])
+  if (fRows[0]) await assertOrdenAccess(fRows[0].orden_id, user)
+  await pool.query('DELETE FROM fotos_estaciones_usadas WHERE id = $1', [id])
 }
 
 export async function listProductos(ordenId, user) {

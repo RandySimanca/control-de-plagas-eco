@@ -43,18 +43,21 @@ export async function prepareCertificadoData(params) {
 
   // 1. Normalizar Fotos y Evidencias (convirtiendo a Base64 para incluir el token y evitar problemas async en el renderer)
   const rawEvidences = [
-    ...fotos.map(f => ({ url: f.url, label: f.descripcion, type: 'ambiente', created_at: f.created_at })),
-    ...estaciones.filter(e => e.foto_antes_url).map(e => ({ 
-      url: e.foto_antes_url, 
-      label: `Estado Inicial: ${e.tipo_estacion}`, 
-      type: 'estacion' 
-    })),
-    ...estaciones.filter(e => e.foto_despues_url).map(e => ({ 
-      url: e.foto_despues_url, 
-      label: `Estado Final: ${e.tipo_estacion}`, 
-      type: 'estacion' 
-    }))
+    ...fotos.map(f => ({ url: f.url, label: f.descripcion, type: 'ambiente', created_at: f.created_at }))
   ]
+
+  // Mapear fotos múltiples de estaciones
+  estaciones.forEach(e => {
+    if (e.fotos && e.fotos.length > 0) {
+      e.fotos.forEach((f, idx) => {
+        rawEvidences.push({
+          url: f.url,
+          label: `${e.tipo_estacion}${e.es_nueva_instalacion ? ' (Nueva Instalación)' : ''} - Foto ${idx + 1}`,
+          type: 'estacion'
+        })
+      })
+    }
+  })
 
   const evidences = await Promise.all(rawEvidences.map(async (ev) => {
     const data = await getImgData(ev.url)
