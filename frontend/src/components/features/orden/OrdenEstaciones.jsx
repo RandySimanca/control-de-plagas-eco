@@ -43,6 +43,27 @@ export default function OrdenEstaciones({ ordenId, estaciones, setEstaciones, is
       }))
 
       await queueOrExecute('estaciones_usadas', 'delete_where', { filter: 'orden_id', value: ordenId }, ordenId)
+
+      // Generar actividad automática en la bitácora
+      if (toInsert.length > 0) {
+        let nuevas = 0
+        let mantenimientos = 0
+        toInsert.forEach(e => {
+          if (e.es_nueva_instalacion) nuevas += e.cantidad
+          else mantenimientos += e.cantidad
+        })
+        
+        let texto = 'Monitoreo de estaciones registrado.'
+        if (nuevas > 0) texto += ` Instaladas: ${nuevas}.`
+        if (mantenimientos > 0) texto += ` Revisadas: ${mantenimientos}.`
+        
+        await queueOrExecute('actividades_servicio', 'insert', {
+          id: generateUUID(),
+          orden_id: ordenId,
+          descripcion: texto,
+          created_at: new Date().toISOString()
+        }, ordenId)
+      }
       
       if (isOnline) {
         for (const row of toInsert) {

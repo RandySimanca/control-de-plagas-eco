@@ -219,8 +219,12 @@ export default function OrdenDetalle() {
         <OrdenLavadoTanques 
           ordenId={id}
           isAssignedTecnico={isAssignedTecnico}
+          isAdmin={isAdmin}
           ordenEstado={orden.estado}
           queuePhoto={queuePhoto}
+          queueOrExecute={queueOrExecute}
+          actividades={actividades}
+          setActividades={setActividades}
         />
       )}
 

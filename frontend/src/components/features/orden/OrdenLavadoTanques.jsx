@@ -10,7 +10,16 @@ const EVENTOS_TANQUE = ['INICIO', 'HALLAZGO', 'DURANTE', 'DESINFECCION', 'ENJUAG
 const MATERIALES = ['Concreto', 'Polietileno', 'Fibra de vidrio', 'Acero inoxidable', 'Metálico', 'Otro']
 const TIPOS_TANQUE = ['Elevado', 'Subterráneo', 'Superficial']
 
-export default function OrdenLavadoTanques({ ordenId, isAssignedTecnico, ordenEstado, queuePhoto }) {
+export default function OrdenLavadoTanques({ 
+  ordenId, 
+  isAssignedTecnico, 
+  isAdmin,
+  ordenEstado, 
+  queuePhoto,
+  queueOrExecute,
+  actividades,
+  setActividades 
+}) {
   const [tanques, setTanques] = useState([])
   const [loading, setLoading] = useState(true)
   const [expandedTanque, setExpandedTanque] = useState(null)
@@ -18,6 +27,7 @@ export default function OrdenLavadoTanques({ ordenId, isAssignedTecnico, ordenEs
   const [editingTanque, setEditingTanque] = useState(null) // ID del tanque en edición
 
   const canEdit = isAssignedTecnico && ordenEstado === 'en_progreso'
+  const canManageTanks = isAdmin
   const token = localStorage.getItem('token')
 
   useEffect(() => {
@@ -26,7 +36,8 @@ export default function OrdenLavadoTanques({ ordenId, isAssignedTecnico, ordenEs
 
   async function loadTanques() {
     try {
-      const { data } = await api.get(`/ordenes/${ordenId}/tanques`, { token })
+      const res = await api.get(`/ordenes/${ordenId}/tanques`, { token })
+      const data = res.data || []
       setTanques(data)
     } catch (err) {
       toast.error('Error al cargar tanques')
@@ -48,6 +59,18 @@ export default function OrdenLavadoTanques({ ordenId, isAssignedTecnico, ordenEs
       setTanques([...tanques, newTanque])
       setExpandedTanque(newTanque.id)
       setEditingTanque(newTanque.id)
+
+      // Generar actividad en la bitácora
+      if (queueOrExecute) {
+        const actividadPayload = {
+          id: generateUUID(),
+          orden_id: ordenId,
+          descripcion: `Lavado de tanques: Nuevo tanque registrado (${newTanque.numero})`,
+          created_at: new Date().toISOString()
+        }
+        const { data } = await queueOrExecute('actividades_servicio', 'insert', actividadPayload, ordenId)
+        if (setActividades && actividades) setActividades([data[0] || actividadPayload, ...actividades])
+      }
     } catch (err) {
       toast.error('Error al agregar tanque')
     }
@@ -69,6 +92,18 @@ export default function OrdenLavadoTanques({ ordenId, isAssignedTecnico, ordenEs
       setTanques(tanques.map(t => t.id === tanque.id ? { ...res.data, bitacora: t.bitacora } : t))
       setEditingTanque(null)
       toast.success('Ficha guardada')
+
+      // Generar actividad en la bitácora
+      if (queueOrExecute) {
+        const actividadPayload = {
+          id: generateUUID(),
+          orden_id: ordenId,
+          descripcion: `Lavado de tanques: Ficha técnica guardada para tanque ${tanque.numero || ''}`,
+          created_at: new Date().toISOString()
+        }
+        const { data } = await queueOrExecute('actividades_servicio', 'insert', actividadPayload, ordenId)
+        if (setActividades && actividades) setActividades([data[0] || actividadPayload, ...actividades])
+      }
     } catch (err) {
       toast.error('Error al guardar ficha')
     }
@@ -110,13 +145,26 @@ export default function OrdenLavadoTanques({ ordenId, isAssignedTecnico, ordenEs
       const res = await api.post('/bitacora-tanques', {
         tanque_id: tanqueId,
         tipo_evento: defaultEvent,
-        descripcion: 'Nuevo evento'
+        descripcion: ''
       }, { token })
       const newEvento = { ...res.data, fotos: [] }
       setTanques(tanques.map(t => {
         if (t.id === tanqueId) return { ...t, bitacora: [...t.bitacora, newEvento] }
         return t
       }))
+
+      // Generar actividad
+      if (queueOrExecute) {
+        const tanque = tanques.find(t => t.id === tanqueId)
+        const actividadPayload = {
+          id: generateUUID(),
+          orden_id: ordenId,
+          descripcion: `Lavado de tanques: Evento añadido (${defaultEvent}) en tanque ${tanque?.numero || ''}`,
+          created_at: new Date().toISOString()
+        }
+        const { data } = await queueOrExecute('actividades_servicio', 'insert', actividadPayload, ordenId)
+        if (setActividades && actividades) setActividades([data[0] || actividadPayload, ...actividades])
+      }
     } catch (err) {
       toast.error('Error al agregar evento')
     }
@@ -229,7 +277,7 @@ export default function OrdenLavadoTanques({ ordenId, isAssignedTecnico, ordenEs
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-bold text-dark-900">Lavado de Tanques ({tanques.length})</h2>
-        {canEdit && (
+        {canManageTanks && (
           <button onClick={handleAddTanque} className="btn-primary flex items-center gap-2 text-sm">
             <Plus className="w-4 h-4" /> Agregar Tanque
           </button>
@@ -257,7 +305,7 @@ export default function OrdenLavadoTanques({ ordenId, isAssignedTecnico, ordenEs
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                {canEdit && (
+                {canManageTanks && (
                   <button 
                     onClick={(e) => { e.stopPropagation(); handleDeleteTanque(tanque.id) }} 
                     className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
@@ -424,8 +472,12 @@ export default function OrdenLavadoTanques({ ordenId, isAssignedTecnico, ordenEs
                             {canEdit ? (
                               <textarea
                                 className="w-full text-sm text-dark-700 bg-transparent border-none focus:ring-0 p-0 resize-none h-20"
-                                value={evento.descripcion}
-                                onChange={e => handleUpdateEvento(evento, 'descripcion', e.target.value)}
+                                defaultValue={evento.descripcion}
+                                onBlur={e => {
+                                  if (e.target.value !== evento.descripcion) {
+                                    handleUpdateEvento(evento, 'descripcion', e.target.value)
+                                  }
+                                }}
                                 placeholder="Descripción de la actividad..."
                               />
                             ) : (

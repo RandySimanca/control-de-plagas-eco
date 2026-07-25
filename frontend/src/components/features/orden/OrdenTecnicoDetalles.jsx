@@ -10,7 +10,8 @@ const OPCIONES_AREAS = [
   "Ductos y Aire Acondicionado", "Fachada y Perímetro Exterior", "Garajes, Parqueaderos y Sótanos",
   "Habitaciones y Alcobas", "Jardines y Zonas Verdes", "Líneas de Producción",
   "Sala y Comedor", "Silos y Tolvas", "Techo y Cielo Raso", "Zona de Basuras y Shut",
-  "Zonas de Carga y Despachos", "Zonas de Lavado y Lavandería"
+  "Zonas de Carga y Despachos", "Zonas de Lavado y Lavandería", "Tanques Elevados",
+  "Tanques Subterráneos", "Tanques a Nivel de Piso"
 ]
 
 const METODOS_POR_TIPO = {
