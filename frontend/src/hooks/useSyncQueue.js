@@ -44,6 +44,9 @@ export function useSyncQueue() {
         } else if (operation === 'delete') {
           await api.delete(`${endpoint}/${payload.id}`, { token })
           result = { data: null, error: null }
+        } else if (operation === 'delete_where') {
+          await api.delete(`${endpoint}?${payload.filter}=${payload.value}`, { token })
+          result = { data: null, error: null }
         } else if (operation === 'upsert') {
           const res = await api.put(endpoint, payload, { token })
           result = { data: [res.data || res], error: null }
@@ -52,7 +55,15 @@ export function useSyncQueue() {
     }
 
     // Sin conexión: encolar la operación
-    const queued = { table, operation, payload, ordenId, attempts: 0, createdAt: Date.now() }
+    const queued = { 
+      table, 
+      operation, 
+      payload, 
+      ordenId, 
+      attempts: 0, 
+      createdAt: Date.now(),
+      ...(operation === 'delete_where' ? { filter: payload.filter, value: payload.value } : {})
+    }
     const id = await db.sync_queue.add(queued)
     await refreshCount()
 

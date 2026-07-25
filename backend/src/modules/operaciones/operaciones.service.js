@@ -161,8 +161,17 @@ export async function getActividadesByOrden(ordenId, user) {
 }
 export async function getEstacionesByOrden(ordenId, user) {
   await assertOrdenAccess(ordenId, user)
-  const { rows } = await pool.query('SELECT * FROM estaciones_usadas WHERE orden_id = $1 ORDER BY created_at DESC', [ordenId])
-  return rows
+  const { rows: estaciones } = await pool.query('SELECT * FROM estaciones_usadas WHERE orden_id = $1 ORDER BY created_at DESC', [ordenId])
+  
+  if (estaciones.length > 0) {
+    const ids = estaciones.map(e => e.id)
+    const { rows: fotos } = await pool.query('SELECT * FROM fotos_estaciones_usadas WHERE estacion_usada_id = ANY($1) ORDER BY created_at ASC', [ids])
+    for (const e of estaciones) {
+      e.fotos = fotos.filter(f => f.estacion_usada_id === e.id)
+    }
+  }
+  
+  return estaciones
 }
 export async function getLatestCertificadoByOrden(ordenId, user) {
   await assertOrdenAccess(ordenId, user)
@@ -287,6 +296,7 @@ export async function deleteFoto(id, user) {
   const { rows } = await pool.query('SELECT orden_id FROM fotos_servicio WHERE id = $1', [id])
   if (rows[0]) await assertOrdenAccess(rows[0].orden_id, user)
   await pool.query('DELETE FROM fotos_servicio WHERE id = $1', [id])
+}
 export async function listEstaciones(ordenId, user) {
   if (ordenId) await assertOrdenAccess(ordenId, user)
   else if (user.role !== 'admin') throw new AppError('orden_id es obligatorio', 400)

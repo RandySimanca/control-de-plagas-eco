@@ -243,6 +243,16 @@ export default function PortalOrdenDetalle() {
                       {e.observaciones}
                     </p>
                   )}
+                  {e.fotos && e.fotos.length > 0 && (
+                    <div className="grid grid-cols-2 gap-2 mt-3">
+                      {e.fotos.map((f, idx) => (
+                        <a key={f.id || idx} href={getAuthImageUrl(f.url)} target="_blank" rel="noopener" className="space-y-1 block">
+                          <p className="text-[10px] font-bold text-dark-400 uppercase truncate" title={f.descripcion}>{f.descripcion || `Foto ${idx + 1}`}</p>
+                          <img src={getAuthImageUrl(f.url)} className="rounded-lg w-full aspect-video object-cover border border-dark-100 hover:scale-105 transition-transform" />
+                        </a>
+                      ))}
+                    </div>
+                  )}
                   {(e.foto_antes_url || e.foto_despues_url) && (
                     <div className="grid grid-cols-2 gap-2 mt-3">
                       {e.foto_antes_url && (

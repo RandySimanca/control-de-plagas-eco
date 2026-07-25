@@ -42,11 +42,9 @@ export default function OrdenEstaciones({ ordenId, estaciones, setEstaciones, is
         fotos: e.fotos
       }))
 
-      await queueOrExecute('estaciones_usadas', 'delete', { id: `orden_${ordenId}` }, ordenId)
+      await queueOrExecute('estaciones_usadas', 'delete_where', { filter: 'orden_id', value: ordenId }, ordenId)
       
       if (isOnline) {
-        await api.delete('/estaciones-usadas', { params: { orden_id: ordenId }, token })
-        
         for (const row of toInsert) {
           const { fotos, ...dbPayload } = row
           const res = await api.post('/estaciones-usadas', dbPayload, { token })
@@ -70,7 +68,6 @@ export default function OrdenEstaciones({ ordenId, estaciones, setEstaciones, is
         const data = await api.get('/estaciones-usadas', { params: { orden_id: ordenId }, token })
         setEstaciones(data.data || [])
       } else {
-        await db.sync_queue.add({ table: 'estaciones_usadas', operation: 'delete_where', payload: { filter: 'orden_id', value: ordenId }, ordenId, attempts: 0, createdAt: Date.now() })
         
         for (const row of toInsert) {
           const { fotos, ...dbPayload } = row
