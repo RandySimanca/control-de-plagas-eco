@@ -22,7 +22,7 @@ export default function OrdenLavadoTanques({
 }) {
   const [tanques, setTanques] = useState([])
   const [loading, setLoading] = useState(true)
-  const [expandedTanque, setExpandedTanque] = useState(null)
+  const [selectedTanqueId, setSelectedTanqueId] = useState(null)
   const [uploadingFoto, setUploadingFoto] = useState(false)
   const [editingTanque, setEditingTanque] = useState(null) // ID del tanque en edición
 
@@ -39,6 +39,9 @@ export default function OrdenLavadoTanques({
       const res = await api.get(`/ordenes/${ordenId}/tanques`, { token })
       const data = res.data || []
       setTanques(data)
+      if (data.length > 0) {
+        setSelectedTanqueId(data[0].id)
+      }
     } catch (err) {
       toast.error('Error al cargar tanques')
     } finally {
@@ -57,7 +60,7 @@ export default function OrdenLavadoTanques({
       }, { token })
       const newTanque = { ...res.data, bitacora: [] }
       setTanques([...tanques, newTanque])
-      setExpandedTanque(newTanque.id)
+      setSelectedTanqueId(newTanque.id)
       setEditingTanque(newTanque.id)
 
       // Generar actividad en la bitácora
@@ -80,7 +83,11 @@ export default function OrdenLavadoTanques({
     if (!await confirmDelete('¿Eliminar tanque?', 'Se borrará toda su bitácora y fotos.')) return
     try {
       await api.delete(`/tanques/${id}`, { token })
-      setTanques(tanques.filter(t => t.id !== id))
+      const filtered = tanques.filter(t => t.id !== id)
+      setTanques(filtered)
+      if (selectedTanqueId === id) {
+        setSelectedTanqueId(filtered.length > 0 ? filtered[0].id : null)
+      }
     } catch (err) {
       toast.error('Error al eliminar tanque')
     }
@@ -275,50 +282,55 @@ export default function OrdenLavadoTanques({
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h2 className="text-xl font-bold text-dark-900">Lavado de Tanques ({tanques.length})</h2>
-        {canManageTanks && (
-          <button onClick={handleAddTanque} className="btn-primary flex items-center gap-2 text-sm">
-            <Plus className="w-4 h-4" /> Agregar Tanque
-          </button>
-        )}
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          {tanques.length > 0 && (
+            <select
+              className="input bg-white w-full sm:w-64"
+              value={selectedTanqueId || ''}
+              onChange={(e) => setSelectedTanqueId(e.target.value)}
+            >
+              {tanques.map(t => (
+                <option key={t.id} value={t.id}>{t.numero} - {t.nombre}</option>
+              ))}
+            </select>
+          )}
+          {canManageTanks && (
+            <button onClick={handleAddTanque} className="btn-primary flex items-center gap-2 text-sm whitespace-nowrap">
+              <Plus className="w-4 h-4" /> Agregar
+            </button>
+          )}
+        </div>
       </div>
 
-      {tanques.map(tanque => {
-        const isExpanded = expandedTanque === tanque.id
+      {tanques.filter(t => t.id === selectedTanqueId).map(tanque => {
         const isEditing = editingTanque === tanque.id
 
         return (
           <div key={tanque.id} className="card shadow-sm border border-dark-100 p-0 overflow-hidden">
-            {/* Cabecera del Tanque */}
-            <div 
-              className="bg-dark-50 p-4 flex items-center justify-between cursor-pointer hover:bg-dark-100 transition-colors"
-              onClick={() => setExpandedTanque(isExpanded ? null : tanque.id)}
-            >
-              <div className="flex items-center gap-3">
-                {isExpanded ? <ChevronDown className="w-5 h-5 text-dark-400" /> : <ChevronRight className="w-5 h-5 text-dark-400" />}
-                <div>
-                  <h3 className="font-bold text-dark-900">{tanque.numero} - {tanque.nombre}</h3>
-                  <p className="text-xs text-dark-500">
-                    {tanque.capacidad_valor ? `${tanque.capacidad_valor} ${tanque.capacidad_unidad || ''}` : 'Capacidad no especificada'}
-                  </p>
-                </div>
+            {/* Cabecera del Tanque Seleccionado */}
+            <div className="bg-dark-50 p-4 flex items-center justify-between border-b border-dark-100">
+              <div>
+                <h3 className="font-bold text-dark-900">{tanque.numero} - {tanque.nombre}</h3>
+                <p className="text-xs text-dark-500">
+                  {tanque.capacidad_valor ? `${tanque.capacidad_valor} ${tanque.capacidad_unidad || ''}` : 'Capacidad no especificada'}
+                </p>
               </div>
               <div className="flex items-center gap-2">
                 {canManageTanks && (
                   <button 
-                    onClick={(e) => { e.stopPropagation(); handleDeleteTanque(tanque.id) }} 
-                    className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                    onClick={() => handleDeleteTanque(tanque.id)} 
+                    className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-4 h-4" /> <span className="hidden sm:inline">Eliminar Tanque</span>
                   </button>
                 )}
               </div>
             </div>
 
-            {/* Contenido Expandido */}
-            {isExpanded && (
-              <div className="p-4 border-t border-dark-100 bg-white space-y-6">
+            {/* Contenido (Siempre visible para el tanque seleccionado) */}
+            <div className="p-4 bg-white space-y-6">
                 
                 {/* FICHA TÉCNICA */}
                 <div className="bg-primary-50/50 p-4 rounded-xl border border-primary-100 relative">
@@ -525,8 +537,7 @@ export default function OrdenLavadoTanques({
                 </div>
 
               </div>
-            )}
-          </div>
+            </div>
         )
       })}
     </div>
