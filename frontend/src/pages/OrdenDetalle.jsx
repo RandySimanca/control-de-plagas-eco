@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { Plus } from 'lucide-react'
 import { useParams, useNavigate } from 'react-router-dom'
 import db from '../lib/db'
 import api from '../lib/api'
@@ -31,6 +32,7 @@ export default function OrdenDetalle() {
   const { isAdmin, profile } = useAuth()
   const { isOnline } = useOffline()
   const { queueOrExecute, queuePhoto } = useSyncQueue()
+  const actividadesRef = useRef(null)
 
   // --- Estado Fuente de Verdad ---
   const [orden, setOrden] = useState(null)
@@ -153,7 +155,7 @@ export default function OrdenDetalle() {
   const isAssignedTecnico = orden.tecnico_id === profile?.id
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className={`max-w-4xl mx-auto ${isAssignedTecnico && orden.estado === 'en_progreso' ? 'pb-24 sm:pb-0' : ''}`}>
       <div className="flex justify-end mb-2">
         <HelpButton title="Detalle de Orden" content={HELP_CONTENT.ordenDetalle} />
       </div>
@@ -194,12 +196,16 @@ export default function OrdenDetalle() {
 
       {/* 4. Bitácora de Actividad */}
       <OrdenActividades 
+        ref={actividadesRef}
         ordenId={id}
         actividades={actividades}
         setActividades={setActividades}
+        fotos={fotos}
         setFotos={setFotos}
         isAssignedTecnico={isAssignedTecnico}
+        isAdmin={isAdmin}
         ordenEstado={orden.estado}
+        ordenTipoPlaga={orden.tipo_plaga}
         queueOrExecute={queueOrExecute}
         queuePhoto={queuePhoto}
       />
@@ -248,6 +254,19 @@ export default function OrdenDetalle() {
         certificado={certificado}
         setCertificado={setCertificado}
       />
+
+      {/* FAB móvil: registrar avance rápido (técnico en campo) */}
+      {isAssignedTecnico && orden.estado === 'en_progreso' && (
+        <button
+          type="button"
+          onClick={() => actividadesRef.current?.openWizard()}
+          className="fixed bottom-6 right-6 z-40 sm:hidden w-14 h-14 rounded-full bg-primary-600 text-white shadow-lg shadow-primary-600/40 flex items-center justify-center hover:bg-primary-700 active:scale-95 transition-all"
+          title="Registrar avance"
+          aria-label="Registrar avance"
+        >
+          <Plus className="w-7 h-7" />
+        </button>
+      )}
 
       {/* Modal de Edición de Orden (solo admin) */}
       {showEditModal && isAdmin && (

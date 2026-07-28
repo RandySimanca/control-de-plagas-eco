@@ -212,10 +212,32 @@ export async function renderCertificado(data) {
       doc.setFontSize(9); doc.setFont(undefined, 'bold'); doc.setTextColor(60, 80, 160)
       doc.text(timestamp, margin + 3, y)
 
-      const descLines = doc.splitTextToSize(act.descripcion || '', pageWidth - 2 * margin - 30)
-      doc.setFont(undefined, 'normal'); doc.setTextColor(50, 50, 50)
-      doc.text(descLines, margin + 35, y)
-      y += Math.max(descLines.length * 4.5, 5) + 3
+      // Extraer el prefijo y el detalle real para dibujarlos
+      // Importaremos parseDescripcion dinámicamente si es posible, o usaremos Regex directo.
+      const match = (act.descripcion || '').match(/^\[(.*?)\]\s*(.*)$/s)
+      let prefix = ''
+      let detail = act.descripcion || ''
+      if (match) {
+        prefix = `[${match[1]}] `
+        detail = match[2]
+      }
+
+      let currentY = y
+      if (prefix) {
+        const prefixLines = doc.splitTextToSize(prefix, pageWidth - 2 * margin - 30)
+        doc.setFont(undefined, 'bold'); doc.setTextColor(80, 80, 80)
+        doc.text(prefixLines, margin + 35, currentY)
+        currentY += prefixLines.length * 4
+      }
+
+      if (detail) {
+        const descLines = doc.splitTextToSize(detail, pageWidth - 2 * margin - 30)
+        doc.setFont(undefined, 'normal'); doc.setTextColor(50, 50, 50)
+        doc.text(descLines, margin + 35, currentY)
+        currentY += descLines.length * 4.5
+      }
+      
+      y = Math.max(y + 5, currentY) + 3
     })
     y += 4
   }

@@ -15,6 +15,27 @@ export const confirmDelete = async (title = '¿Estás seguro?', text = 'Esta acc
   return result.isConfirmed
 }
 
+export const confirmAction = async ({
+  title = '¿Estás seguro?',
+  text = '',
+  confirmButtonText = 'Continuar',
+  cancelButtonText = 'Cancelar',
+  confirmButtonColor = '#0ea5e9'
+}) => {
+  const result = await Swal.fire({
+    title,
+    text,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor,
+    cancelButtonColor: '#6b7280',
+    confirmButtonText,
+    cancelButtonText,
+    reverseButtons: true
+  })
+  return result.isConfirmed
+}
+
 export const successAlert = (title, text = '') => {
   return Swal.fire({
     title,

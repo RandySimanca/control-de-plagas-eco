@@ -1,5 +1,6 @@
 import { getAuthImageUrl } from '../../utils/imageUtils'
 import { parseTipoPlaga } from '../../utils/tipoPlaga'
+import { parseDescripcion, buildDescripcion } from '../../utils/actividadTemplates'
 
 /**
  * Utilidad para obtener y convertir una URL de imagen a base64
@@ -43,7 +44,21 @@ export async function prepareCertificadoData(params) {
 
   // 1. Normalizar Fotos y Evidencias (convirtiendo a Base64 para incluir el token y evitar problemas async en el renderer)
   const rawEvidences = [
-    ...fotos.map(f => ({ url: f.url, label: f.descripcion, type: 'ambiente', created_at: f.created_at }))
+    ...fotos.map(f => {
+      const parsed = parseDescripcion(f.descripcion)
+      // Generamos solo el prefijo (sin el detalle)
+      let shortLabel = f.descripcion
+      if (parsed.tipo) {
+        shortLabel = buildDescripcion(parsed.tipoControl, parsed.tipo, parsed.area, '')
+      }
+      return { 
+        url: f.url, 
+        label: shortLabel, 
+        type: 'ambiente', 
+        created_at: f.created_at,
+        full_descripcion: f.descripcion 
+      }
+    })
   ]
 
   // Mapear fotos múltiples de estaciones
