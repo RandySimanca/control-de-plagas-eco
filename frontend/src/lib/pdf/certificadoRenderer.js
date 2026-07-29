@@ -114,31 +114,18 @@ export async function renderCertificado(data) {
   specs.forEach(s => { doc.circle(margin + 5, y - 1, 0.5, 'F'); doc.text(s, margin + 8, y); y += 4 })
   y += 6
 
-  // Sección 3: Áreas
-  const areasParsed = (() => {
-    if (!orden.areas_intervenidas) return []
-    try {
-      const parsed = JSON.parse(orden.areas_intervenidas)
-      if (Array.isArray(parsed)) return parsed
-    } catch {}
-    // legacy string
-    return orden.areas_intervenidas.split(', ').filter(Boolean).map(a => ({ tipo: 'General', area: a }))
-  })()
+  // Sección 3: Áreas Intervenidas (derivadas desde la bitácora de actividades)
+  const areasPorTipoRender = normalized.areasPorTipo || {}
 
   if (y > pageHeight - 60) { doc.addPage(); y = 42 }
   y = drawSectionHeader('3. Áreas Intervenidas', y)
   
-  if (areasParsed.length === 0) {
+  const tiposConAreas = Object.entries(areasPorTipoRender)
+  if (tiposConAreas.length === 0) {
     doc.setFontSize(11); doc.setFont(undefined, 'normal');
     doc.text('No se han especificado áreas.', margin + 3, y); y += 6;
   } else {
-    const areasPorTipo = areasParsed.reduce((acc, a) => {
-      if (!acc[a.tipo]) acc[a.tipo] = []
-      acc[a.tipo].push(a.area)
-      return acc
-    }, {})
-
-    for (const [tipo, areas] of Object.entries(areasPorTipo)) {
+    for (const [tipo, areas] of tiposConAreas) {
       if (y > pageHeight - 20) { doc.addPage(); y = 42 }
       doc.setFont(undefined, 'bold'); doc.setFontSize(10); doc.setTextColor(60, 80, 160)
       doc.text(tipo.toUpperCase(), margin + 3, y); y += 4
@@ -162,6 +149,7 @@ export async function renderCertificado(data) {
   doc.text(txLines, margin + 3, y); y += (txLines.length * 4) + 4
 
   if (productos.length > 0) {
+    y += 5; // Espacio extra
     if (y > pageHeight - 30) { doc.addPage(); y = 42; }
     doc.setFont(undefined, 'bold'); doc.text('Trazabilidad de Productos:', margin + 3, y); y += 4
     

@@ -83,19 +83,38 @@ export async function prepareCertificadoData(params) {
   const parsedTipos = parseTipoPlaga(orden.tipo_plaga);
   const tipoPlagaTitle = parsedTipos.length > 0 ? parsedTipos.join(', ') : 'Control de Plagas'
   
-  let areasTrabajadas = 'todas las áreas del establecimiento';
-  if (orden.areas_intervenidas) {
-    try {
-      const parsedAreas = JSON.parse(orden.areas_intervenidas);
-      if (Array.isArray(parsedAreas)) {
-        const uniqueAreas = [...new Set(parsedAreas.map(a => a.area))];
-        areasTrabajadas = uniqueAreas.join(', ').toLowerCase();
-      }
-    } catch {
-      areasTrabajadas = orden.areas_intervenidas.toLowerCase();
+  // --- Derivar áreas desde la bitácora de actividades ---
+  // Estructura: { 'Desinsectación': Set(['Cocina', 'Baños']), 'Lavado de Tanques': Set(['Tanque Elevado']) }
+  const areasPorTipoMap = {};
+
+  // 2a. Áreas desde bitácora general (actividades)
+  const actividades = params.actividades || [];
+  actividades.forEach(act => {
+    const parsed = parseDescripcion(act.descripcion);
+    if (parsed.tipoControl && parsed.area) {
+      const tc = parsed.tipoControl;
+      if (!areasPorTipoMap[tc]) areasPorTipoMap[tc] = new Set();
+      areasPorTipoMap[tc].add(parsed.area);
     }
-  }
-  
+  });
+
+  // 2b. Áreas desde tanques (Lavado de Tanques)
+  const tanquesParam = params.tanques || [];
+  tanquesParam.forEach(t => {
+    const tipoTanque = t.tipo_tanque || 'Tanque';
+    const key = 'Lavado de Tanques';
+    if (!areasPorTipoMap[key]) areasPorTipoMap[key] = new Set();
+    areasPorTipoMap[key].add(tipoTanque);
+  });
+
+  // Convertir Sets a arrays
+  const areasPorTipo = Object.fromEntries(
+    Object.entries(areasPorTipoMap).map(([k, v]) => [k, [...v]])
+  );
+
+  // Fallback legacy para la sección 4 (diagnosis)
+  let areasTrabajadas = 'todas las áreas del establecimiento';
+
   let diagnosisText = '';
   
   if (params.productos && params.productos.length > 0) {
@@ -118,8 +137,17 @@ export async function prepareCertificadoData(params) {
         return `${nombre}${ia}${dosis}${cantidad}`;
       }).join(' y ');
 
+      // Buscar las áreas específicas para este tipo de control desde la bitácora
+      let areasForTipo = areasTrabajadas; // fallback
+      const tipoKey = Object.keys(areasPorTipo).find(
+        k => k.toLowerCase() === tipo.toLowerCase()
+      );
+      if (tipoKey && areasPorTipo[tipoKey].length > 0) {
+        areasForTipo = areasPorTipo[tipoKey].join(', ').toLowerCase();
+      }
+
       const conector = isFirst ? 'Se realizaron las actividades de' : 'Asimismo, se ejecutaron las actividades de';
-      const areasStr = isFirst ? `en las siguientes zonas: ${areasTrabajadas}` : 'en las mismas áreas';
+      const areasStr = `en las siguientes zonas: ${areasForTipo}`;
       
       parrafos.push(`${conector} ${tipo} ${areasStr}, utilizando ${descripcionesProductos}, conforme a la trazabilidad de productos registrada.`);
       isFirst = false;
@@ -204,7 +232,8 @@ export async function prepareCertificadoData(params) {
       logoData,
       firmaData,
       fechaEjecucion,
-      tanques: normalizedTanques
+      tanques: normalizedTanques,
+      areasPorTipo
     }
   }
 }

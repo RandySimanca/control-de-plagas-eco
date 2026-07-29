@@ -182,39 +182,7 @@ export default function OrdenTecnicoDetalles({
 
   return (
     <>
-      {/* Áreas */}
-      <div className="card mt-6 border-t-4 border-t-indigo-500">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-dark-900 flex items-center gap-2">
-            <MapPin className="w-5 h-5 text-indigo-600" /> Áreas Intervenidas
-          </h2>
-          {canEdit && (
-            <button onClick={() => {
-              setSelectedAreas(parseAreas(orden.areas_intervenidas))
-              setActiveTipoControlArea(parseTipoPlaga(orden.tipo_plaga)[0] || '')
-              setShowAreasModal(true)
-            }} className="btn-secondary py-1.5 px-3 text-sm flex items-center gap-2">
-              <MapPin className="w-4 h-4" /> Especificar Áreas
-            </button>
-          )}
-        </div>
-        {areasGuardadas.length > 0 ? (
-          <div className="space-y-3">
-            {Object.entries(areasPorTipoDisplay).map(([tipo, areas]) => (
-              <div key={tipo}>
-                <span className="text-xs font-semibold text-indigo-700 uppercase tracking-wider">{tipo}</span>
-                <div className="flex flex-wrap gap-2 mt-1">
-                  {areas.map((a, idx) => (
-                    <span key={idx} className="bg-dark-50 border border-dark-200 text-dark-800 px-3 py-1 rounded-full text-sm font-medium">{a}</span>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <span className="text-sm text-dark-400">No se han especificado áreas</span>
-        )}
-      </div>
+
 
       {/* Métodos */}
       <div className="card mt-6 border-t-4 border-t-indigo-400 shadow-md">
