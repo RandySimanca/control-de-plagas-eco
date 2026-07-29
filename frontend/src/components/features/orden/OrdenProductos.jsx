@@ -12,7 +12,8 @@ export default function OrdenProductos({
   isAssignedTecnico,
   ordenEstado,
   queueOrExecute,
-  ordenTipoPlaga
+  ordenTipoPlaga,
+  servicioFiltro
 }) {
   const [showAddModal, setShowAddModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
@@ -24,7 +25,7 @@ export default function OrdenProductos({
     ingrediente_activo: '',
     dosis: '',
     cantidad: '',
-    tipo_producto: ''
+    tipo_producto: servicioFiltro || ''
   })
 
   const tiposControl = parseTipoPlaga(ordenTipoPlaga);
@@ -37,7 +38,7 @@ export default function OrdenProductos({
       ingrediente_activo: '',
       dosis: '',
       cantidad: '',
-      tipo_producto: tiposControl.length === 1 ? tiposControl[0] : ''
+      tipo_producto: servicioFiltro || (tiposControl.length === 1 ? tiposControl[0] : '')
     })
     setEditingId(null)
   }
@@ -46,18 +47,21 @@ export default function OrdenProductos({
     e.preventDefault()
     if (!formData.nombre_comercial.trim()) return
 
+    // Si venimos desde un servicio específico, siempre forzar ese tipo
+    const tipoFinal = servicioFiltro || formData.tipo_producto
+
     setIsSaving(true)
     try {
       if (editingId) {
         // Edit
-        const payload = { ...formData, id: editingId, nombre_producto: formData.nombre_comercial, cantidad: formData.cantidad || 'N/A' }
+        const payload = { ...formData, tipo_producto: tipoFinal, id: editingId, nombre_producto: formData.nombre_comercial, cantidad: formData.cantidad || 'N/A' }
         const { queued } = await queueOrExecute('productos_usados', 'update', payload, ordenId)
         setProductos(productos.map(p => p.id === editingId ? { ...p, ...payload } : p))
         toast.success(queued ? 'Actualizado offline ⚡' : 'Producto actualizado')
         setShowEditModal(false)
       } else {
         // Create
-        const payload = { ...formData, id: generateUUID(), orden_id: ordenId, created_at: new Date().toISOString(), nombre_producto: formData.nombre_comercial, cantidad: formData.cantidad || 'N/A' }
+        const payload = { ...formData, tipo_producto: tipoFinal, id: generateUUID(), orden_id: ordenId, created_at: new Date().toISOString(), nombre_producto: formData.nombre_comercial, cantidad: formData.cantidad || 'N/A' }
         const { data, queued } = await queueOrExecute('productos_usados', 'insert', payload, ordenId)
         const savedData = data?.[0] || payload
         setProductos([savedData, ...productos])
@@ -97,12 +101,16 @@ export default function OrdenProductos({
     setShowEditModal(true)
   }
 
+  const productosMostrar = servicioFiltro
+    ? productos.filter(p => p.tipo_producto?.toLowerCase() === servicioFiltro?.toLowerCase())
+    : productos
+
   return (
     <>
       <div className="card">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-dark-900 flex items-center gap-2">
-            <Package className="w-5 h-5 text-primary-600" /> Productos Utilizados
+            <Package className="w-5 h-5 text-primary-600" /> Productos Utilizados {servicioFiltro ? `(${servicioFiltro})` : ''}
           </h2>
           {canEdit && (
             <button 
@@ -114,14 +122,14 @@ export default function OrdenProductos({
           )}
         </div>
 
-        {productos.length === 0 ? (
+        {productosMostrar.length === 0 ? (
           <div className="text-center py-6 bg-dark-50 rounded-xl border border-dashed border-dark-200">
             <Package className="w-6 h-6 text-dark-300 mx-auto mb-2" />
-            <p className="text-sm text-dark-400">Sin productos registrados</p>
+            <p className="text-sm text-dark-400">Sin productos registrados {servicioFiltro ? `para ${servicioFiltro}` : ''}</p>
           </div>
         ) : (
           <div className="space-y-3">
-            {productos.map((p, i) => (
+            {productosMostrar.map((p, i) => (
               <div key={p.id || i} className="bg-dark-50 p-3 rounded-xl border border-dark-100">
                 <div className="flex justify-between items-start mb-2">
                   <div>
@@ -193,7 +201,12 @@ export default function OrdenProductos({
               </button>
             </div>
             <form onSubmit={handleSave} className="p-6 space-y-4">
-              {tiposControl.length > 0 && (
+              {servicioFiltro ? (
+                <div className="bg-indigo-50/80 p-3 rounded-xl border border-indigo-200/60 mb-2">
+                  <span className="text-xs text-indigo-700 font-bold block uppercase tracking-wider">Control Específico:</span>
+                  <span className="text-sm font-black text-indigo-900">{servicioFiltro}</span>
+                </div>
+              ) : tiposControl.length > 0 && (
                 <div>
                   <label className="label-field">Tipo de Control Asociado</label>
                   <select

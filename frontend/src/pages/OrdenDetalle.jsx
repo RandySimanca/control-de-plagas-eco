@@ -193,91 +193,96 @@ export default function OrdenDetalle() {
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* 2. Productos */}
-        <OrdenProductos 
-          ordenId={id}
-          productos={productos} 
-          setProductos={setProductos}
-          isAssignedTecnico={isAssignedTecnico}
-          ordenEstado={orden.estado}
-          queueOrExecute={queueOrExecute}
-          ordenTipoPlaga={orden.tipo_plaga}
-        />
+      {/* Vista tradicional: solo visible para admin (el técnico usa el Hub) */}
+      {!isAssignedTecnico && (
+        <>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+            {/* 2. Productos */}
+            <OrdenProductos 
+              ordenId={id}
+              productos={productos} 
+              setProductos={setProductos}
+              isAssignedTecnico={isAssignedTecnico}
+              ordenEstado={orden.estado}
+              queueOrExecute={queueOrExecute}
+              ordenTipoPlaga={orden.tipo_plaga}
+            />
 
-        {/* 3. Estaciones */}
-        <OrdenEstaciones 
-          ordenId={id}
-          estaciones={estaciones}
-          setEstaciones={setEstaciones}
-          isAssignedTecnico={isAssignedTecnico}
-          ordenEstado={orden.estado}
-          isOnline={isOnline}
-          queueOrExecute={queueOrExecute}
-          queuePhoto={queuePhoto}
-        />
-      </div>
+            {/* 3. Estaciones */}
+            <OrdenEstaciones 
+              ordenId={id}
+              estaciones={estaciones}
+              setEstaciones={setEstaciones}
+              isAssignedTecnico={isAssignedTecnico}
+              ordenEstado={orden.estado}
+              isOnline={isOnline}
+              queueOrExecute={queueOrExecute}
+              queuePhoto={queuePhoto}
+            />
+          </div>
 
-      {/* 4. Bitácora de Actividad */}
-      <OrdenActividades 
-        ref={actividadesRef}
-        ordenId={id}
-        actividades={actividades}
-        setActividades={setActividades}
-        fotos={fotos}
-        setFotos={setFotos}
-        isAssignedTecnico={isAssignedTecnico}
-        isAdmin={isAdmin}
-        ordenEstado={orden.estado}
-        ordenTipoPlaga={orden.tipo_plaga}
-        queueOrExecute={queueOrExecute}
-        queuePhoto={queuePhoto}
-      />
+          {/* 4. Bitácora de Actividad */}
+          <OrdenActividades 
+            ref={actividadesRef}
+            ordenId={id}
+            actividades={actividades}
+            setActividades={setActividades}
+            fotos={fotos}
+            setFotos={setFotos}
+            isAssignedTecnico={isAssignedTecnico}
+            isAdmin={isAdmin}
+            ordenEstado={orden.estado}
+            ordenTipoPlaga={orden.tipo_plaga}
+            queueOrExecute={queueOrExecute}
+            queuePhoto={queuePhoto}
+          />
 
-      {/* 5. Galería de Fotos */}
-      <OrdenFotos 
-        ordenId={id}
-        fotos={fotos}
-        setFotos={setFotos}
-        isAssignedTecnico={isAssignedTecnico}
-        ordenEstado={orden.estado}
-        queuePhoto={queuePhoto}
-      />
+          {/* 5. Galería de Fotos */}
+          <OrdenFotos 
+            ordenId={id}
+            fotos={fotos}
+            setFotos={setFotos}
+            isAssignedTecnico={isAssignedTecnico}
+            ordenEstado={orden.estado}
+            queuePhoto={queuePhoto}
+          />
 
-      {/* 5.5 Lavado de Tanques (Si aplica) */}
-      {orden.lavado_tanques && (
-        <OrdenLavadoTanques 
-          ordenId={id}
-          isAssignedTecnico={isAssignedTecnico}
-          isAdmin={isAdmin}
-          ordenEstado={orden.estado}
-          queuePhoto={queuePhoto}
-          queueOrExecute={queueOrExecute}
-          actividades={actividades}
-          setActividades={setActividades}
-        />
+          {/* 5.5 Lavado de Tanques (Si aplica) */}
+          {orden.lavado_tanques && (
+            <OrdenLavadoTanques 
+              ordenId={id}
+              isAssignedTecnico={isAssignedTecnico}
+              isAdmin={isAdmin}
+              ordenEstado={orden.estado}
+              queuePhoto={queuePhoto}
+              queueOrExecute={queueOrExecute}
+              actividades={actividades}
+              setActividades={setActividades}
+            />
+          )}
+
+          {/* 6. Detalles Técnicos (Áreas, Métodos, Recomendaciones) */}
+          <OrdenTecnicoDetalles 
+            orden={orden}
+            setOrden={setOrden}
+            setFotos={setFotos}
+            isAssignedTecnico={isAssignedTecnico}
+            queueOrExecute={queueOrExecute}
+            queuePhoto={queuePhoto}
+          />
+
+          {/* 7. Certificado Final */}
+          <OrdenCertificado 
+            orden={orden}
+            productos={productos}
+            estaciones={estaciones}
+            actividades={actividades}
+            fotos={fotos}
+            certificado={certificado}
+            setCertificado={setCertificado}
+          />
+        </>
       )}
-
-      {/* 6. Detalles Técnicos (Áreas, Métodos, Recomendaciones) */}
-      <OrdenTecnicoDetalles 
-        orden={orden}
-        setOrden={setOrden}
-        setFotos={setFotos}
-        isAssignedTecnico={isAssignedTecnico}
-        queueOrExecute={queueOrExecute}
-        queuePhoto={queuePhoto}
-      />
-
-      {/* 7. Certificado Final */}
-      <OrdenCertificado 
-        orden={orden}
-        productos={productos}
-        estaciones={estaciones}
-        actividades={actividades}
-        fotos={fotos}
-        certificado={certificado}
-        setCertificado={setCertificado}
-      />
 
       {/* FAB móvil: registrar avance rápido (técnico en campo) */}
       {isAssignedTecnico && orden.estado === 'en_progreso' && (
