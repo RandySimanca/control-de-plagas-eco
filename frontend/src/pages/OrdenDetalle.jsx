@@ -21,7 +21,8 @@ import {
   OrdenFotos,
   OrdenCertificado,
   OrdenTecnicoDetalles,
-  OrdenEditarModal
+  OrdenEditarModal,
+  OrdenTecnicoHub
 } from '../components/features/orden'
 import OrdenLavadoTanques from '../components/features/orden/OrdenLavadoTanques'
 
@@ -152,7 +153,7 @@ export default function OrdenDetalle() {
 
   if (!orden) return null
 
-  const isAssignedTecnico = orden.tecnico_id === profile?.id
+  const isAssignedTecnico = orden.tecnico_id === profile?.id || profile?.rol === 'tecnico'
 
   return (
     <div className={`max-w-4xl mx-auto ${isAssignedTecnico && orden.estado === 'en_progreso' ? 'pb-24 sm:pb-0' : ''}`}>
@@ -168,6 +169,29 @@ export default function OrdenDetalle() {
         onChangeEstado={cambiarEstado}
         onEditClick={() => setShowEditModal(true)}
       />
+
+      {/* Hub de Botones de Trabajo del Técnico (Móvil / Escritorio) */}
+      <div className="mt-6">
+        <OrdenTecnicoHub
+          orden={orden}
+          setOrden={setOrden}
+          productos={productos}
+          setProductos={setProductos}
+          estaciones={estaciones}
+          setEstaciones={setEstaciones}
+          actividades={actividades}
+          setActividades={setActividades}
+          fotos={fotos}
+          setFotos={setFotos}
+          certificado={certificado}
+          setCertificado={setCertificado}
+          isAssignedTecnico={isAssignedTecnico}
+          isAdmin={isAdmin}
+          queueOrExecute={queueOrExecute}
+          queuePhoto={queuePhoto}
+          isOnline={isOnline}
+        />
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* 2. Productos */}
