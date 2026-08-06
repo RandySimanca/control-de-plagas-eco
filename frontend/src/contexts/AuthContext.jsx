@@ -1,10 +1,12 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import * as authApi from '../api/auth.api'
 
 const AuthContext = createContext({})
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => useContext(AuthContext)
+
+const PROFILE_CACHE_KEY = 'auth_profile_cache'
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
@@ -20,21 +22,41 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
-  async function fetchProfile() {
+  const fetchProfile = useCallback(async () => {
     try {
       const token = localStorage.getItem('token')
       const data = await authApi.getMe(token)
-      setUser(data.user || data) // El backend retorna { user } o directamente el perfil
-      setProfile(data.user || data)
+      const profileData = data.user || data
+      // Guardar perfil en caché local para uso offline
+      localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(profileData))
+      setUser(profileData)
+      setProfile(profileData)
     } catch (err) {
+      // Si el error es por falta de conexión, usar el perfil en caché
+      if (!navigator.onLine) {
+        const cached = localStorage.getItem(PROFILE_CACHE_KEY)
+        if (cached) {
+          try {
+            const cachedProfile = JSON.parse(cached)
+            setUser(cachedProfile)
+            setProfile(cachedProfile)
+            console.info('Modo offline: usando perfil en caché')
+            return
+          } catch {
+            // Ignorar error de parse
+          }
+        }
+      }
+      // Solo limpiar sesión si el error es de autenticación real (no de red)
       console.error('Error cargando perfil:', err)
       localStorage.removeItem('token')
+      localStorage.removeItem(PROFILE_CACHE_KEY)
       setUser(null)
       setProfile(null)
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
   async function login(email, password) {
     const data = await authApi.login(email, password)
@@ -47,6 +69,7 @@ export function AuthProvider({ children }) {
 
   async function logout() {
     localStorage.removeItem('token')
+    localStorage.removeItem(PROFILE_CACHE_KEY)
     setUser(null)
     setProfile(null)
   }

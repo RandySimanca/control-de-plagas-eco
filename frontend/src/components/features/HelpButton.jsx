@@ -4,12 +4,12 @@ import { HelpCircle, X } from 'lucide-react'
 import { useConfig } from '../../contexts/ConfigContext'
 
 /**
- * HelpButton — Ícono de ayuda contextual por módulo.
+ * Botón de Ayuda — Ícono de ayuda contextual por módulo.
  *
  * Uso:
  *   <HelpButton title="Clientes" content={HELP_CONTENT.clientes} />
  *
- * `content` puede ser un string simple o un array de bullets (ver helpContent.js).
+ * `content` puede ser un texto simple o un arreglo de viñetas (ver helpContent.js).
  */
 export default function HelpButton({ title, content }) {
   const [open, setOpen] = useState(false)

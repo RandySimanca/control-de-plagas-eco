@@ -22,7 +22,8 @@ const OrdenActividades = forwardRef(function OrdenActividades({
   ordenEstado,
   ordenTipoPlaga,
   queueOrExecute,
-  queuePhoto
+  queuePhoto,
+  servicioFiltro
 }, ref) {
   const [showWizard, setShowWizard] = useState(false)
   const [savingActivity, setSavingActivity] = useState(false)
@@ -258,6 +259,7 @@ const OrdenActividades = forwardRef(function OrdenActividades({
         onSave={handleSaveActivity}
         saving={savingActivity}
         ordenTipoPlaga={ordenTipoPlaga}
+        defaultTipoControl={servicioFiltro}
       />
 
       {/* Modal: Editar avance (texto completo, compatible con entradas antiguas) */}

@@ -32,7 +32,8 @@ export default function ActividadWizardModal({
   onClose,
   onSave,
   saving = false,
-  ordenTipoPlaga
+  ordenTipoPlaga,
+  defaultTipoControl
 }) {
   const [step, setStep] = useState(1)
   const [tipoControl, setTipoControl] = useState('')
@@ -47,14 +48,19 @@ export default function ActividadWizardModal({
 
   useEffect(() => {
     if (!isOpen) return
-    setStep(1)
-    setTipoControl('')
+    if (defaultTipoControl) {
+      setTipoControl(defaultTipoControl)
+      setStep(2)
+    } else {
+      setTipoControl('')
+      setStep(1)
+    }
     setTipoId('')
     setArea('')
     setDetalle('')
     setPhotos([])
     setSubmitReady(false)
-  }, [isOpen])
+  }, [isOpen, defaultTipoControl])
 
   useEffect(() => {
     if (step !== 4) {
@@ -157,6 +163,7 @@ export default function ActividadWizardModal({
   }
 
   function handleBack() {
+    if (defaultTipoControl && step === 2) return // Prevent returning to step 1
     if (step > 1) setStep(step - 1)
   }
 
@@ -215,14 +222,17 @@ export default function ActividadWizardModal({
           </div>
 
           <div className="flex gap-2">
-            {STEPS.map(s => (
-              <div
-                key={s.id}
-                className={`h-1.5 flex-1 rounded-full transition-colors ${
-                  s.id <= step ? 'bg-primary-500' : 'bg-dark-100'
-                }`}
-              />
-            ))}
+            {STEPS.map(s => {
+              if (defaultTipoControl && s.id === 1) return null // Ocultar barra del paso 1 si ya está preseleccionado
+              return (
+                <div
+                  key={s.id}
+                  className={`h-1.5 flex-1 rounded-full transition-colors ${
+                    s.id <= step ? 'bg-primary-500' : 'bg-dark-100'
+                  }`}
+                />
+              )
+            })}
           </div>
         </div>
 
@@ -412,7 +422,7 @@ export default function ActividadWizardModal({
 
           {/* Footer acciones */}
           <div className="px-5 py-4 border-t border-dark-100 bg-white shrink-0 flex gap-3">
-            {step > 1 ? (
+            {(step > 1 && !(defaultTipoControl && step === 2)) ? (
               <button
                 type="button"
                 onClick={handleBack}

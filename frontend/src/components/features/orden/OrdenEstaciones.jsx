@@ -17,7 +17,7 @@ function buildInitialEdit(estaciones) {
       observaciones: found ? found.observaciones : '',
       es_nueva_instalacion: found ? !!found.es_nueva_instalacion : false,
       fotos: found ? (found.fotos || []) : [],
-      id: found ? found.id : null,
+      id: found ? found.id : generateUUID(),
       active: !!found
     }
   })
@@ -32,27 +32,49 @@ export default function OrdenEstaciones({ ordenId, estaciones, setEstaciones, is
     setSavingEstaciones(true)
     const token = localStorage.getItem('token')
     try {
-      const toInsert = estacionesEdit.filter(e => e.active).map(e => ({
-        id: e.id || generateUUID(),
-        orden_id: ordenId,
-        tipo_estacion: e.tipo_estacion,
-        cantidad: parseInt(e.cantidad) || 0,
-        observaciones: e.observaciones || '',
-        es_nueva_instalacion: e.es_nueva_instalacion,
-        fotos: e.fotos
-      }))
+      let nuevas = 0
+      let mantenimientos = 0
+      const toUpdate = []
 
-      await queueOrExecute('estaciones_usadas', 'delete_where', { filter: 'orden_id', value: ordenId }, ordenId)
-
-      // Generar actividad automática en la bitácora
-      if (toInsert.length > 0) {
-        let nuevas = 0
-        let mantenimientos = 0
-        toInsert.forEach(e => {
+      // 1. Guardar cambios en las estaciones (Insert, Update, Delete)
+      for (const e of estacionesEdit) {
+        const exists = estaciones.find(x => x.id === e.id)
+        
+        if (e.active) {
           if (e.es_nueva_instalacion) nuevas += e.cantidad
           else mantenimientos += e.cantidad
-        })
-        
+        }
+
+        if (e.active && !exists) {
+          // INSERT nueva estación
+          const dbPayload = {
+            id: e.id,
+            orden_id: ordenId,
+            tipo_estacion: e.tipo_estacion,
+            cantidad: parseInt(e.cantidad) || 0,
+            observaciones: e.observaciones || '',
+            es_nueva_instalacion: e.es_nueva_instalacion
+          }
+          await queueOrExecute('estaciones_usadas', 'insert', dbPayload, ordenId)
+          toUpdate.push({ ...dbPayload, fotos: e.fotos })
+        } else if (e.active && exists) {
+          // UPDATE estación existente
+          const dbPayload = {
+            id: e.id,
+            cantidad: parseInt(e.cantidad) || 0,
+            observaciones: e.observaciones || '',
+            es_nueva_instalacion: e.es_nueva_instalacion
+          }
+          await queueOrExecute('estaciones_usadas', 'update', dbPayload, ordenId)
+          toUpdate.push({ ...exists, ...dbPayload, fotos: e.fotos })
+        } else if (!e.active && exists) {
+          // DELETE estación desmarcada (cascada eliminará sus fotos en backend)
+          await queueOrExecute('estaciones_usadas', 'delete', { id: e.id }, ordenId)
+        }
+      }
+
+      // 2. Generar actividad automática en la bitácora
+      if (nuevas > 0 || mantenimientos > 0) {
         let texto = 'Monitoreo de estaciones registrado.'
         if (nuevas > 0) texto += ` Instaladas: ${nuevas}.`
         if (mantenimientos > 0) texto += ` Revisadas: ${mantenimientos}.`
@@ -64,57 +86,53 @@ export default function OrdenEstaciones({ ordenId, estaciones, setEstaciones, is
           created_at: new Date().toISOString()
         }, ordenId)
       }
-      
-      if (isOnline) {
-        for (const row of toInsert) {
-          const { fotos, ...dbPayload } = row
-          const res = await api.post('/estaciones-usadas', dbPayload, { token })
-          const createdEstacion = res.data
-          
-          if (fotos && fotos.length > 0) {
-            await Promise.all(fotos.map(async (foto) => {
-              if (!foto.id || foto.id.startsWith('temp_')) {
-                const fotoPayload = {
-                  estacion_usada_id: createdEstacion.id,
-                  url: foto.url,
+
+      // 3. Manejo de fotos nuevas
+      for (const e of estacionesEdit) {
+        if (!e.active) continue
+        const newFotos = e.fotos.filter(f => !f.id || f.id.startsWith('temp_'))
+        
+        if (isOnline) {
+          // Las subidas online ya generaron publicUrl en handleAddEstacionFoto.
+          // Solo falta crear los registros en la base de datos.
+          for (const foto of newFotos) {
+            const fotoPayload = {
+              estacion_usada_id: e.id,
+              url: foto.url,
+              storage_path: foto.storage_path,
+              descripcion: foto.descripcion || ''
+            }
+            await api.post('/fotos-estaciones', fotoPayload, { token })
+          }
+        } else {
+          // Offline: las fotos están en la tabla fotos_pendientes sin dbPayload.
+          // Les agregamos el dbPayload para que el OfflineContext las inserte en DB cuando reconecte.
+          const pendingAll = await db.fotos_pendientes.toArray()
+          for (const foto of newFotos) {
+            const match = pendingAll.find(p => p.path === foto.storage_path)
+            if (match) {
+              await db.fotos_pendientes.update(match.id, {
+                dbTable: 'fotos_estaciones',
+                dbPayload: {
+                  id: generateUUID(),
+                  estacion_usada_id: e.id,
                   storage_path: foto.storage_path,
                   descripcion: foto.descripcion || ''
                 }
-                await api.post('/fotos-estaciones', fotoPayload, { token })
-              }
-            }))
-          }
-        }
-        
-        const data = await api.get('/estaciones-usadas', { params: { orden_id: ordenId }, token })
-        setEstaciones(data.data || [])
-      } else {
-        
-        for (const row of toInsert) {
-          const { fotos, ...dbPayload } = row
-          await db.sync_queue.add({ table: 'estaciones_usadas', operation: 'insert', payload: dbPayload, ordenId, attempts: 0, createdAt: Date.now() + 1 })
-          
-          if (fotos && fotos.length > 0) {
-            for (const f of fotos) {
-              await db.sync_queue.add({
-                table: 'fotos_estaciones_usadas',
-                operation: 'insert',
-                payload: {
-                  id: f.id || generateUUID(),
-                  estacion_usada_id: row.id,
-                  url: f.url,
-                  storage_path: f.storage_path,
-                  descripcion: f.descripcion || ''
-                },
-                ordenId,
-                attempts: 0,
-                createdAt: Date.now() + 2
               })
             }
           }
         }
-        setEstaciones(toInsert)
       }
+      
+      // 4. Actualizar estado local
+      if (isOnline) {
+        const data = await api.get('/estaciones-usadas', { params: { orden_id: ordenId }, token })
+        setEstaciones(data.data || [])
+      } else {
+        setEstaciones(toUpdate)
+      }
+
       setIsEditingEstaciones(false)
       toast.success('Monitoreo de estaciones actualizado')
     } catch (err) {

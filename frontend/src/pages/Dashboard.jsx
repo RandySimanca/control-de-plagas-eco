@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { useOffline } from '../contexts/OfflineContext'
 import api from '../lib/api'
+import db from '../lib/db'
 import {
   Users, ClipboardList, CheckCircle2, UserCog, Plus, ArrowRight,
-  Settings, FileText, TrendingUp, TrendingDown, Shield
+  Settings, FileText, TrendingUp, TrendingDown, Shield, WifiOff
 } from 'lucide-react'
 import Badge from '../components/ui/Badge'
 import { useConfig } from '../contexts/ConfigContext'
@@ -25,38 +27,65 @@ const mockChartData = [
   { name: '31 May', ordenes: 30 },
 ]
 
+const CACHE_KEY_DASHBOARD = 'dashboard_data'
+
 export default function Dashboard() {
   const { profile, isAdmin } = useAuth()
+  const { isOnline, lastSyncSuccess } = useOffline()
   const { nombreEmpresa } = useConfig()
-  const [stats, setStats] = useState({ 
+  const [stats, setStats] = useState({
     clientes: 0, pendientes: 0, completadas: 0, tecnicos: 0,
     clientesGrowth: 0, ordenesCreadas: 0, ordenesCreadasGrowth: 0,
     completadasGrowth: 0, pendientesGrowth: 0
   })
   const [recentOrders, setRecentOrders] = useState([])
+  const [isOfflineData, setIsOfflineData] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     loadDashboard()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [isOnline, lastSyncSuccess])
 
   async function loadDashboard() {
     try {
-      const token = localStorage.getItem('token')
-      const [clientesRes, ordenesRes, perfilesRes] = await Promise.all([
-        api.get('/clientes', { token }),
-        api.get('/servicios', { token }),
-        api.get('/profiles', { token })
-      ])
+      let clientes = [], ordenes = [], perfiles = []
 
-      const clientes = clientesRes.data || []
-      const ordenes = ordenesRes.data || []
-      const perfiles = perfilesRes.data || []
+      if (isOnline) {
+        const token = localStorage.getItem('token')
+        const [clientesRes, ordenesRes, perfilesRes] = await Promise.all([
+          api.get('/clientes', { token }),
+          api.get('/servicios', { token }),
+          api.get('/profiles', { token })
+        ])
+        clientes = clientesRes.data || []
+        ordenes = ordenesRes.data || []
+        perfiles = perfilesRes.data || []
+        // Guardar en caché
+        await db.cache_listas.put({
+          clave: CACHE_KEY_DASHBOARD,
+          data: { clientes, ordenes, perfiles },
+          updated_at: Date.now()
+        })
+        setIsOfflineData(false)
+      } else {
+        // Sin conexión: leer desde caché
+        const cached = await db.cache_listas.get(CACHE_KEY_DASHBOARD)
+        if (cached?.data) {
+          clientes = cached.data.clientes || []
+          ordenes = cached.data.ordenes || []
+          perfiles = cached.data.perfiles || []
+          setIsOfflineData(true)
+        } else {
+          setIsOfflineData(true)
+          return
+        }
+      }
 
       const clientesActivos = clientes.filter(c => c.activo).length
       const tecnicosActivos = perfiles.filter(p => p.rol === 'tecnico' && p.activo).length
 
+      //para saber si es un tecnico o un admin quien esta logueado
       const ordenesFiltrados = (!isAdmin && profile?.id)
         ? ordenes.filter(s => s.tecnico_id === profile.id)
         : ordenes
@@ -104,10 +133,10 @@ export default function Dashboard() {
         .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
         .slice(0, 5)
 
-      setStats({ 
-        clientes: clientesActivos, 
-        pendientes, 
-        completadas, 
+      setStats({
+        clientes: clientesActivos,
+        pendientes,
+        completadas,
         tecnicos: tecnicosActivos,
         clientesGrowth,
         ordenesCreadas: ordenesFiltrados.length,
@@ -118,60 +147,82 @@ export default function Dashboard() {
       setRecentOrders(recent)
     } catch (err) {
       console.error('Error cargando dashboard:', err)
+      // Fallback a caché si el fetch falló
+      try {
+        const cached = await db.cache_listas.get(CACHE_KEY_DASHBOARD)
+        if (cached?.data) {
+          setIsOfflineData(true)
+          // re-invocar con los datos en caché sin hacer fetch
+          const { clientes = [], ordenes = [], perfiles = [] } = cached.data
+          const ordenesFiltrados = (!isAdmin && profile?.id)
+            ? ordenes.filter(o => o.tecnico_id === profile.id) : ordenes
+          const recent = [...ordenesFiltrados]
+            .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+            .slice(0, 5)
+          setRecentOrders(recent)
+          setStats(s => ({
+            ...s,
+            clientes: clientes.filter(c => c.activo).length,
+            pendientes: ordenesFiltrados.filter(o => ['pendiente', 'programada', 'en_proceso', 'en_progreso'].includes(o.estado)).length,
+            completadas: ordenesFiltrados.filter(o => ['terminado', 'completada'].includes(o.estado)).length,
+            tecnicos: perfiles.filter(p => p.rol === 'tecnico' && p.activo).length,
+          }))
+        }
+      } catch { /* ignorar */ }
     } finally {
       setLoading(false)
     }
   }
 
   const statCards = [
-    { 
-      label: 'Clientes activos', 
-      value: stats.clientes, 
-      Icon: Users, 
-      color: 'text-blue-600', 
+    {
+      label: 'Clientes activos',
+      value: stats.clientes,
+      Icon: Users,
+      color: 'text-blue-600',
       bg: 'bg-blue-50',
-      indicator: { 
-        text: `${Math.abs(stats.clientesGrowth)}% desde el mes pasado`, 
-        type: stats.clientesGrowth >= 0 ? 'up' : 'down', 
-        color: stats.clientesGrowth >= 0 ? 'text-green-600' : 'text-red-600', 
-        value: `${Math.abs(stats.clientesGrowth)}%` 
+      indicator: {
+        text: `${Math.abs(stats.clientesGrowth)}% desde el mes pasado`,
+        type: stats.clientesGrowth >= 0 ? 'up' : 'down',
+        color: stats.clientesGrowth >= 0 ? 'text-green-600' : 'text-red-600',
+        value: `${Math.abs(stats.clientesGrowth)}%`
       },
-      adminOnly: true 
+      adminOnly: true
     },
-    { 
-      label: 'Órdenes pendientes', 
-      value: stats.pendientes, 
-      Icon: ClipboardList, 
-      color: 'text-amber-600', 
+    {
+      label: 'Órdenes pendientes',
+      value: stats.pendientes,
+      Icon: ClipboardList,
+      color: 'text-amber-600',
       bg: 'bg-amber-50',
-      indicator: { 
-        text: `${Math.abs(stats.pendientesGrowth)}% desde el mes pasado`, 
-        type: stats.pendientesGrowth >= 0 ? 'up' : 'down', 
-        color: stats.pendientesGrowth >= 0 ? 'text-green-600' : 'text-red-600', 
-        value: `${Math.abs(stats.pendientesGrowth)}%` 
+      indicator: {
+        text: `${Math.abs(stats.pendientesGrowth)}% desde el mes pasado`,
+        type: stats.pendientesGrowth >= 0 ? 'up' : 'down',
+        color: stats.pendientesGrowth >= 0 ? 'text-green-600' : 'text-red-600',
+        value: `${Math.abs(stats.pendientesGrowth)}%`
       },
     },
-    { 
-      label: 'Órdenes completadas', 
-      value: stats.completadas, 
-      Icon: CheckCircle2, 
-      color: 'text-green-600', 
+    {
+      label: 'Órdenes completadas',
+      value: stats.completadas,
+      Icon: CheckCircle2,
+      color: 'text-green-600',
       bg: 'bg-green-50',
-      indicator: { 
-        text: `${Math.abs(stats.completadasGrowth)}% desde el mes pasado`, 
-        type: stats.completadasGrowth >= 0 ? 'up' : 'down', 
-        color: stats.completadasGrowth >= 0 ? 'text-green-600' : 'text-red-600', 
-        value: `${Math.abs(stats.completadasGrowth)}%` 
+      indicator: {
+        text: `${Math.abs(stats.completadasGrowth)}% desde el mes pasado`,
+        type: stats.completadasGrowth >= 0 ? 'up' : 'down',
+        color: stats.completadasGrowth >= 0 ? 'text-green-600' : 'text-red-600',
+        value: `${Math.abs(stats.completadasGrowth)}%`
       },
     },
-    { 
-      label: 'Técnicos activos', 
-      value: stats.tecnicos, 
-      Icon: UserCog, 
-      color: 'text-purple-600', 
+    {
+      label: 'Técnicos activos',
+      value: stats.tecnicos,
+      Icon: UserCog,
+      color: 'text-purple-600',
       bg: 'bg-purple-50',
       indicator: { text: 'Todos disponibles', type: 'dot', color: 'bg-green-500' },
-      adminOnly: true 
+      adminOnly: true
     },
   ].filter(card => isAdmin || !card.adminOnly)
 
@@ -229,6 +280,14 @@ export default function Dashboard() {
         )}
       </div>
 
+      {/* Aviso de datos en caché offline */}
+      {isOfflineData && (
+        <div className="flex items-center gap-2 mb-6 px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-xs font-medium text-amber-800">
+          <WifiOff className="w-3.5 h-3.5 shrink-0 text-amber-600" />
+          <span>Mostrando datos guardados localmente. Conéctate para ver información actualizada.</span>
+        </div>
+      )}
+
       {/* Stats Grid */}
       <div className={`grid grid-cols-1 sm:grid-cols-2 ${isAdmin ? 'lg:grid-cols-4' : 'lg:grid-cols-2'} gap-6 mb-8`}>
         {statCards.map((card) => (
@@ -268,17 +327,17 @@ export default function Dashboard() {
               </Link>
             </div>
             <div className="hidden md:block relative z-10 opacity-80 group-hover:opacity-100 group-hover:scale-105 transition-all">
-               <div className="relative w-32 h-32">
-                 <div className="absolute inset-0 bg-primary-100/50 rounded-2xl rotate-6"></div>
-                 <div className="absolute inset-0 bg-primary-50 rounded-2xl border-2 border-primary-200 shadow-sm flex flex-col items-center justify-center gap-3 p-4">
-                    <div className="w-full h-2 bg-primary-200/60 rounded-full"></div>
-                    <div className="w-3/4 h-2 bg-primary-200/60 rounded-full"></div>
-                    <div className="w-full h-2 bg-primary-200/60 rounded-full"></div>
-                 </div>
-                 <div className="absolute -bottom-3 -right-3 w-10 h-10 bg-primary-500 rounded-full flex items-center justify-center border-4 border-white shadow-sm">
-                   <Settings className="w-5 h-5 text-white animate-spin-slow" />
-                 </div>
-               </div>
+              <div className="relative w-32 h-32">
+                <div className="absolute inset-0 bg-primary-100/50 rounded-2xl rotate-6"></div>
+                <div className="absolute inset-0 bg-primary-50 rounded-2xl border-2 border-primary-200 shadow-sm flex flex-col items-center justify-center gap-3 p-4">
+                  <div className="w-full h-2 bg-primary-200/60 rounded-full"></div>
+                  <div className="w-3/4 h-2 bg-primary-200/60 rounded-full"></div>
+                  <div className="w-full h-2 bg-primary-200/60 rounded-full"></div>
+                </div>
+                <div className="absolute -bottom-3 -right-3 w-10 h-10 bg-primary-500 rounded-full flex items-center justify-center border-4 border-white shadow-sm">
+                  <Settings className="w-5 h-5 text-white animate-spin-slow" />
+                </div>
+              </div>
             </div>
           </div>
 
@@ -295,17 +354,17 @@ export default function Dashboard() {
               </Link>
             </div>
             <div className="hidden md:block relative z-10 opacity-80 group-hover:opacity-100 group-hover:scale-105 transition-all">
-               <div className="relative w-32 h-32">
-                 <div className="absolute inset-2 bg-green-100/50 rounded-xl -rotate-6"></div>
-                 <div className="absolute inset-0 rounded-xl border-2 border-green-200 shadow-sm flex flex-col gap-2 p-3 pt-4 bg-white">
-                    <div className="w-1/2 h-2 bg-green-200/60 rounded-full"></div>
-                    <div className="w-full h-2 bg-green-200/60 rounded-full"></div>
-                    <div className="w-3/4 h-2 bg-green-200/60 rounded-full"></div>
-                 </div>
-                 <div className="absolute -bottom-3 -right-3 w-10 h-10 bg-green-500 rounded-full flex items-center justify-center border-4 border-white shadow-sm">
-                   <CheckCircle2 className="w-5 h-5 text-white" />
-                 </div>
-               </div>
+              <div className="relative w-32 h-32">
+                <div className="absolute inset-2 bg-green-100/50 rounded-xl -rotate-6"></div>
+                <div className="absolute inset-0 rounded-xl border-2 border-green-200 shadow-sm flex flex-col gap-2 p-3 pt-4 bg-white">
+                  <div className="w-1/2 h-2 bg-green-200/60 rounded-full"></div>
+                  <div className="w-full h-2 bg-green-200/60 rounded-full"></div>
+                  <div className="w-3/4 h-2 bg-green-200/60 rounded-full"></div>
+                </div>
+                <div className="absolute -bottom-3 -right-3 w-10 h-10 bg-green-500 rounded-full flex items-center justify-center border-4 border-white shadow-sm">
+                  <CheckCircle2 className="w-5 h-5 text-white" />
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -317,7 +376,7 @@ export default function Dashboard() {
         <div className="bg-white rounded-[24px] border border-dark-100 shadow-[0_2px_10px_rgba(0,0,0,0.02)] p-6 flex flex-col">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-bold text-dark-900 flex items-center gap-2">
-               <TrendingUp className="w-5 h-5 text-primary-600" /> Resumen de actividad
+              <TrendingUp className="w-5 h-5 text-primary-600" /> Resumen de actividad
             </h2>
             <select className="bg-dark-50 border border-dark-200 text-sm font-semibold text-dark-700 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-primary-500/20">
               <option>Este mes</option>
@@ -329,14 +388,14 @@ export default function Dashboard() {
               <AreaChart data={mockChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorOrdenes" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#059669" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#059669" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#059669" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#059669" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#94a3b8' }} dy={10} />
                 <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#94a3b8' }} />
-                <Tooltip 
+                <Tooltip
                   contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}
                   itemStyle={{ color: '#059669', fontWeight: 'bold' }}
                 />
@@ -400,7 +459,7 @@ export default function Dashboard() {
               Ver todas <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
-          
+
           <div className="flex-1 overflow-x-auto">
             <table className="w-full text-sm text-left">
               <thead className="text-[11px] text-dark-400 uppercase bg-dark-50/50 border-b border-dark-100">
@@ -423,7 +482,7 @@ export default function Dashboard() {
                   recentOrders.map((order) => (
                     <tr key={order.id} className="border-b border-dark-50 hover:bg-dark-50/50 transition-colors group">
                       <td className="px-6 py-4 font-bold text-primary-600">
-                        <Link to={`/ordenes/${order.id}`}>#ORD-{order.id.split('-')[0].substring(0,4).toUpperCase()}</Link>
+                        <Link to={`/ordenes/${order.id}`}>#ORD-{order.id.split('-')[0].substring(0, 4).toUpperCase()}</Link>
                       </td>
                       <td className="px-6 py-4 font-bold text-dark-900 truncate max-w-[150px]">
                         {order.cliente_nombre}
@@ -436,7 +495,7 @@ export default function Dashboard() {
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
                           <div className="w-6 h-6 rounded-full bg-dark-100 flex items-center justify-center shrink-0 border border-dark-200">
-                             <Shield className="w-3 h-3 text-dark-400" />
+                            <Shield className="w-3 h-3 text-dark-400" />
                           </div>
                           <span className="font-semibold text-dark-700 truncate max-w-[100px]">{order.profiles?.nombre_completo || 'Sin técnico'}</span>
                         </div>

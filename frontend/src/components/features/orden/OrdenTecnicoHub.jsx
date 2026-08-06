@@ -75,7 +75,6 @@ export default function OrdenTecnicoHub({
   const [selectedServicio, setSelectedServicio] = useState(null)
   const [showCertificadoModal, setShowCertificadoModal] = useState(false)
   const [showFotosModal, setShowFotosModal] = useState(false)
-  const [showWizardDirect, setShowWizardDirect] = useState(false)
 
   const canEdit = (isAssignedTecnico || isAdmin) && orden.estado === 'en_progreso'
   const clienteNombre = orden.clientes?.nombre || orden.cliente_nombre || 'Cliente sin nombre'
@@ -118,17 +117,6 @@ export default function OrdenTecnicoHub({
             </p>
           </div>
 
-          {canEdit && (
-            <button
-              type="button"
-              onClick={() => setShowWizardDirect(true)}
-              className="btn-primary py-2.5 px-4 rounded-2xl text-sm font-bold shadow-lg shadow-primary-600/30 flex items-center justify-center gap-2 active:scale-95 transition-all bg-gradient-to-r from-primary-600 to-indigo-600 hover:from-primary-500 hover:to-indigo-500"
-            >
-              <Plus className="w-5 h-5" />
-              <span>Registrar Avance</span>
-            </button>
-          )}
-        </div>
       </div>
 
       {/* 2. Grid por Tipo de Control / Servicio (2 Columnas Móvil) */}
@@ -274,39 +262,8 @@ export default function OrdenTecnicoHub({
         </div>
       )}
 
-      {/* Wizard Directo de Registro de Avance */}
-      <ActividadWizardModal
-        isOpen={showWizardDirect}
-        onClose={() => setShowWizardDirect(false)}
-        onSave={async ({ descripcion, photos }) => {
-          try {
-            const actId = generateUUID()
-            const actPayload = {
-              id: actId,
-              orden_id: orden.id,
-              descripcion,
-              created_at: new Date().toISOString()
-            }
-            const { data: actRows, queued } = await queueOrExecute('actividades_servicio', 'insert', actPayload, orden.id)
-            const actData = actRows?.[0] || actPayload
+      {/* Wizard para Registrar Avance Directo removido a petición del usuario */}
 
-            if (photos.length > 0) {
-              for (const file of photos) {
-                const safeName = file.name ? file.name.replace(/[^a-zA-Z0-9.-]/g, '_') : 'photo.jpg'
-                const path = `actividades/${actId}/${Date.now()}_${safeName}`
-                const dbPayload = { id: generateUUID(), orden_id: orden.id, storage_path: path, descripcion: descripcion.substring(0, 80) }
-                const { publicUrl, queued: photoQueued } = await queuePhoto('fotos-servicio', path, file, file.type || 'image/jpeg', 'fotos_servicio', dbPayload, orden.id)
-                if (publicUrl || photoQueued) setFotos(prev => [...prev, { ...dbPayload, url: publicUrl || dbPayload.storage_path }])
-              }
-            }
-            setActividades(prev => [actData, ...prev])
-            setShowWizardDirect(false)
-          } catch (err) {
-            console.error('Error registrando avance rápido:', err)
-          }
-        }}
-        ordenTipoPlaga={orden.tipo_plaga}
-      />
     </div>
   )
 }

@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { Plus, Search, Calendar, User, ChevronRight, Trash2, ClipboardList, X, Save, Loader2 } from 'lucide-react'
+import { useOffline } from '../contexts/OfflineContext'
+import { Plus, Search, Calendar, User, ChevronRight, Trash2, ClipboardList, X, Save, Loader2, WifiOff } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { api } from '../lib/api'
+import db from '../lib/db'
 import { confirmDelete, successAlert } from '../lib/alerts'
 import HelpButton from '../components/features/HelpButton'
 import { HELP_CONTENT } from '../lib/helpContent'
@@ -16,10 +18,14 @@ const EMPTY_FORM = {
 }
 
 
+const CACHE_KEY_ORDENES = 'ordenes_lista'
+
 export default function Ordenes() {
   const { isAdmin, profile } = useAuth()
+  const { isOnline, lastSyncSuccess } = useOffline()
   const navigate = useNavigate()
   const [ordenes, setOrdenes] = useState([])
+  const [isOfflineData, setIsOfflineData] = useState(false)
   const [search, setSearch] = useState('')
   const [filtroEstado, setFiltroEstado] = useState('todos')
   const [loading, setLoading] = useState(true)
@@ -41,7 +47,7 @@ export default function Ordenes() {
       window.history.replaceState({}, document.title)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile, isAdmin, location])
+  }, [profile, isAdmin, location, isOnline, lastSyncSuccess])
 
    async function openModal(prefillData = null) {
      const parsedPrefill = prefillData ? { ...prefillData } : null;
@@ -129,11 +135,42 @@ export default function Ordenes() {
 
    async function loadOrdenes() {
      try {
-       const token = localStorage.getItem('token')
-       const { data } = await api.get('/ordenes-servicio', { token })
-       setOrdenes(data || [])
+       if (isOnline) {
+         const token = localStorage.getItem('token')
+         const { data } = await api.get('/ordenes-servicio', { token })
+         const lista = data || []
+         setOrdenes(lista)
+         setIsOfflineData(false)
+         // Guardar en caché para uso offline
+         await db.cache_listas.put({ clave: CACHE_KEY_ORDENES, data: lista, updated_at: Date.now() })
+       } else {
+         // Sin conexión: leer desde caché de IndexedDB
+         const cached = await db.cache_listas.get(CACHE_KEY_ORDENES)
+         if (cached?.data) {
+           // Filtrar por técnico si corresponde
+           const lista = (!isAdmin && profile?.id)
+             ? cached.data.filter(o => o.tecnico_id === profile.id)
+             : cached.data
+           setOrdenes(lista)
+           setIsOfflineData(true)
+         } else {
+           setIsOfflineData(true)
+         }
+       }
      } catch (err) {
        console.error('Error:', err)
+       // Intentar recuperar desde caché aunque haya fallado la petición
+       try {
+         const cached = await db.cache_listas.get(CACHE_KEY_ORDENES)
+         if (cached?.data) {
+           const lista = (!isAdmin && profile?.id)
+             ? cached.data.filter(o => o.tecnico_id === profile.id)
+             : cached.data
+           setOrdenes(lista)
+           setIsOfflineData(true)
+           return
+         }
+       } catch { /* ignorar */ }
        toast.error('Error al cargar órdenes')
      } finally {
        setLoading(false)
@@ -332,6 +369,14 @@ export default function Ordenes() {
             </button>
           )}
         </div>
+
+        {/* Aviso de datos en caché offline */}
+        {isOfflineData && (
+          <div className="flex items-center gap-2 mb-4 px-3 py-2 bg-amber-50 border border-amber-200 rounded-xl text-xs font-medium text-amber-800">
+            <WifiOff className="w-3.5 h-3.5 shrink-0 text-amber-600" />
+            <span>Mostrando datos guardados localmente. Conéctate para ver cambios recientes.</span>
+          </div>
+        )}
 
         {/* Tabs */}
         <div className="flex gap-1 bg-dark-100 p-1 rounded-xl mb-6 overflow-x-auto">

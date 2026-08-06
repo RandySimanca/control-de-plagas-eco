@@ -242,6 +242,7 @@ export default function OrdenServicioModal({
                       ordenTipoPlaga={orden.tipo_plaga}
                       queueOrExecute={queueOrExecute}
                       queuePhoto={queuePhoto}
+                      servicioFiltro={servicioNombre}
                     />
                   )}
 
@@ -334,6 +335,7 @@ export default function OrdenServicioModal({
           }
         }}
         ordenTipoPlaga={orden.tipo_plaga}
+        defaultTipoControl={servicioNombre}
       />
     </div>
   )

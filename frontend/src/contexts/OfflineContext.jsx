@@ -8,11 +8,25 @@ const OfflineContext = createContext({})
 // eslint-disable-next-line react-refresh/only-export-components
 export const useOffline = () => useContext(OfflineContext)
 
+// Claves de caché de listas — deben coincidir con las usadas en Ordenes.jsx y Dashboard.jsx
+const CACHE_KEYS_LISTAS = ['ordenes_lista', 'dashboard_data']
+
+// Estados de orden que deben estar disponibles offline para trabajo en campo
+const ESTADOS_ACTIVOS = ['pendiente', 'programada', 'en_proceso', 'en_progreso']
+
 export function OfflineProvider({ children }) {
   const [isOnline, setIsOnline] = useState(navigator.onLine)
   const [pendingCount, setPendingCount] = useState(0)
   const [isSyncing, setIsSyncing] = useState(false)
+  const [lastSyncTime, setLastSyncTime] = useState(new Date())
+  const [syncError, setSyncError] = useState(false)
+  // Contador que sube cada vez que hay una sincronización exitosa.
+  // Los componentes pueden observarlo para refrescar datos.
+  const [lastSyncSuccess, setLastSyncSuccess] = useState(0)
+  // Estado del pre-cacheo silencioso
+  const [isCachingOrders, setIsCachingOrders] = useState(false)
   const syncLock = useRef(false)
+  const cacheLock = useRef(false)
 
   // Actualizar el contador de pendientes desde IndexedDB
   const refreshCount = useCallback(async () => {
@@ -20,7 +34,93 @@ export function OfflineProvider({ children }) {
       db.sync_queue.count(),
       db.fotos_pendientes.count(),
     ])
-    setPendingCount(queueCount + photoCount)
+    const total = queueCount + photoCount
+    setPendingCount(total)
+    return total
+  }, [])
+
+  // Invalida las cachés de listas para forzar recarga fresca al volver online
+  const invalidateCacheListas = useCallback(async () => {
+    try {
+      await db.cache_listas.bulkDelete(CACHE_KEYS_LISTAS)
+    } catch {
+      // La tabla puede no existir todavía; ignorar
+    }
+  }, [])
+
+  /**
+   * Pre-cachea silenciosamente en segundo plano todas las órdenes activas
+   * del perfil dado, para que estén disponibles sin conexión en campo.
+   * Solo se ejecuta si hay conexión y si no hay un pre-cacheo en curso.
+   *
+   * @param {object} profile - Perfil del usuario autenticado
+   */
+  const preCacheOrdenesActivas = useCallback(async (profile) => {
+    if (!navigator.onLine || cacheLock.current || !profile?.id) return
+    cacheLock.current = true
+    setIsCachingOrders(true)
+
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) return
+
+      // 1. Obtener todas las órdenes activas del técnico (o todas si es admin)
+      const { data: allOrdenes } = await api.get('/ordenes-servicio', { token })
+      const ordenes = (allOrdenes || []).filter(o => {
+        const estaActiva = ESTADOS_ACTIVOS.includes(o.estado)
+        if (!estaActiva) return false
+        // Para técnicos: solo sus órdenes asignadas
+        if (profile.rol === 'tecnico') return o.tecnico_id === profile.id
+        return true
+      })
+
+      if (ordenes.length === 0) return
+
+      // 2. Descargar el snapshot completo de cada orden y guardarlo en IndexedDB
+      let cachedCount = 0
+      for (const orden of ordenes) {
+        try {
+          // Si ya existe un snapshot reciente (menos de 1 hora), no re-descargar
+          const existing = await db.ordenes.get(orden.id)
+          const unaHora = 60 * 60 * 1000
+          if (existing && (Date.now() - existing.updated_at) < unaHora) continue
+
+          const [prodsRes, fotosRes, certRes, actividadesRes, estacRes] = await Promise.all([
+            api.get(`/ordenes/${orden.id}/productos`, { token }),
+            api.get(`/ordenes/${orden.id}/fotos`, { token }),
+            api.get(`/ordenes/${orden.id}/certificado`, { token }),
+            api.get(`/ordenes/${orden.id}/actividades`, { token }),
+            api.get(`/ordenes/${orden.id}/estaciones`, { token })
+          ])
+
+          const snapshot = {
+            id: orden.id,
+            orden,
+            productos: prodsRes.data || [],
+            fotos: fotosRes.data || [],
+            certificado: certRes.data || null,
+            actividades: actividadesRes.data || [],
+            estaciones: estacRes.data || [],
+            updated_at: Date.now()
+          }
+
+          await db.ordenes.put(snapshot)
+          cachedCount++
+        } catch (err) {
+          // Si falla una orden individual, continuar con las demás
+          console.warn(`Pre-cacheo de orden ${orden.id} falló:`, err)
+        }
+      }
+
+      if (cachedCount > 0) {
+        console.info(`[Offline] ${cachedCount} orden(es) pre-cacheada(s) para trabajo sin conexión`)
+      }
+    } catch (err) {
+      console.warn('[Offline] Error en pre-cacheo de órdenes:', err)
+    } finally {
+      cacheLock.current = false
+      setIsCachingOrders(false)
+    }
   }, [])
 
   // ----- Lógica central de sincronización -----
@@ -28,6 +128,9 @@ export function OfflineProvider({ children }) {
     if (syncLock.current || !navigator.onLine) return
     syncLock.current = true
     setIsSyncing(true)
+    setSyncError(false)
+
+    let hadErrors = false
 
     try {
       // 1. Procesar la cola de operaciones de escritura
@@ -53,6 +156,7 @@ export function OfflineProvider({ children }) {
           await db.sync_queue.delete(op.id)
         } catch (err) {
           console.error('Fallo de sincronización para la operación', op.id, err)
+          hadErrors = true
           // Incrementar intentos; descartar después de 5 fallos
           const attempts = (op.attempts || 0) + 1
           if (attempts >= 5) {
@@ -68,10 +172,12 @@ export function OfflineProvider({ children }) {
       const pendingPhotos = await db.fotos_pendientes.orderBy('createdAt').toArray()
       for (const item of pendingPhotos) {
         try {
-          // Crear FormData para la subida del archivo
           const formData = new FormData()
-          formData.append('file', item.blobData)
+          // Se asegura de enviar el blob con un nombre de archivo por defecto si es necesario
+          formData.append('file', item.blobData, 'offline_photo.jpg')
           formData.append('path', item.path)
+          formData.append('bucket', item.bucket)
+          
           if (item.dbPayload) {
             Object.keys(item.dbPayload).forEach(key => {
               formData.append(key, item.dbPayload[key])
@@ -91,9 +197,19 @@ export function OfflineProvider({ children }) {
 
           if (!response.ok) throw new Error('Error al subir la foto')
 
+          const data = await response.json()
+          const publicUrl = data.publicUrl
+
+          // Guardar el registro en la base de datos para que la foto aparezca en la orden
+          if (item.dbTable && item.dbPayload) {
+            const dbEndpoint = `/${item.dbTable.replace(/_/g, '-')}`
+            await api.post(dbEndpoint, { ...item.dbPayload, url: publicUrl }, { token })
+          }
+
           await db.fotos_pendientes.delete(item.id)
         } catch (err) {
           console.error('Fallo de sincronización de foto para el elemento', item.id, err)
+          hadErrors = true
           const attempts = (item.attempts || 0) + 1
           if (attempts >= 5) {
             await db.fotos_pendientes.delete(item.id)
@@ -102,18 +218,31 @@ export function OfflineProvider({ children }) {
           }
         }
       }
+    } catch (err) {
+      console.error('Error global de syncAll:', err)
+      hadErrors = true
     } finally {
       syncLock.current = false
       setIsSyncing(false)
-      await refreshCount()
+      const remaining = await refreshCount()
+      if (hadErrors || remaining > 0) {
+        setSyncError(true)
+      } else {
+        setSyncError(false)
+        setLastSyncTime(new Date())
+        // Sincronización exitosa: invalidar cachés de listas para que los
+        // componentes recarguen datos frescos del servidor al próximo render
+        await invalidateCacheListas()
+        setLastSyncSuccess(prev => prev + 1)
+      }
     }
-  }, [refreshCount])
+  }, [refreshCount, invalidateCacheListas])
 
   // Escuchar eventos de conexión/desconexión
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true)
-      setTimeout(() => syncAll(), 500) // Pequeña espera para que la conexión se estabilice
+      setTimeout(() => syncAll(), 500)
     }
     const handleOffline = () => setIsOnline(false)
 
@@ -136,7 +265,12 @@ export function OfflineProvider({ children }) {
   }, [refreshCount, syncAll])
 
   return (
-    <OfflineContext.Provider value={{ isOnline, isSyncing, pendingCount, syncAll, refreshCount }}>
+    <OfflineContext.Provider value={{
+      isOnline, isSyncing, pendingCount,
+      syncAll, refreshCount,
+      lastSyncTime, syncError, lastSyncSuccess,
+      isCachingOrders, preCacheOrdenesActivas
+    }}>
       {children}
     </OfflineContext.Provider>
   )
