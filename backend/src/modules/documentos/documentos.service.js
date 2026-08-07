@@ -17,9 +17,18 @@ export async function createDocumento(data) {
 }
 
 export async function deleteDocumento(id) {
+  // Primero obtenemos el registro para recuperar el storage_path
   const { rows } = await pool.query(
     'SELECT storage_path FROM documentos_legales WHERE id = $1',
     [id]
   );
+  if (!rows[0]) return null;
+
+  // Luego eliminamos el registro de la base de datos
+  await pool.query(
+    'DELETE FROM documentos_legales WHERE id = $1',
+    [id]
+  );
+
   return rows[0];
 }

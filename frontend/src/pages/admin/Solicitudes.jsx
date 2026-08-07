@@ -93,7 +93,7 @@ export default function Solicitudes() {
           cliente_id: sol.cliente_id,
           tipo_plaga: sol.tipo_servicio,
           fecha_programada: sol.fecha_preferida || new Date().toISOString().split('T')[0],
-          observaciones: `Solicitud originada por el cliente: ${sol.descripcion}. \nCotización aceptada: $${sol.precio_cotizacion}.`,
+          observaciones: '',
           solicitud_id: sol.id,
           direccion_servicio: sol.direccion || ''
         }

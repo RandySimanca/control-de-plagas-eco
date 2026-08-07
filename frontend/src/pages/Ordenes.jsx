@@ -38,6 +38,7 @@ export default function Ordenes() {
   const [tecnicos, setTecnicos] = useState([])
   const [form, setForm] = useState({ ...EMPTY_FORM })
   const [saving, setSaving] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
 
   const location = useLocation()
   
@@ -60,10 +61,12 @@ export default function Ordenes() {
          parsedPrefill.lavado_tanques_cantidad = parsedPrefill.lavado_tanques_cantidad || 1;
        }
      }
+     setSubmitted(false)
      setForm({ 
        ...EMPTY_FORM, 
-       tecnico_id: profile?.id || '',
-       ...parsedPrefill 
+       tecnico_id: isAdmin ? '' : (profile?.id || ''),
+       ...parsedPrefill,
+       observaciones: '' // siempre en blanco para que el admin escriba sus instrucciones
      })
      
      // Fetch clients and technicians if they haven't been loaded yet
@@ -88,8 +91,9 @@ export default function Ordenes() {
 
    async function handleSubmit(e) {
      e.preventDefault()
+     setSubmitted(true)
      if (!form.cliente_id) { toast.error('Selecciona un cliente'); return }
-     if (!form.tecnico_id) { toast.error('Selecciona un técnico'); return }
+     if (!form.tecnico_id) { toast.error('Debes asignar un técnico antes de crear la orden'); return }
      if (!form.fecha_programada) { toast.error('Selecciona una fecha'); return }
      setSaving(true)
      try {
@@ -247,12 +251,19 @@ export default function Ordenes() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="label-field">Técnico *</label>
-                  <select className="input-field" value={form.tecnico_id || ''} onChange={e => setForm(p => ({ ...p, tecnico_id: e.target.value }))}>
-                    <option value="">Seleccione un técnico...</option>
-                    {tecnicos.map(t => <option key={t.id} value={t.id}>{t.nombre_completo}</option>)}
-                  </select>
-                </div>
+                <label className="label-field">Técnico *</label>
+                <select 
+                  className={`input-field ${submitted && !form.tecnico_id ? 'border-red-500 ring-2 ring-red-200 bg-red-50' : ''}`}
+                  value={form.tecnico_id || ''} 
+                  onChange={e => { setForm(p => ({ ...p, tecnico_id: e.target.value })); setSubmitted(false) }}
+                >
+                  <option value="">-- Seleccione un técnico --</option>
+                  {tecnicos.map(t => <option key={t.id} value={t.id}>{t.nombre_completo}</option>)}
+                </select>
+                {submitted && !form.tecnico_id && (
+                  <p className="text-xs text-red-500 mt-1 font-medium">⚠ Debes seleccionar un técnico para continuar</p>
+                )}
+              </div>
                 <div>
                   <label className="label-field">Fecha programada *</label>
                   <input type="date" className="input-field" value={form.fecha_programada} onChange={e => setForm(p => ({ ...p, fecha_programada: e.target.value }))} />
