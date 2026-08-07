@@ -18,7 +18,7 @@ const METODOS_POR_TIPO = {
   desinsectacion: ["Pulverización líquida", "Nebulización en frío (ULV)", "Termonebulización", "Aplicación de gel", "Polvo insecticida", "Cebos", "Trampas de luz UV", "Trampas de feromonas", "Otro método"],
   desratizacion: ["Rodenticidas en cebo", "Trampas mecánicas", "Trampas de pegamento", "Fumigación con fosfuro de aluminio", "Otro método"],
   desinfeccion: ["Pulverización química", "Nebulización", "Ozono", "Luz UV-C", "Vapor", "Otro método"],
-  desodoracion: ["Nebulización de desodorante", "Ozono", "Biofiltros", "Atomización", "Otro método"],
+  controlDeAves: ["Nebulización de desodorante", "Ozono", "Biofiltros", "Atomización", "Otro método"],
   default: ["Pulverización líquida", "Nebulización", "Otro método"]
 }
 
@@ -27,7 +27,7 @@ function getMetodosPorTipo(tipo) {
   if (t.includes('insect') || t.includes('fumig')) return METODOS_POR_TIPO.desinsectacion
   if (t.includes('rat') || t.includes('roe')) return METODOS_POR_TIPO.desratizacion
   if (t.includes('infec') || t.includes('sani')) return METODOS_POR_TIPO.desinfeccion
-  if (t.includes('odor') || t.includes('olor')) return METODOS_POR_TIPO.desodoracion
+  if (t.includes('odor') || t.includes('olor')) return METODOS_POR_TIPO.controDeAves
   return METODOS_POR_TIPO.default
 }
 
@@ -258,7 +258,7 @@ export default function OrdenTecnicoDetalles({
                       ))}
                     </select>
                   </div>
-                  
+
                   {activeTipoControlArea && (
                     <div>
                       <h4 className="text-sm font-bold text-indigo-700 uppercase tracking-wider mb-3 pb-1 border-b border-indigo-100">
@@ -315,7 +315,7 @@ export default function OrdenTecnicoDetalles({
                       ))}
                     </select>
                   </div>
-                  
+
                   {activeTipoControl && (
                     <div>
                       <h4 className="text-sm font-bold text-indigo-700 uppercase tracking-wider mb-3 pb-1 border-b border-indigo-100">

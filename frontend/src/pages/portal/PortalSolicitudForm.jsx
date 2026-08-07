@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
-import { ArrowLeft, Send } from 'lucide-react'
+import { ArrowLeft, Send, Droplets } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../../lib/api'
 import HelpButton from '../../components/features/HelpButton'
@@ -18,6 +18,8 @@ export default function PortalSolicitudForm() {
   })
   const [otroServicio, setOtroServicio] = useState('')
   const [cantidadTanques, setCantidadTanques] = useState('')
+  const [tipoTanque, setTipoTanque] = useState('Elevado')
+  const [materialTanque, setMaterialTanque] = useState('Polietileno')
 
 async function handleSubmit(e) {
       e.preventDefault()
@@ -36,9 +38,9 @@ async function handleSubmit(e) {
             ? formData.tipo_servicio.map(t => t === 'Otro' ? otroServicio : t)
             : formData.tipo_servicio
 
-        // Añadir cantidad de tanques a la descripción si aplica
-        const infotanques = formData.tipo_servicio.includes('Lavado de Tanques') && cantidadTanques
-          ? `\n\n[Lavado de Tanques] Cantidad de tanques a lavar: ${cantidadTanques}`
+        // Añadir información de tanques a la descripción si aplica
+        const infotanques = formData.tipo_servicio.includes('Lavado de Tanques')
+          ? `\n\n[Lavado de Tanques]\n- Cantidad de tanques: ${cantidadTanques || 1}\n- Tipo / Ubicación: ${tipoTanque}\n- Material: ${materialTanque}`
           : ''
 
         await api.post('/solicitudes-servicio', {
@@ -117,20 +119,64 @@ async function handleSubmit(e) {
             </div>
 
             {formData.tipo_servicio.includes('Lavado de Tanques') && (
-              <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-                <label className="label-field">¿Cuántos tanques se van a lavar? *</label>
-                <div className="flex items-center gap-3">
+              <div className="space-y-4 p-4 bg-cyan-50/60 border border-cyan-200/80 rounded-2xl animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="flex items-center gap-2 text-cyan-900 font-bold text-sm">
+                  <Droplets className="w-5 h-5 text-cyan-600" />
+                  <span>Especificaciones del Lavado de Tanques</span>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-dark-700">¿Cuántos tanques se van a lavar? *</label>
                   <input
                     type="number"
                     min="1"
                     max="999"
-                    className="input-field w-36 text-center text-lg font-bold"
-                    placeholder="Ej: 3"
+                    className="w-full bg-white border border-dark-200 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10 rounded-xl px-4 py-2.5 text-sm transition-all shadow-sm"
+                    placeholder="Ej: 2"
                     value={cantidadTanques}
                     onChange={(e) => setCantidadTanques(e.target.value)}
                     required={formData.tipo_servicio.includes('Lavado de Tanques')}
                   />
-                  <p className="text-sm text-dark-500">Esta información nos ayuda a darte una cotización exacta.</p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-dark-700">Tipo / Ubicación del Tanque *</label>
+                  <div className="flex flex-wrap gap-2">
+                    {['Elevado', 'Subterráneo', 'A Nivel'].map(tipo => (
+                      <button
+                        key={tipo}
+                        type="button"
+                        onClick={() => setTipoTanque(tipo)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                          tipoTanque === tipo
+                            ? 'bg-cyan-600 text-white shadow-md shadow-cyan-600/20'
+                            : 'bg-white text-dark-600 hover:bg-cyan-100/50 border border-dark-200'
+                        }`}
+                      >
+                        {tipo}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-dark-700">Material del Tanque *</label>
+                  <div className="flex flex-wrap gap-2">
+                    {['Concreto', 'Polietileno', 'Fibra de vidrio', 'Acero inoxidable', 'Metálico', 'Otro'].map(mat => (
+                      <button
+                        key={mat}
+                        type="button"
+                        onClick={() => setMaterialTanque(mat)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                          materialTanque === mat
+                            ? 'bg-cyan-600 text-white shadow-md shadow-cyan-600/20'
+                            : 'bg-white text-dark-600 hover:bg-cyan-100/50 border border-dark-200'
+                        }`}
+                      >
+                        {mat}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}

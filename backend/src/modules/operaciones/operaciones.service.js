@@ -84,8 +84,8 @@ export async function createOrden(body, user) {
   const cantidadTanques = body.lavado_tanques_cantidad ? parseInt(body.lavado_tanques_cantidad, 10) : 0
   
   const { rows } = await pool.query(
-    `INSERT INTO ordenes_servicio (cliente_id, tecnico_id, fecha_programada, tipo_plaga, observaciones, estado, lavado_tanques, lavado_tanques_cantidad)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+    `INSERT INTO ordenes_servicio (cliente_id, tecnico_id, fecha_programada, tipo_plaga, observaciones, estado, lavado_tanques, lavado_tanques_cantidad, direccion_servicio)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
     [
       body.cliente_id,
       body.tecnico_id || null,
@@ -94,7 +94,8 @@ export async function createOrden(body, user) {
       body.observaciones || null,
       body.estado || 'programada',
       isLavado,
-      cantidadTanques
+      cantidadTanques,
+      body.direccion_servicio || null
     ]
   )
   
@@ -114,7 +115,7 @@ export async function createOrden(body, user) {
 
 export async function updateOrden(id, body, user) {
   await assertOrdenAccess(id, user)
-  const allowed = ['cliente_id', 'tecnico_id', 'fecha_programada', 'fecha_inicio', 'tipo_plaga', 'observaciones', 'estado', 'recomendaciones', 'areas_intervenidas', 'metodos_aplicacion', 'fecha_completada', 'lavado_tanques', 'lavado_tanques_cantidad']
+  const allowed = ['cliente_id', 'tecnico_id', 'fecha_programada', 'fecha_inicio', 'tipo_plaga', 'observaciones', 'estado', 'recomendaciones', 'areas_intervenidas', 'metodos_aplicacion', 'fecha_completada', 'lavado_tanques', 'lavado_tanques_cantidad', 'direccion_servicio']
   const sets = []
   const vals = []
   for (const key of allowed) {

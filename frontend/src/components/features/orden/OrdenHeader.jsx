@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { ArrowLeft, Edit, Calendar, User, MapPin, Play, CheckCircle2, Trash2, MessageSquare, Droplets } from 'lucide-react'
 import { parseTipoPlaga } from '../../../utils/tipoPlaga'
+import { formatFechaLarga } from '../../../utils/dateUtils'
 
 export default function OrdenHeader({ 
   orden, 
@@ -11,16 +12,7 @@ export default function OrdenHeader({
   onEditClick
 }) {
 
-  const formatFecha = (fecha) => {
-    if (!fecha) return 'Sin fecha';
-    const date = new Date(fecha);
-    if (isNaN(date.getTime())) return 'Fecha inválida';
-    return date.toLocaleDateString('es-CO', {
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric'
-    });
-  };
+  const formatFechaDisplay = (fecha) => formatFechaLarga(fecha)
 
  
   
@@ -106,7 +98,7 @@ export default function OrdenHeader({
       <span className="flex items-center gap-2 font-medium text-dark-500">
         <Calendar className="w-4 h-4 text-dark-400" /> Fecha
       </span>
-      <span>{formatFecha(orden.fecha_programada)}</span>
+      <span>{formatFechaDisplay(orden.fecha_programada)}</span>
     </div>
 
     <div className="flex flex-col gap-1 text-sm text-dark-600">
@@ -133,12 +125,12 @@ export default function OrdenHeader({
       </div>
     )}
 
-    {orden.clientes?.direccion && (
+    {(orden.direccion_servicio || orden.clientes?.direccion) && (
       <div className="flex flex-col gap-1 text-sm text-dark-600">
         <span className="flex items-center gap-2 font-medium text-dark-500">
           <MapPin className="w-4 h-4 text-dark-400" /> Dirección
         </span>
-        <span>{orden.clientes.direccion}</span>
+        <span>{orden.direccion_servicio || orden.clientes?.direccion}</span>
       </div>
     )}
   </div>

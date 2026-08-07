@@ -10,11 +10,13 @@ import { confirmDelete, successAlert } from '../lib/alerts'
 import HelpButton from '../components/features/HelpButton'
 import { HELP_CONTENT } from '../lib/helpContent'
 import { parseTipoPlaga } from '../utils/tipoPlaga'
+import { formatFecha } from '../utils/dateUtils'
 
 const EMPTY_FORM = {
   cliente_id: '', tecnico_id: '', fecha_programada: new Date().toISOString().split('T')[0],
   tipo_plaga: [], observaciones: '', estado: 'programada',
-  lavado_tanques: false, lavado_tanques_cantidad: 1
+  lavado_tanques: false, lavado_tanques_cantidad: 1,
+  direccion_servicio: ''
 }
 
 
@@ -53,6 +55,10 @@ export default function Ordenes() {
      const parsedPrefill = prefillData ? { ...prefillData } : null;
      if (parsedPrefill && parsedPrefill.tipo_plaga) {
        parsedPrefill.tipo_plaga = parseTipoPlaga(parsedPrefill.tipo_plaga);
+       if (parsedPrefill.tipo_plaga.includes('Lavado de Tanques')) {
+         parsedPrefill.lavado_tanques = true;
+         parsedPrefill.lavado_tanques_cantidad = parsedPrefill.lavado_tanques_cantidad || 1;
+       }
      }
      setForm({ 
        ...EMPTY_FORM, 
@@ -96,7 +102,8 @@ export default function Ordenes() {
          observaciones: form.observaciones,
          estado: form.estado,
          lavado_tanques: form.lavado_tanques,
-         lavado_tanques_cantidad: form.lavado_tanques ? form.lavado_tanques_cantidad : 0
+         lavado_tanques_cantidad: form.lavado_tanques ? form.lavado_tanques_cantidad : 0,
+         direccion_servicio: form.direccion_servicio
        }, { token })
        
        // Si viene de una solicitud, actualizar el estado de la misma
@@ -231,6 +238,11 @@ export default function Ordenes() {
                   <option value="">Seleccionar cliente...</option>
                   {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
                 </select>
+              </div>
+
+              <div>
+                <label className="label-field">Dirección del Servicio</label>
+                <input type="text" className="input-field" value={form.direccion_servicio || ''} onChange={e => setForm(p => ({ ...p, direccion_servicio: e.target.value }))} placeholder="Dejar en blanco para usar la dirección registrada del cliente..." />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -429,7 +441,7 @@ export default function Ordenes() {
                   <div className="min-w-0">
                     <p className="font-semibold text-dark-900 truncate">{orden.cliente_nombre}</p>
                     <div className="flex items-center gap-3 text-xs text-dark-400 mt-0.5">
-                      <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> {orden.fecha_programada ? new Date(orden.fecha_programada).toLocaleDateString() : 'Sin fecha'}</span>
+                      <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> {formatFecha(orden.fecha_programada, undefined, 'Sin fecha')}</span>
                       <span className="flex items-center gap-1"><User className="w-3.5 h-3.5" /> {orden.tecnico_nombre || 'Sin asignar'}</span>
                     </div>
                     {/**nuevo código para mostrar tipo de plaga parseado */}

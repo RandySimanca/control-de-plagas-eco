@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import {
   LayoutDashboard, Users, ClipboardList, FileCheck, UserCog,
   Menu, X, LogOut, Shield, Bug, Download, ClipboardCheck,
-  WifiOff, RefreshCw, Key, Search, Bell, ChevronDown, CheckCircle2, Clock, AlertCircle
+  WifiOff, RefreshCw, Key, Search, Bell, ChevronDown, CheckCircle2, Clock, AlertCircle, ArrowLeft
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useInstallPrompt } from '../../hooks/useInstallPrompt'
@@ -38,6 +38,7 @@ export default function Layout() {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchData, setSearchData] = useState({ ordenes: [], clientes: [], tecnicos: [] })
+  const [mobileSearchActive, setMobileSearchActive] = useState(false)
   const [searchLoading, setSearchLoading] = useState(false)
 
   const [notificationsOpen, setNotificationsOpen] = useState(false)
@@ -466,7 +467,7 @@ export default function Layout() {
                           <Link 
                             key={ord.id}
                             to={`/ordenes/${ord.id}`}
-                            onClick={() => setSearchOpen(false)}
+                            onClick={(e) => { e.preventDefault(); navigate(`/ordenes/${ord.id}`); setSearchOpen(false); }}
                             className="flex items-center justify-between p-2 rounded-xl hover:bg-primary-50/60 transition-colors group"
                           >
                             <div className="min-w-0">
@@ -492,7 +493,7 @@ export default function Layout() {
                           <Link 
                             key={cli.id}
                             to={`/clientes/${cli.id}`}
-                            onClick={() => setSearchOpen(false)}
+                            onClick={(e) => { e.preventDefault(); navigate(`/clientes/${cli.id}`); setSearchOpen(false); }}
                             className="flex items-center gap-2 p-2 rounded-xl hover:bg-blue-50/60 transition-colors group"
                           >
                             <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs shrink-0">
@@ -517,7 +518,7 @@ export default function Layout() {
                           <Link 
                             key={tec.id}
                             to="/admin/usuarios"
-                            onClick={() => setSearchOpen(false)}
+                            onClick={(e) => { e.preventDefault(); navigate(`/admin/usuarios`); setSearchOpen(false); }}
                             className="flex items-center gap-2 p-2 rounded-xl hover:bg-purple-50/60 transition-colors group"
                           >
                             <div className="w-7 h-7 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-xs shrink-0">
@@ -715,72 +716,177 @@ export default function Layout() {
 
           {/* Cabecera móvil en color verde para técnico/admin */}
           <header className="md:hidden flex items-center justify-between px-4 py-3 bg-primary-700 text-white border-b border-primary-800 shadow-sm shrink-0">
-            <div className="flex items-center gap-2.5 min-w-0">
-              {logoUrl ? (
-                <div className="w-8 h-8 rounded-lg bg-white p-0.5 shadow-xs overflow-hidden flex items-center justify-center shrink-0">
-                  <img src={getAuthImageUrl(logoUrl)} alt="Logo Empresa" className="w-full h-full object-contain" />
-                </div>
-              ) : (
-                <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center shrink-0">
-                  <Bug className="w-5 h-5 text-white" />
-                </div>
-              )}
-              <span className="font-bold text-base text-white truncate max-w-[140px]">{nombreEmpresa}</span>
-            </div>
-
-            <div className="flex items-center gap-1">
-              {/* Menú de perfil móvil */}
-              <div className="relative" ref={profileMobileRef}>
-                <button
-                  onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-                  className="flex items-center gap-1.5 p-1.5 pr-2 rounded-xl text-white hover:bg-white/10 active:bg-white/20 transition-colors"
-                  aria-label="Menú de usuario"
+            {mobileSearchActive ? (
+              <div className="flex w-full items-center gap-2 relative z-50">
+                <button 
+                  onClick={() => { setMobileSearchActive(false); setSearchQuery(''); setSearchOpen(false); }} 
+                  className="p-1.5 text-white hover:bg-white/10 rounded-full transition-colors"
                 >
-                  <div className="w-7 h-7 rounded-full bg-white/20 border border-white/30 flex items-center justify-center font-bold text-xs text-white shrink-0">
-                    {profile?.nombre_completo ? profile.nombre_completo.charAt(0).toUpperCase() : <Shield className="w-3.5 h-3.5" />}
-                  </div>
-                  <ChevronDown className={`w-3.5 h-3.5 text-white/80 transition-transform duration-200 ${profileMenuOpen ? 'rotate-180' : ''}`} />
+                  <ArrowLeft className="w-5 h-5" />
                 </button>
-
-                {/* Dropdown móvil del perfil */}
-                {profileMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl border border-dark-100 shadow-xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-150">
-                    <div className="p-3.5 bg-dark-50 border-b border-dark-100">
-                      <p className="text-xs font-bold text-dark-900 truncate">{profile?.nombre_completo}</p>
-                      <p className="text-[11px] text-dark-400 truncate">{profile?.email || 'Sin correo'}</p>
-                      <span className="inline-block mt-1.5 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-primary-100 text-primary-700">
-                        {profile?.rol}
-                      </span>
+                <input
+                  autoFocus
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onFocus={() => { if (searchQuery.trim().length >= 2) setSearchOpen(true) }}
+                  placeholder="Buscar orden, cliente, folio..."
+                  className="flex-1 bg-white/20 text-white placeholder-white/60 border border-white/20 rounded-xl py-1.5 px-3 text-sm focus:outline-none focus:bg-white/30 transition-colors"
+                />
+                
+                {searchOpen && (
+                  <div className="absolute top-full left-0 right-0 mt-3 w-full bg-white rounded-2xl border border-dark-100 shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+                    <div className="p-3 bg-dark-50 border-b border-dark-100 flex items-center justify-between text-dark-900">
+                      <span className="text-xs font-bold text-dark-500 uppercase tracking-wider">Resultados</span>
+                      {searchLoading && <RefreshCw className="w-3.5 h-3.5 animate-spin text-primary-600" />}
                     </div>
-                    <div className="p-1.5 space-y-0.5 text-xs">
-                      <button
-                        onClick={() => { setProfileMenuOpen(false); setShowPwdModal(true); }}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-dark-700 hover:bg-dark-50 font-medium transition-colors"
-                      >
-                        <Key className="w-4 h-4 text-dark-400" />
-                        <span>Cambiar contraseña</span>
-                      </button>
-                      <button
-                        onClick={() => { setProfileMenuOpen(false); handleLogout(); }}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-red-600 hover:bg-red-50 font-medium transition-colors"
-                      >
-                        <LogOut className="w-4 h-4" />
-                        <span>Cerrar sesión</span>
-                      </button>
+                    <div className="max-h-[60vh] overflow-y-auto divide-y divide-dark-50 text-sm text-dark-900">
+                      {searchData.ordenes.length > 0 && (
+                        <div className="p-2">
+                          <div className="px-2 py-1 text-[11px] font-bold text-dark-400 uppercase">Órdenes</div>
+                          {searchData.ordenes.map(ord => (
+                            <Link 
+                              key={ord.id} to={`/ordenes/${ord.id}`} 
+                              onClick={(e) => { e.preventDefault(); navigate(`/ordenes/${ord.id}`); setSearchOpen(false); setMobileSearchActive(false); }}
+                              className="flex items-center justify-between p-2 rounded-xl hover:bg-primary-50 transition-colors"
+                            >
+                              <div>
+                                <p className="font-bold text-primary-600 text-xs">#ORD-{(ord.id || '').split('-')[0].toUpperCase()}</p>
+                                <p className="text-xs font-medium text-dark-800">{ord.cliente_nombre}</p>
+                              </div>
+                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-dark-100 text-dark-600 capitalize">{ord.estado}</span>
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                      {searchData.clientes.length > 0 && (
+                        <div className="p-2">
+                          <div className="px-2 py-1 text-[11px] font-bold text-dark-400 uppercase">Clientes</div>
+                          {searchData.clientes.map(cli => (
+                            <Link 
+                              key={cli.id} to={`/clientes/${cli.id}`} 
+                              onClick={(e) => { e.preventDefault(); navigate(`/clientes/${cli.id}`); setSearchOpen(false); setMobileSearchActive(false); }}
+                              className="flex items-center gap-2 p-2 rounded-xl hover:bg-blue-50 transition-colors"
+                            >
+                              <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs"><Users className="w-3.5 h-3.5" /></div>
+                              <div>
+                                <p className="font-bold text-dark-900 text-xs">{cli.nombre_comercial || cli.razon_social}</p>
+                              </div>
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                      {searchData.ordenes.length === 0 && searchData.clientes.length === 0 && !searchLoading && (
+                        <div className="p-6 text-center text-dark-400 text-xs font-medium">Sin resultados para &quot;{searchQuery}&quot;</div>
+                      )}
                     </div>
                   </div>
                 )}
               </div>
+            ) : (
+              <>
+                <div className="flex items-center gap-2.5 min-w-0">
+                  {logoUrl ? (
+                    <div className="w-8 h-8 rounded-lg bg-white p-0.5 shadow-xs overflow-hidden flex items-center justify-center shrink-0">
+                      <img src={getAuthImageUrl(logoUrl)} alt="Logo Empresa" className="w-full h-full object-contain" />
+                    </div>
+                  ) : (
+                    <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center shrink-0">
+                      <Bug className="w-5 h-5 text-white" />
+                    </div>
+                  )}
+                  <span className="font-bold text-base text-white truncate max-w-[120px] sm:max-w-[140px]">{nombreEmpresa}</span>
+                </div>
 
-              {/* Botón hamburguesa */}
-              <button 
-                onClick={() => setSidebarOpen(!sidebarOpen)} 
-                className="p-2 rounded-xl text-white hover:bg-white/10 active:bg-white/20 transition-colors"
-                aria-label="Abrir menú"
-              >
-                {sidebarOpen ? <X className="w-6 h-6 text-white" /> : <Menu className="w-6 h-6 text-white" />}
-              </button>
-            </div>
+                <div className="flex items-center gap-1">
+                  {/* Búsqueda Móvil */}
+                  <button 
+                    onClick={() => setMobileSearchActive(true)}
+                    className="p-1.5 rounded-xl text-white hover:bg-white/10 active:bg-white/20 transition-colors"
+                    aria-label="Buscar"
+                  >
+                    <Search className="w-5 h-5" />
+                  </button>
+
+                  {/* Notificaciones Móvil */}
+                  <div className="relative">
+                    <button 
+                      onClick={() => { setNotificationsOpen(!notificationsOpen); setProfileMenuOpen(false); }}
+                      className="relative p-1.5 rounded-xl text-white hover:bg-white/10 active:bg-white/20 transition-colors"
+                      aria-label="Notificaciones"
+                    >
+                      <Bell className="w-5 h-5" />
+                      {totalNotifCount > 0 && (
+                        <span className="absolute top-0 right-0 min-w-[14px] h-3.5 px-1 bg-red-500 text-white text-[9px] font-extrabold rounded-full flex items-center justify-center ring-1 ring-white">
+                          {totalNotifCount}
+                        </span>
+                      )}
+                    </button>
+                    {notificationsOpen && (
+                      <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl border border-dark-100 shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
+                        <div className="p-3 bg-dark-50 border-b border-dark-100 flex items-center justify-between text-dark-900">
+                          <span className="font-bold text-sm">Notificaciones</span>
+                          {totalNotifCount > 0 && <span className="text-[10px] font-bold px-2 py-0.5 bg-red-100 text-red-700 rounded-full">{totalNotifCount}</span>}
+                        </div>
+                        <div className="max-h-72 overflow-y-auto divide-y divide-dark-50 text-dark-900">
+                          {pendingOrders.length > 0 ? (
+                            pendingOrders.map(ord => (
+                              <Link key={ord.id} to={`/ordenes/${ord.id}`} onClick={() => setNotificationsOpen(false)} className="flex gap-3 p-3 hover:bg-dark-50 transition-colors">
+                                <div className="w-7 h-7 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center shrink-0 mt-0.5"><Clock className="w-3.5 h-3.5" /></div>
+                                <div>
+                                  <p className="text-xs font-bold text-primary-600">#ORD-{(ord.id || '').split('-')[0].toUpperCase()}</p>
+                                  <p className="text-xs font-medium text-dark-800">{ord.cliente_nombre}</p>
+                                </div>
+                              </Link>
+                            ))
+                          ) : (
+                            <div className="p-4 text-center text-dark-400 text-xs">Sin notificaciones</div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Menú de perfil móvil */}
+                  <div className="relative">
+                    <button
+                      onClick={() => { setProfileMenuOpen(!profileMenuOpen); setNotificationsOpen(false); }}
+                      className="flex items-center gap-1 p-1.5 rounded-xl text-white hover:bg-white/10 active:bg-white/20 transition-colors"
+                      aria-label="Menú de usuario"
+                    >
+                      <div className="w-7 h-7 rounded-full bg-white/20 border border-white/30 flex items-center justify-center font-bold text-xs text-white shrink-0">
+                        {profile?.nombre_completo ? profile.nombre_completo.charAt(0).toUpperCase() : <Shield className="w-3.5 h-3.5" />}
+                      </div>
+                    </button>
+                    {profileMenuOpen && (
+                      <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl border border-dark-100 shadow-xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
+                        <div className="p-3.5 bg-dark-50 border-b border-dark-100 text-dark-900">
+                          <p className="text-xs font-bold truncate">{profile?.nombre_completo}</p>
+                          <p className="text-[11px] text-dark-400 truncate">{profile?.email || 'Sin correo'}</p>
+                        </div>
+                        <div className="p-1.5 space-y-0.5 text-xs text-dark-900">
+                          <button onClick={() => { setProfileMenuOpen(false); setShowPwdModal(true); }} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-dark-50 font-medium">
+                            <Key className="w-4 h-4 text-dark-400" /><span>Cambiar contraseña</span>
+                          </button>
+                          <button onClick={() => { setProfileMenuOpen(false); handleLogout(); }} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-red-600 hover:bg-red-50 font-medium">
+                            <LogOut className="w-4 h-4" /><span>Cerrar sesión</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Botón hamburguesa */}
+                  <button 
+                    onClick={() => setSidebarOpen(!sidebarOpen)} 
+                    className="p-1.5 rounded-xl text-white hover:bg-white/10 active:bg-white/20 transition-colors ml-0.5"
+                    aria-label="Abrir menú"
+                  >
+                    {sidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+                  </button>
+                </div>
+              </>
+            )}
           </header>
 
           <div className="flex-1 overflow-y-auto">

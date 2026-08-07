@@ -116,7 +116,7 @@ export default function OrdenTecnicoHub({
               <span>Toca un servicio para trabajar</span>
             </p>
           </div>
-
+        </div>
       </div>
 
       {/* 2. Grid por Tipo de Control / Servicio (2 Columnas Móvil) */}

@@ -13,6 +13,7 @@ import { useConfig } from '../contexts/ConfigContext'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import HelpButton from '../components/features/HelpButton'
 import { HELP_CONTENT } from '../lib/helpContent'
+import { formatFecha } from '../utils/dateUtils'
 
 const mockChartData = [
   { name: '01 May', ordenes: 10 },
@@ -501,7 +502,7 @@ export default function Dashboard() {
                         </div>
                       </td>
                       <td className="px-6 py-4 text-dark-500 font-medium whitespace-nowrap">
-                        {order.fecha_programada ? new Date(order.fecha_programada).toLocaleDateString('es-ES', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'Hoy'}
+                        {order.fecha_programada ? formatFecha(order.fecha_programada, { month: 'short', day: '2-digit' }, 'Hoy') : 'Hoy'}
                       </td>
                     </tr>
                   ))

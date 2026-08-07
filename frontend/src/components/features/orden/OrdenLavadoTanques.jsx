@@ -8,7 +8,7 @@ import { generateUUID } from '../../../utils/uuid'
 
 const EVENTOS_TANQUE = ['INICIO', 'HALLAZGO', 'DURANTE', 'DESINFECCION', 'ENJUAGUE', 'FINAL']
 const MATERIALES = ['Concreto', 'Polietileno', 'Fibra de vidrio', 'Acero inoxidable', 'Metálico', 'Otro']
-const TIPOS_TANQUE = ['Elevado', 'Subterráneo', 'Superficial']
+const TIPOS_TANQUE = ['Elevado', 'Subterráneo', 'A Nivel', 'Superficial']
 
 const EVENTO_COLORS = {
   INICIO:      'bg-blue-500',

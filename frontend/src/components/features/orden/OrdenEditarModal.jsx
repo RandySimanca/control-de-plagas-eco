@@ -16,7 +16,8 @@ export default function OrdenEditarModal({ orden, onClose, onSave, queueOrExecut
     observaciones: orden.observaciones || '',
     estado: orden.estado || 'programada',
     lavado_tanques: orden.lavado_tanques || false,
-    lavado_tanques_cantidad: orden.lavado_tanques_cantidad || 1
+    lavado_tanques_cantidad: orden.lavado_tanques_cantidad || 1,
+    direccion_servicio: orden.direccion_servicio || ''
   })
 
   useEffect(() => {
@@ -48,6 +49,7 @@ export default function OrdenEditarModal({ orden, onClose, onSave, queueOrExecut
         estado: form.estado,
         lavado_tanques: form.lavado_tanques,
         lavado_tanques_cantidad: form.lavado_tanques ? form.lavado_tanques_cantidad : 0,
+        direccion_servicio: form.direccion_servicio || null,
         updated_at: new Date().toISOString()
       }
       
@@ -172,6 +174,17 @@ export default function OrdenEditarModal({ orden, onClose, onSave, queueOrExecut
                 />
               </div>
             )}
+          </div>
+
+          <div>
+            <label className="label-field">Dirección del Servicio</label>
+            <input 
+              type="text"
+              className="input-field"
+              value={form.direccion_servicio}
+              onChange={e => setForm(f => ({ ...f, direccion_servicio: e.target.value }))}
+              placeholder="Dejar en blanco para usar la dirección registrada del cliente..."
+            />
           </div>
 
           <div>

@@ -10,6 +10,7 @@ import { api } from '../../lib/api'
 import { confirmDelete, successAlert } from '../../lib/alerts'
 import HelpButton from '../../components/features/HelpButton'
 import { HELP_CONTENT } from '../../lib/helpContent'
+import { formatFecha } from '../../utils/dateUtils'
 export default function Solicitudes() {
   const { profile } = useAuth()
   const navigate = useNavigate()
@@ -85,7 +86,6 @@ export default function Solicitudes() {
    }
 
   function handleConvertirAOrden(sol) {
-    // Navigar a la página de órdenes con estado para abrir el modal
     navigate('/ordenes', {
       state: {
         openModal: true,
@@ -94,7 +94,8 @@ export default function Solicitudes() {
           tipo_plaga: sol.tipo_servicio,
           fecha_programada: sol.fecha_preferida || new Date().toISOString().split('T')[0],
           observaciones: `Solicitud originada por el cliente: ${sol.descripcion}. \nCotización aceptada: $${sol.precio_cotizacion}.`,
-          solicitud_id: sol.id
+          solicitud_id: sol.id,
+          direccion_servicio: sol.direccion || ''
         }
       }
     })
@@ -192,7 +193,7 @@ export default function Solicitudes() {
                   <div className="flex flex-col">
                     <p className="text-[10px] font-bold text-dark-400 uppercase tracking-wide">Fecha sugerida</p>
                     <p className="text-xs font-bold text-primary-600">
-                      {sol.fecha_preferida ? new Date(sol.fecha_preferida).toLocaleDateString() : 'Por definir'}
+                      {formatFecha(sol.fecha_preferida, undefined, 'Por definir')}
                     </p>
                   </div>
                   <ArrowRight className={`w-5 h-5 text-dark-300 transition-transform ${selectedSol?.id === sol.id ? 'translate-x-1 text-primary-500' : ''}`} />
@@ -285,11 +286,15 @@ export default function Solicitudes() {
                     <div>
                       <label className="label-field text-primary-700">Precio Sugerido ($)</label>
                       <input 
-                        type="number" 
+                        type="text" 
+                        inputMode="numeric"
                         className="input-field border-primary-200 focus:border-primary-500 bg-white" 
-                        placeholder="Ej: 150000"
-                        value={cotizacion.precio}
-                        onChange={e => setCotizacion({...cotizacion, precio: e.target.value})}
+                        placeholder="Ej: 150.000"
+                        value={cotizacion.precio ? Number(cotizacion.precio).toLocaleString('es-CO') : ''}
+                        onChange={e => {
+                          const val = e.target.value.replace(/\D/g, '');
+                          setCotizacion({...cotizacion, precio: val});
+                        }}
                       />
                     </div>
                     <div>

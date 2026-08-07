@@ -10,6 +10,7 @@ import toast from 'react-hot-toast'
 import { abrirCertificado } from '../../lib/generarCertificado'
 import { getAuthImageUrl } from '../../utils/imageUtils'
 import { parseTipoPlaga } from '../../utils/tipoPlaga'
+import { formatFechaLarga } from '../../utils/dateUtils'
 
 export default function PortalOrdenDetalle() {
   const { id } = useParams()
@@ -116,7 +117,7 @@ export default function PortalOrdenDetalle() {
                 <Calendar className="w-5 h-5 text-primary-600" />
                 <div>
                   <p className="text-xs uppercase tracking-wider font-bold text-dark-400">Fecha del Servicio</p>
-                  <p className="font-medium text-dark-800">{new Date(orden.fecha_programada).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                  <p className="font-medium text-dark-800 capitalize">{formatFechaLarga(orden.fecha_programada, true)}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 text-dark-600">

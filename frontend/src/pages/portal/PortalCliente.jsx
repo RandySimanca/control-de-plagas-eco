@@ -4,7 +4,7 @@ import { generarCertificado as _generarCertificado, abrirCertificado } from '../
 import { useNavigate, Link, useLocation } from 'react-router-dom'
 import {
   Bug, LogOut, ClipboardList, FileCheck, Calendar, Download,
-  CheckCircle2, Clock, Play, ChevronRight, FileText, PlusCircle, Bell, Trash2, Shield, Send, X, Loader2, Key
+  CheckCircle2, Clock, Play, ChevronRight, FileText, PlusCircle, Bell, Trash2, Shield, Send, X, Loader2, Key, Droplets
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useInstallPrompt } from '../../hooks/useInstallPrompt'
@@ -16,6 +16,7 @@ import HelpButton from '../../components/features/HelpButton'
 import { HELP_CONTENT } from '../../lib/helpContent'
 import { useConfig } from '../../contexts/ConfigContext'
 import { parseTipoPlaga } from '../../utils/tipoPlaga'
+import { formatFecha } from '../../utils/dateUtils'
 export default function PortalCliente() {
   const { profile, logout } = useAuth()
   const { nombreEmpresa, logoUrl } = useConfig()
@@ -44,6 +45,8 @@ export default function PortalCliente() {
   })
   const [otroServicio, setOtroServicio] = useState('')
   const [cantidadTanques, setCantidadTanques] = useState('')
+  const [tipoTanque, setTipoTanque] = useState('Elevado')
+  const [materialTanque, setMaterialTanque] = useState('Polietileno')
 
 useEffect(() => {
     async function load() {
@@ -164,11 +167,11 @@ useEffect(() => {
         ? form.tipo_servicio.map(t => t === 'Otro' ? otroServicio : t)
         : form.tipo_servicio
 
-      const infotanques = form.tipo_servicio.includes('Lavado de Tanques') && cantidadTanques
-        ? `\n\n[Lavado de Tanques] Cantidad de tanques a lavar: ${cantidadTanques}`
+      const infotanques = form.tipo_servicio.includes('Lavado de Tanques')
+        ? `\n\n[Lavado de Tanques]\n- Cantidad de tanques: ${cantidadTanques || 1}\n- Tipo / Ubicación: ${tipoTanque}\n- Material: ${materialTanque}`
         : ''
 
-      const data = await api.post('/solicitudes-servicio', {
+      const response = await api.post('/solicitudes-servicio', {
         cliente_id: profile.cliente_id,
         tipo_servicio: tiposFinales.join(', '),
         descripcion: form.descripcion + infotanques,
@@ -176,12 +179,20 @@ useEffect(() => {
         fecha_preferida: form.fecha_preferida || null,
         estado: 'pendiente'
       }, { token })
+      
+      const newSolicitud = response?.data || response
+      if (newSolicitud && !newSolicitud.created_at) {
+        newSolicitud.created_at = new Date().toISOString()
+      }
+
       toast.success('Solicitud enviada correctamente')
       setShowModal(false)
-      setSolicitudes([data, ...solicitudes]) // Add directly to UI
+      setSolicitudes(prev => [newSolicitud, ...prev]) // Add directly to UI
       setForm({ tipo_servicio: ['Desinsectación'], descripcion: '', direccion: profile?.direccion || '', fecha_preferida: '' })
       setOtroServicio('')
       setCantidadTanques('')
+      setTipoTanque('Elevado')
+      setMaterialTanque('Polietileno')
       setTab('solicitudes')
     } catch (err) {
       console.error('Error al enviar solicitud:', err)
@@ -276,21 +287,65 @@ useEffect(() => {
               </div>
 
               {form.tipo_servicio.includes('Lavado de Tanques') && (
-                <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-300">
-                  <label className="text-sm font-semibold text-dark-700">¿Cuántos tanques se van a lavar? *</label>
-                  <div className="flex items-center gap-3">
+                <div className="space-y-4 p-4 bg-cyan-50/60 border border-cyan-200/80 rounded-2xl animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="flex items-center gap-2 text-cyan-900 font-bold text-sm">
+                    <Droplets className="w-5 h-5 text-cyan-600" />
+                    <span>Especificaciones del Lavado de Tanques</span>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-dark-700">¿Cuántos tanques se van a lavar? *</label>
                     <input
                       type="number"
                       min="1"
                       max="999"
-                      className="w-full bg-white border border-dark-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 rounded-xl px-4 py-3 text-sm transition-all shadow-sm"
-                      placeholder="Ej: 3"
+                      className="w-full bg-white border border-dark-200 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10 rounded-xl px-4 py-2.5 text-sm transition-all shadow-sm"
+                      placeholder="Ej: 2"
                       value={cantidadTanques}
                       onChange={(e) => setCantidadTanques(e.target.value)}
                       required={form.tipo_servicio.includes('Lavado de Tanques')}
                     />
                   </div>
-                  <p className="text-xs text-dark-400">Esta información nos ayuda a darte una cotización exacta.</p>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-dark-700">Tipo / Ubicación del Tanque *</label>
+                    <div className="flex flex-wrap gap-2">
+                      {['Elevado', 'Subterráneo', 'A Nivel'].map(tipo => (
+                        <button
+                          key={tipo}
+                          type="button"
+                          onClick={() => setTipoTanque(tipo)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                            tipoTanque === tipo
+                              ? 'bg-cyan-600 text-white shadow-md shadow-cyan-600/20'
+                              : 'bg-white text-dark-600 hover:bg-cyan-100/50 border border-dark-200'
+                          }`}
+                        >
+                          {tipo}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-dark-700">Material del Tanque *</label>
+                    <div className="flex flex-wrap gap-2">
+                      {['Concreto', 'Polietileno', 'Fibra de vidrio', 'Acero inoxidable', 'Metálico', 'Otro'].map(mat => (
+                        <button
+                          key={mat}
+                          type="button"
+                          onClick={() => setMaterialTanque(mat)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                            materialTanque === mat
+                              ? 'bg-cyan-600 text-white shadow-md shadow-cyan-600/20'
+                              : 'bg-white text-dark-600 hover:bg-cyan-100/50 border border-dark-200'
+                          }`}
+                        >
+                          {mat}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -528,7 +583,7 @@ useEffect(() => {
                             </div>
                             <div>
                               <p className="text-xs font-bold text-dark-400 uppercase tracking-wider mb-1">Visita Programada</p>
-                              <p className="text-base font-bold text-dark-900 group-hover:text-primary-700 transition-colors">{new Date(o.fecha_programada).toLocaleDateString()}</p>
+                              <p className="text-base font-bold text-dark-900 group-hover:text-primary-700 transition-colors">{formatFecha(o.fecha_programada)}</p>
                             </div>
                           </div>
                           <span className={badgeStyles}>{config.label}</span>
@@ -674,7 +729,7 @@ useEffect(() => {
                               </div>
                               <p className="text-sm text-dark-600 leading-relaxed max-w-3xl">{sol.descripcion}</p>
                               <p className="text-xs font-semibold text-dark-400 mt-3 flex items-center gap-1.5">
-                                <Calendar className="w-3.5 h-3.5" /> Enviada el {new Date(sol.created_at).toLocaleDateString()}
+                                <Calendar className="w-3.5 h-3.5" /> Enviada el {sol.created_at && !isNaN(new Date(sol.created_at)) ? new Date(sol.created_at).toLocaleDateString() : new Date().toLocaleDateString()}
                               </p>
                             </div>
                           </div>
