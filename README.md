@@ -148,11 +148,66 @@ El frontend estará disponible en **http://localhost:5173**.
 
 ---
 
+## 🗄️ Almacenamiento de Archivos
+
+El sistema usa una **capa de abstracción de almacenamiento** (`backend/src/utils/storage.js`) que permite cambiar el proveedor de archivos sin modificar el resto del código. Se controla con la variable de entorno `STORAGE_DRIVER`.
+
+### Modo actual: `local` (Docker / desarrollo)
+
+Los archivos se guardan en el sistema de archivos del contenedor, mapeado al host en `./backend/uploads/`.
+
+```env
+STORAGE_DRIVER=local
+```
+
+No requiere ninguna configuración adicional.
+
+### TODO (producción): Migrar a almacenamiento en la nube (S3)
+
+Cuando se decida el proveedor de almacenamiento en la nube, seguir estos pasos:
+
+**1. Instalar el SDK de AWS S3:**
+```bash
+cd backend
+npm install @aws-sdk/client-s3
+```
+
+**2. En `backend/src/utils/storage.js`, descomentar el bloque `s3Driver` y la línea:**
+```js
+// activeDriver = s3Driver;  ← descomentar esto
+```
+
+**3. Agregar las variables al `.env` del servidor y al `docker-compose.yml`:**
+```env
+STORAGE_DRIVER=s3
+AWS_REGION=us-east-1
+AWS_ACCESS_KEY_ID=...
+AWS_SECRET_ACCESS_KEY=...
+AWS_BUCKET_NAME=nombre-del-bucket
+
+# Solo si el proveedor NO es AWS S3 nativo:
+AWS_ENDPOINT=...       # Cloudflare R2 / DigitalOcean Spaces / MinIO
+AWS_PUBLIC_URL=...     # URL pública base (ej: https://cdn.tudominio.com)
+```
+
+**Proveedores compatibles con el protocolo S3:**
+
+| Proveedor | `AWS_ENDPOINT` |
+|-----------|---------------|
+| AWS S3 | *(no necesita)* |
+| Cloudflare R2 | `https://<account-id>.r2.cloudflarestorage.com` |
+| DigitalOcean Spaces | `https://<region>.digitaloceanspaces.com` |
+| MinIO (self-hosted) | `http://minio:9000` |
+
+> **Importante:** Los archivos subidos antes de la migración (que están en `./backend/uploads/`) deberán copiarse manualmente al nuevo bucket. Los registros de la base de datos guardan el `storage_path` relativo, que es compatible con ambos drivers.
+
+---
+
 ## 🏗️ Notas de Arquitectura
 
 - **Arquitectura Soberana**: El sistema no depende de servicios BaaS (como Supabase), permitiendo el control total sobre los datos y el despliegue.
 - **Modularidad**: El frontend utiliza una arquitectura de componentes "Features" para evitar archivos monolíticos (ej. `OrdenDetalle` refactorizado).
-- **Gestión de Archivos**: Las imágenes se sirven con protección de token, asegurando que solo los dueños de la información puedan visualizarlas.
+- **Gestión de Archivos**: Las imágenes se sirven con protección de token, asegurando que solo los dueños de la información puedan visualizarlas. El borrado de archivos (documentos, fotos de servicio, fotos de estaciones, fotos de bitácora) elimina tanto el registro en BD como el archivo físico del proveedor activo.
 - **Seguridad de contenedores**: El proceso Node del backend corre con el usuario `node` (sin privilegios root). Las migraciones no se inician hasta que PostgreSQL reporta estado `healthy` vía `pg_isready`.
 
 ## 📄 Licencia

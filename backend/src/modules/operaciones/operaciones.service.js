@@ -1,5 +1,6 @@
 import { pool } from '../../config/database.js'
 import { AppError } from '../../utils/AppError.js'
+import { storage } from '../../utils/storage.js'
 
 async function getProfile(userId) {
   const { rows } = await pool.query('SELECT * FROM profiles WHERE id = $1', [userId])
@@ -294,9 +295,15 @@ export async function createFoto(body, user) {
   return rows[0]
 }
 export async function deleteFoto(id, user) {
-  const { rows } = await pool.query('SELECT orden_id FROM fotos_servicio WHERE id = $1', [id])
+  const { rows } = await pool.query('SELECT orden_id, storage_path FROM fotos_servicio WHERE id = $1', [id])
   if (rows[0]) await assertOrdenAccess(rows[0].orden_id, user)
   await pool.query('DELETE FROM fotos_servicio WHERE id = $1', [id])
+  // Eliminar el archivo del proveedor de almacenamiento activo (local o S3)
+  if (rows[0]?.storage_path) {
+    storage.delete(rows[0].storage_path).catch(err =>
+      console.error('Error al eliminar foto de servicio del almacenamiento:', err)
+    )
+  }
 }
 export async function listEstaciones(ordenId, user) {
   if (ordenId) await assertOrdenAccess(ordenId, user)
@@ -349,12 +356,18 @@ export async function createFotoEstacion(body, user) {
 
 export async function deleteFotoEstacion(id, user) {
   const { rows: fRows } = await pool.query(`
-    SELECT e.orden_id FROM fotos_estaciones_usadas f 
+    SELECT e.orden_id, f.storage_path FROM fotos_estaciones_usadas f 
     JOIN estaciones_usadas e ON e.id = f.estacion_usada_id 
     WHERE f.id = $1
   `, [id])
   if (fRows[0]) await assertOrdenAccess(fRows[0].orden_id, user)
   await pool.query('DELETE FROM fotos_estaciones_usadas WHERE id = $1', [id])
+  // Eliminar el archivo del proveedor de almacenamiento activo (local o S3)
+  if (fRows[0]?.storage_path) {
+    storage.delete(fRows[0].storage_path).catch(err =>
+      console.error('Error al eliminar foto de estación del almacenamiento:', err)
+    )
+  }
 }
 
 export async function listProductos(ordenId, user) {
@@ -633,8 +646,14 @@ export async function createFotoBitacoraTanque(body, user) {
 
 export async function deleteFotoBitacoraTanque(id, user) {
   const { rows: fRows } = await pool.query(`
-    SELECT t.orden_id FROM fotos_bitacora_tanques f JOIN bitacora_tanques b ON b.id = f.bitacora_id JOIN tanques_servicio t ON t.id = b.tanque_id WHERE f.id = $1
+    SELECT t.orden_id, f.storage_path FROM fotos_bitacora_tanques f JOIN bitacora_tanques b ON b.id = f.bitacora_id JOIN tanques_servicio t ON t.id = b.tanque_id WHERE f.id = $1
   `, [id])
   if (fRows[0]) await assertOrdenAccess(fRows[0].orden_id, user)
   await pool.query('DELETE FROM fotos_bitacora_tanques WHERE id = $1', [id])
+  // Eliminar el archivo del proveedor de almacenamiento activo (local o S3)
+  if (fRows[0]?.storage_path) {
+    storage.delete(fRows[0].storage_path).catch(err =>
+      console.error('Error al eliminar foto de bitácora del almacenamiento:', err)
+    )
+  }
 }

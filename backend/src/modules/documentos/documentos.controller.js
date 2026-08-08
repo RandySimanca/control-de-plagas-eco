@@ -1,7 +1,6 @@
 import { catchAsync } from '../../utils/catchAsync.js';
 import * as documentosService from './documentos.service.js';
-import path from 'path';
-import fs from 'fs';
+import { storage } from '../../utils/storage.js';
 
 export const list = catchAsync(async (req, res) => {
   const docs = await documentosService.listDocumentos();
@@ -23,15 +22,13 @@ export const remove = catchAsync(async (req, res) => {
     return res.status(404).json({ success: false, message: 'Documento no encontrado' });
   }
 
-  // Delete file from storage
+  // Eliminar el archivo del proveedor de almacenamiento activo (local o S3)
   try {
-    const uploadsDir = path.join(process.cwd(), 'uploads');
-    const destPath = path.join(uploadsDir, doc.storage_path);
-    if (fs.existsSync(destPath)) {
-      fs.unlinkSync(destPath);
-    }
+    await storage.delete(doc.storage_path);
   } catch (err) {
-    console.error('Error deleting file:', err);
+    // No bloqueamos la respuesta si falla el borrado del archivo;
+    // el registro ya fue eliminado de la BD.
+    console.error('Error al eliminar archivo del almacenamiento:', err);
   }
 
   res.status(204).send();

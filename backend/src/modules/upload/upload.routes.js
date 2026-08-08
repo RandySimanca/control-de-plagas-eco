@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { authenticate } from '../../middlewares/auth.middleware.js';
 import multer from 'multer';
 import path from 'path';
-import fs from 'fs';
+import { storage } from '../../utils/storage.js';
 
 const router = Router();
 
@@ -21,9 +21,9 @@ const ALLOWED_MIME_TYPES = new Set([
 ]);
 
 // Configure multer to store file in memory with 25MB limit for high-res mobile photos
-const storage = multer.memoryStorage();
+const multerStorage = multer.memoryStorage();
 const upload = multer({
-  storage,
+  storage: multerStorage,
   limits: { fileSize: 25 * 1024 * 1024 }, // 25MB limit
   fileFilter (_req, file, cb) {
     const isImageOrPdf = ALLOWED_MIME_TYPES.has(file.mimetype) || 
@@ -37,7 +37,9 @@ const upload = multer({
   }
 });
 
-router.post('/', authenticate, upload.single('file'), (req, res) => {
+const ALLOWED_BUCKETS = new Set(['fotos-servicio', 'documentos', 'branding', 'certificados', 'firmas', 'default', 'avatars']);
+
+router.post('/', authenticate, upload.single('file'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
   }
@@ -50,7 +52,6 @@ router.post('/', authenticate, upload.single('file'), (req, res) => {
   // Sanitize bucket: allow only alphanumeric, dash, underscore
   const safeBucket = path.basename(bucket);
 
-  const ALLOWED_BUCKETS = new Set(['fotos-servicio', 'documentos', 'branding', 'certificados', 'firmas', 'default', 'avatars']);
   if (!ALLOWED_BUCKETS.has(safeBucket)) {
     return res.status(400).json({ success: false, message: 'Bucket no permitido' });
   }
@@ -59,17 +60,13 @@ router.post('/', authenticate, upload.single('file'), (req, res) => {
   const pathSegments = filePath.split('/').map(seg => path.basename(seg));
   const safeFilePath = pathSegments.join('/');
 
-  const uploadsDir = path.join(process.cwd(), 'uploads');
-  const destDir = path.join(uploadsDir, safeBucket, ...pathSegments.slice(0, -1));
-  const fileName = pathSegments[pathSegments.length - 1];
-
-  fs.mkdirSync(destDir, { recursive: true });
-  const destPath = path.join(destDir, fileName);
-  fs.writeFileSync(destPath, req.file.buffer);
-
-  const publicUrl = `/uploads/${safeBucket}/${safeFilePath}`;
-
-  res.json({ publicUrl });
+  try {
+    const { publicUrl } = await storage.upload(safeBucket, safeFilePath, req.file.buffer);
+    res.json({ publicUrl });
+  } catch (err) {
+    console.error('Error uploading file:', err);
+    res.status(500).json({ success: false, message: 'Error al guardar el archivo' });
+  }
 });
 
 export default router;
