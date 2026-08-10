@@ -64,7 +64,7 @@ export default function DocumentosLegales() {
       const { data: newDoc } = await api.post('/documentos-legales', {
         nombre: nombre.trim(),
         url: publicUrl,
-        storage_path: filePath
+        storage_path: `documentos/${filePath}`  // incluye el bucket para que el backend pueda borrar el archivo
       }, { token })
 
       setDocumentos(prev => [newDoc, ...prev])
