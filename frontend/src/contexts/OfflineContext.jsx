@@ -12,7 +12,7 @@ export const useOffline = () => useContext(OfflineContext)
 const CACHE_KEYS_LISTAS = ['ordenes_lista', 'dashboard_data']
 
 // Estados de orden que deben estar disponibles offline para trabajo en campo
-const ESTADOS_ACTIVOS = ['pendiente', 'programada', 'en_proceso', 'en_progreso']
+const ESTADOS_ACTIVOS = ['programada', 'en_progreso']
 
 export function OfflineProvider({ children }) {
   const [isOnline, setIsOnline] = useState(navigator.onLine)

@@ -88,7 +88,7 @@ export default function Layout() {
 
       const esTecnico = profile?.rol === 'tecnico'
       const pendientes = ordenes.filter(o => {
-        const esPendiente = ['pendiente', 'programada', 'en_proceso', 'en_progreso'].includes(o.estado)
+        const esPendiente = ['programada', 'en_progreso'].includes(o.estado)
         if (!esPendiente) return false
         if (esTecnico && profile?.id) {
           return o.tecnico_id === profile.id

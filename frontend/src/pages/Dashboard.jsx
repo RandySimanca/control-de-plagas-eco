@@ -15,19 +15,6 @@ import HelpButton from '../components/features/HelpButton'
 import { HELP_CONTENT } from '../lib/helpContent'
 import { formatFecha } from '../utils/dateUtils'
 
-const mockChartData = [
-  { name: '01 May', ordenes: 10 },
-  { name: '05 May', ordenes: 20 },
-  { name: '08 May', ordenes: 15 },
-  { name: '12 May', ordenes: 25 },
-  { name: '15 May', ordenes: 27 },
-  { name: '19 May', ordenes: 20 },
-  { name: '22 May', ordenes: 12 },
-  { name: '26 May', ordenes: 18 },
-  { name: '29 May', ordenes: 35 },
-  { name: '31 May', ordenes: 30 },
-]
-
 const CACHE_KEY_DASHBOARD = 'dashboard_data'
 
 export default function Dashboard() {
@@ -42,6 +29,7 @@ export default function Dashboard() {
   const [recentOrders, setRecentOrders] = useState([])
   const [isOfflineData, setIsOfflineData] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [chartData, setChartData] = useState([])
 
   useEffect(() => {
     loadDashboard()
@@ -91,8 +79,8 @@ export default function Dashboard() {
         ? ordenes.filter(s => s.tecnico_id === profile.id)
         : ordenes
 
-      const pendientes = ordenesFiltrados.filter(o => ['pendiente', 'programada', 'en_proceso', 'en_progreso'].includes(o.estado)).length
-      const completadas = ordenesFiltrados.filter(o => ['terminado', 'completada'].includes(o.estado)).length
+      const pendientes = ordenesFiltrados.filter(o => ['programada', 'en_progreso'].includes(o.estado)).length
+      const completadas = ordenesFiltrados.filter(o => o.estado === 'completada').length
 
       const now = new Date()
       const currentMonth = now.getMonth()
@@ -119,8 +107,8 @@ export default function Dashboard() {
       const ordenesCreadasLastMonth = ordenesFiltrados.filter(o => isSameMonth(o.created_at, previousMonth, previousMonthYear)).length
       const ordenesCreadasGrowth = calculateGrowth(ordenesCreadasThisMonth, ordenesCreadasLastMonth)
 
-      const pendientesFilter = o => ['pendiente', 'programada', 'en_proceso', 'en_progreso'].includes(o.estado)
-      const completadasFilter = o => ['terminado', 'completada'].includes(o.estado)
+      const pendientesFilter = o => ['programada', 'en_progreso'].includes(o.estado)
+      const completadasFilter = o => o.estado === 'completada'
 
       const pendientesThisMonth = ordenesFiltrados.filter(o => pendientesFilter(o) && isSameMonth(o.created_at, currentMonth, currentYear)).length
       const pendientesLastMonth = ordenesFiltrados.filter(o => pendientesFilter(o) && isSameMonth(o.created_at, previousMonth, previousMonthYear)).length
@@ -134,6 +122,25 @@ export default function Dashboard() {
         .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
         .slice(0, 5)
 
+      // Chart Data: Agrupar por fecha_programada o created_at (usamos fecha_programada si existe)
+      const last30Days = [...ordenesFiltrados].filter(o => {
+        const d = new Date(o.fecha_programada || o.created_at);
+        return (new Date() - d) < 30 * 24 * 60 * 60 * 1000;
+      });
+      
+      const chartMap = {};
+      last30Days.forEach(o => {
+        const dateStr = o.fecha_programada 
+          ? formatFecha(o.fecha_programada, { month: 'short', day: '2-digit' })
+          : formatFecha(o.created_at, { month: 'short', day: '2-digit' });
+        chartMap[dateStr] = (chartMap[dateStr] || 0) + 1;
+      });
+      
+      const realChartData = Object.keys(chartMap).map(date => ({
+        name: date,
+        ordenes: chartMap[date]
+      })).sort((a, b) => new Date(a.name) - new Date(b.name));
+
       setStats({
         clientes: clientesActivos,
         pendientes,
@@ -146,6 +153,7 @@ export default function Dashboard() {
         pendientesGrowth
       })
       setRecentOrders(recent)
+      setChartData(realChartData.length > 0 ? realChartData : [{name: 'Sin datos', ordenes: 0}])
     } catch (err) {
       console.error('Error cargando dashboard:', err)
       // Fallback a caché si el fetch falló
@@ -164,8 +172,8 @@ export default function Dashboard() {
           setStats(s => ({
             ...s,
             clientes: clientes.filter(c => c.activo).length,
-            pendientes: ordenesFiltrados.filter(o => ['pendiente', 'programada', 'en_proceso', 'en_progreso'].includes(o.estado)).length,
-            completadas: ordenesFiltrados.filter(o => ['terminado', 'completada'].includes(o.estado)).length,
+            pendientes: ordenesFiltrados.filter(o => ['programada', 'en_progreso'].includes(o.estado)).length,
+            completadas: ordenesFiltrados.filter(o => o.estado === 'completada').length,
             tecnicos: perfiles.filter(p => p.rol === 'tecnico' && p.activo).length,
           }))
         }
@@ -229,10 +237,8 @@ export default function Dashboard() {
 
   const getStatusVariant = (status) => {
     switch (status) {
-      case 'completada':
-      case 'terminado': return 'success'
-      case 'en_progreso':
-      case 'en_proceso': return 'primary'
+      case 'completada': return 'success'
+      case 'en_progreso': return 'primary'
       default: return 'warning'
     }
   }
@@ -240,11 +246,8 @@ export default function Dashboard() {
   const getStatusLabel = (status) => {
     const labels = {
       programada: 'Programada',
-      pendiente: 'Pendiente',
       en_progreso: 'En Progreso',
-      en_proceso: 'En Proceso',
       completada: 'Completada',
-      terminado: 'Terminado'
     }
     return labels[status] || status
   }
@@ -386,7 +389,7 @@ export default function Dashboard() {
           </div>
           <div className="h-[250px] w-full mb-6">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={mockChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorOrdenes" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#059669" stopOpacity={0.3} />
