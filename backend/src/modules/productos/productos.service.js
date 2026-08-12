@@ -365,44 +365,44 @@ export async function getAuditoriaResumen(filters = {}) {
   const whereClause = conditions.length > 0 ? ' WHERE ' + conditions.join(' AND ') : '';
 
   // 1. Total de registros de productos usados
-  let sqlTotal = \`
+  let sqlTotal = `
     SELECT COUNT(*) as total
     FROM productos_usados pu
     JOIN ordenes_servicio o ON o.id = pu.orden_id
-    \${whereClause}
-  \`;
+    ${whereClause}
+  `;
   
   // 2. Total de órdenes distintas
-  let sqlOrdenes = \`
+  let sqlOrdenes = `
     SELECT COUNT(DISTINCT o.id) as total
     FROM productos_usados pu
     JOIN ordenes_servicio o ON o.id = pu.orden_id
-    \${whereClause}
-  \`;
+    ${whereClause}
+  `;
 
   // 3. Técnico con mayor consumo (por cantidad de registros)
-  let sqlTecnico = \`
+  let sqlTecnico = `
     SELECT p.nombre_completo, COUNT(pu.id) as cantidad
     FROM productos_usados pu
     JOIN ordenes_servicio o ON o.id = pu.orden_id
     JOIN profiles p ON p.id = o.tecnico_id
-    \${whereClause}
+    ${whereClause}
     GROUP BY p.id, p.nombre_completo
     ORDER BY cantidad DESC
     LIMIT 1
-  \`;
+  `;
 
   // 4. Producto más usado
-  let sqlProducto = \`
+  let sqlProducto = `
     SELECT COALESCE(pc.nombre_comercial, pu.nombre_comercial, pu.ingrediente_activo) as nombre, COUNT(pu.id) as cantidad
     FROM productos_usados pu
     JOIN ordenes_servicio o ON o.id = pu.orden_id
     LEFT JOIN productos_catalogo pc ON pc.id = pu.catalogo_id
-    \${whereClause}
+    ${whereClause}
     GROUP BY nombre
     ORDER BY cantidad DESC
     LIMIT 1
-  \`;
+  `;
 
   const [resTotal, resOrdenes, resTecnico, resProducto] = await Promise.all([
     pool.query(sqlTotal, params),
