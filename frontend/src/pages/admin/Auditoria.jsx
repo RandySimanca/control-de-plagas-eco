@@ -2,7 +2,18 @@ import { useState, useEffect, useCallback } from 'react'
 import { FileSearch, Search, Filter, Download, User, Package, Users, Calendar, Loader2 } from 'lucide-react'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
-import { format } from 'date-fns'
+
+// Helper para formato de fecha simple
+const formatDate = (dateStr) => {
+  if (!dateStr) return 'N/A'
+  const d = new Date(dateStr)
+  return d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
+
+const formatTimestamp = () => {
+  const d = new Date()
+  return `${d.getFullYear()}${(d.getMonth()+1).toString().padStart(2,'0')}${d.getDate().toString().padStart(2,'0')}_${d.getHours().toString().padStart(2,'0')}${d.getMinutes().toString().padStart(2,'0')}${d.getSeconds().toString().padStart(2,'0')}`
+}
 
 export default function Auditoria() {
   const [loading, setLoading] = useState(false)
@@ -113,7 +124,7 @@ export default function Auditoria() {
     
     // Convert data to CSV rows
     const rows = data.map(item => {
-      const fecha = item.fecha_programada ? format(new Date(item.fecha_programada), 'dd/MM/yyyy') : 'N/A'
+      const fecha = item.fecha_programada ? formatDate(item.fecha_programada) : 'N/A'
       const cant = item.cantidad_numerica != null ? item.cantidad_numerica : item.cantidad_texto || '0'
       const unit = item.unidad || ''
       const ordenCod = `#ORD-${(item.orden_id || '').split('-')[0].toUpperCase()}`
@@ -135,7 +146,7 @@ export default function Auditoria() {
     const link = document.createElement('a')
     const url = URL.createObjectURL(blob)
     link.setAttribute('href', url)
-    link.setAttribute('download', `auditoria_productos_${format(new Date(), 'yyyyMMdd_HHmmss')}.csv`)
+    link.setAttribute('download', `auditoria_productos_${formatTimestamp()}.csv`)
     link.style.visibility = 'hidden'
     document.body.appendChild(link)
     link.click()
@@ -348,7 +359,7 @@ export default function Auditoria() {
                       <tr key={item.id} className="hover:bg-primary-50/30 transition-colors">
                         <td className="p-3">
                           <p className="text-sm font-medium text-dark-900">
-                            {item.fecha_programada ? format(new Date(item.fecha_programada), 'dd/MM/yyyy') : '-'}
+                            {item.fecha_programada ? formatDate(item.fecha_programada) : '-'}
                           </p>
                         </td>
                         <td className="p-3">
