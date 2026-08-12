@@ -16,7 +16,7 @@ router.put('/:id', requireAdmin, clientesController.update)
 router.delete('/:id', requireAdmin, clientesController.remove)
 // Estaciones del cliente
 router.get('/:id/estaciones', clientesController.listEstaciones)
-router.post('/:id/estaciones', requireAdmin, clientesController.createEstacion)
+router.post('/:id/estaciones', clientesController.createEstacion)
 router.put('/:id/estaciones/:estacion_id', requireAdmin, clientesController.updateEstacion)
 router.delete('/:id/estaciones/:estacion_id', requireAdmin, clientesController.deleteEstacion)
 

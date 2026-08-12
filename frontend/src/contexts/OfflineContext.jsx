@@ -149,7 +149,12 @@ export function OfflineProvider({ children }) {
       
       for (const op of ops) {
         try {
-          const endpoint = `/${op.table.replace(/_/g, '-')}` // Convertir table_name a table-name
+          let endpoint = `/${op.table.replace(/_/g, '-')}` // Convertir table_name a table-name
+          
+          // Caso especial: Crear estación maestra requiere el ID de cliente en la ruta
+          if (op.table === 'estaciones' && op.operation === 'insert' && op.payload.cliente_id) {
+            endpoint = `/clientes/${op.payload.cliente_id}/estaciones`
+          }
           
           if (op.operation === 'insert') {
             await api.post(endpoint, op.payload, { token })
