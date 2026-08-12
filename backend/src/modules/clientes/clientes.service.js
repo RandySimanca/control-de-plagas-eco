@@ -88,9 +88,9 @@ export async function listEstaciones(clienteId) {
 
 export async function createEstacion(clienteId, body) {
   const { rows } = await pool.query(
-    `INSERT INTO estaciones (cliente_id, numero, tipo, ubicacion, estado, fecha_instalacion, codigo_qr) 
-     VALUES ($1, $2, $3, $4, $5, COALESCE($6, NOW()), $7) RETURNING *`,
-    [clienteId, body.numero, body.tipo, body.ubicacion || null, body.estado || 'activa', body.fecha_instalacion || null, body.codigo_qr || null]
+    `INSERT INTO estaciones (id, cliente_id, numero, tipo, ubicacion, estado, fecha_instalacion, codigo_qr) 
+     VALUES (COALESCE($1, gen_random_uuid()), $2, $3, $4, $5, $6, COALESCE($7, NOW()), $8) RETURNING *`,
+    [body.id || null, clienteId, body.numero, body.tipo, body.ubicacion || null, body.estado || 'activa', body.fecha_instalacion || null, body.codigo_qr || null]
   )
   return rows[0]
 }
