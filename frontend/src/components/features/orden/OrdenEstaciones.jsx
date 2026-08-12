@@ -27,7 +27,7 @@ export default function OrdenEstaciones({ ordenId, clienteId, estaciones, setEst
         if (isOnline) {
           const token = localStorage.getItem('token')
           const { data } = await api.get(`/clientes/${clienteId}/estaciones`, { token })
-          setMaestras(data.data || [])
+          setMaestras(data || [])
         } else {
           const snapshot = await db.ordenes.get(ordenId)
           if (snapshot && snapshot.estaciones_maestras) {
