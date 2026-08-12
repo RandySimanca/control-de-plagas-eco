@@ -263,6 +263,7 @@ export default function OrdenServicioModal({
                   {subView === 'estaciones' && (
                     <OrdenEstaciones
                       ordenId={orden.id}
+                      clienteId={orden.cliente_id}
                       estaciones={estaciones}
                       setEstaciones={setEstaciones}
                       isAssignedTecnico={isAssignedTecnico}
