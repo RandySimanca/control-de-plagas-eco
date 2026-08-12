@@ -8,7 +8,7 @@ import api from '../../../lib/api'
 
 const DEFAULT_TYPES = ['Cebadero', 'Impacto', 'Jaula atrapavivos']
 
-export default function OrdenEstaciones({ ordenId, clienteId, estaciones, setEstaciones, isAssignedTecnico, ordenEstado, isOnline, queueOrExecute, queuePhoto }) {
+export default function OrdenEstaciones({ ordenId, clienteId, sedeId, estaciones, setEstaciones, isAssignedTecnico, ordenEstado, isOnline, queueOrExecute, queuePhoto }) {
   const [maestras, setMaestras] = useState([])
   const [loadingMaestras, setLoadingMaestras] = useState(true)
 
@@ -38,7 +38,9 @@ export default function OrdenEstaciones({ ordenId, clienteId, estaciones, setEst
       try {
         if (isOnline) {
           const token = localStorage.getItem('token')
-          const { data } = await api.get(`/clientes/${clienteId}/estaciones`, { token })
+          // Filtrar maestras por sede si la orden tiene una sede asignada
+          const params = sedeId ? { sede_id: sedeId } : {}
+          const { data } = await api.get(`/clientes/${clienteId}/estaciones`, { token, params })
           setMaestras(data || [])
         } else {
           const snapshot = await db.ordenes.get(ordenId)
@@ -53,7 +55,7 @@ export default function OrdenEstaciones({ ordenId, clienteId, estaciones, setEst
       }
     }
     if (clienteId) loadMaestras()
-  }, [clienteId, isOnline, ordenId])
+  }, [clienteId, sedeId, isOnline, ordenId])
 
   // Inicializar estado de edición cuando cambian maestras o estaciones
   useEffect(() => {
@@ -194,6 +196,7 @@ export default function OrdenEstaciones({ ordenId, clienteId, estaciones, setEst
       await queueOrExecute('estaciones', 'insert', {
         id: mId,
         cliente_id: clienteId,
+        sede_id: sedeId || null,
         numero: nuevaEstacion.numero,
         tipo: nuevaEstacion.tipo,
         ubicacion: nuevaEstacion.ubicacion

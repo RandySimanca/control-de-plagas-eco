@@ -81,18 +81,56 @@ export async function deleteCliente (id) {
 }
 
 
-export async function listEstaciones(clienteId) {
-  const { rows } = await pool.query('SELECT * FROM estaciones WHERE cliente_id = $1 ORDER BY tipo, numero', [clienteId])
+export async function listEstaciones(clienteId, sedeId = null) {
+  let query = 'SELECT * FROM estaciones WHERE cliente_id = $1'
+  const params = [clienteId]
+  if (sedeId) {
+    params.push(sedeId)
+    query += ` AND sede_id = $2`
+  }
+  query += ' ORDER BY tipo, numero'
+  const { rows } = await pool.query(query, params)
   return rows
 }
 
 export async function createEstacion(clienteId, body) {
   const { rows } = await pool.query(
-    `INSERT INTO estaciones (id, cliente_id, numero, tipo, ubicacion, estado, fecha_instalacion, codigo_qr) 
-     VALUES (COALESCE($1, gen_random_uuid()), $2, $3, $4, $5, $6, COALESCE($7, NOW()), $8) RETURNING *`,
-    [body.id || null, clienteId, body.numero, body.tipo, body.ubicacion || null, body.estado || 'activa', body.fecha_instalacion || null, body.codigo_qr || null]
+    `INSERT INTO estaciones (id, cliente_id, sede_id, numero, tipo, ubicacion, estado, fecha_instalacion, codigo_qr) 
+     VALUES (COALESCE($1, gen_random_uuid()), $2, $3, $4, $5, $6, $7, COALESCE($8, NOW()), $9) RETURNING *`,
+    [body.id || null, clienteId, body.sede_id || null, body.numero, body.tipo, body.ubicacion || null, body.estado || 'activa', body.fecha_instalacion || null, body.codigo_qr || null]
   )
   return rows[0]
+}
+
+// --- SEDES ---
+
+export async function listSedes(clienteId) {
+  const { rows } = await pool.query('SELECT * FROM clientes_sedes WHERE cliente_id = $1 ORDER BY nombre', [clienteId])
+  return rows
+}
+
+export async function createSede(clienteId, body) {
+  if (!body.nombre?.trim()) throw new AppError('El nombre de la sede es obligatorio', 400)
+  const { rows } = await pool.query(
+    'INSERT INTO clientes_sedes (cliente_id, nombre, direccion, municipio) VALUES ($1, $2, $3, $4) RETURNING *',
+    [clienteId, body.nombre.trim(), body.direccion?.trim() || null, body.municipio?.trim() || null]
+  )
+  return rows[0]
+}
+
+export async function updateSede(sedeId, body) {
+  if (!body.nombre?.trim()) throw new AppError('El nombre de la sede es obligatorio', 400)
+  const { rows } = await pool.query(
+    'UPDATE clientes_sedes SET nombre = $1, direccion = $2, municipio = $3, updated_at = NOW() WHERE id = $4 RETURNING *',
+    [body.nombre.trim(), body.direccion?.trim() || null, body.municipio?.trim() || null, sedeId]
+  )
+  if (!rows[0]) throw new AppError('Sede no encontrada', 404)
+  return rows[0]
+}
+
+export async function deleteSede(sedeId) {
+  const { rowCount } = await pool.query('DELETE FROM clientes_sedes WHERE id = $1', [sedeId])
+  if (!rowCount) throw new AppError('Sede no encontrada', 404)
 }
 
 export async function updateEstacion(id, body) {

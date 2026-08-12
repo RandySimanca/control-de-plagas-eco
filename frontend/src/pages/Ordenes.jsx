@@ -15,7 +15,10 @@ import { formatFecha } from '../utils/dateUtils'
 const EMPTY_FORM = {
   cliente_id: '', tecnico_id: '', fecha_programada: new Date().toISOString().split('T')[0],
   tipo_plaga: [], observaciones: '', estado: 'programada',
-  lavado_tanques: false, lavado_tanques_cantidad: 1,
+  solicitud_id: null,
+  lavado_tanques: false,
+  lavado_tanques_cantidad: 1,
+  sede_id: '',
   direccion_servicio: ''
 }
 
@@ -36,6 +39,7 @@ export default function Ordenes() {
   const [showModal, setShowModal] = useState(false)
   const [clientes, setClientes] = useState([])
   const [tecnicos, setTecnicos] = useState([])
+  const [sedesCliente, setSedesCliente] = useState([])
   const [form, setForm] = useState({ ...EMPTY_FORM })
   const [saving, setSaving] = useState(false)
   const [submitted, setSubmitted] = useState(false)
@@ -87,12 +91,38 @@ export default function Ordenes() {
      setShowModal(true)
    }
 
-  function closeModal() { setShowModal(false) }
+   function closeModal() { 
+     setShowModal(false);
+     setSedesCliente([]);
+   }
+
+   // Efecto para cargar sedes cuando cambia el cliente
+   useEffect(() => {
+     async function loadSedes() {
+       if (!form.cliente_id) {
+         setSedesCliente([]);
+         setForm(p => ({ ...p, sede_id: '' }));
+         return;
+       }
+       try {
+         const token = localStorage.getItem('token');
+         const { data } = await api.get(`/clientes/${form.cliente_id}/sedes`, { token });
+         setSedesCliente(data.data || []);
+         // Si hay sedes, pero no hay seleccionada, o la actual no pertenece, resetear
+         const exists = (data.data || []).find(s => s.id === form.sede_id);
+         if (!exists) setForm(p => ({ ...p, sede_id: '' }));
+       } catch (err) {
+         console.error('Error cargando sedes', err);
+       }
+     }
+     if (showModal) loadSedes();
+   }, [form.cliente_id, showModal]);
 
    async function handleSubmit(e) {
      e.preventDefault()
      setSubmitted(true)
      if (!form.cliente_id) { toast.error('Selecciona un cliente'); return }
+     if (sedesCliente.length > 0 && !form.sede_id) { toast.error('Selecciona una sede para este cliente'); return }
      if (!form.tecnico_id) { toast.error('Debes asignar un técnico antes de crear la orden'); return }
      if (!form.fecha_programada) { toast.error('Selecciona una fecha'); return }
      setSaving(true)
@@ -107,7 +137,8 @@ export default function Ordenes() {
          estado: form.estado,
          lavado_tanques: form.lavado_tanques,
          lavado_tanques_cantidad: form.lavado_tanques ? form.lavado_tanques_cantidad : 0,
-         direccion_servicio: form.direccion_servicio
+         direccion_servicio: form.direccion_servicio,
+         sede_id: form.sede_id || null
        }, { token })
        
        // Si viene de una solicitud, actualizar el estado de la misma
@@ -243,11 +274,36 @@ export default function Ordenes() {
                   {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
                 </select>
               </div>
+              
+              {sedesCliente.length > 0 && (
+                <div>
+                  <label className="label-field text-primary-700">Sede o Locación *</label>
+                  <select 
+                    className={`input-field bg-primary-50/30 border-primary-200 ${submitted && !form.sede_id ? 'border-red-500 ring-2 ring-red-200 bg-red-50' : ''}`}
+                    value={form.sede_id} 
+                    onChange={e => {
+                      const sede = sedesCliente.find(s => s.id === e.target.value);
+                      setForm(p => ({ 
+                        ...p, 
+                        sede_id: e.target.value,
+                        direccion_servicio: sede ? (sede.direccion || '') : p.direccion_servicio
+                      }));
+                      setSubmitted(false);
+                    }}
+                  >
+                    <option value="">Seleccione a cuál sede pertenece esta orden...</option>
+                    {sedesCliente.map(s => <option key={s.id} value={s.id}>{s.nombre} {s.direccion ? `(${s.direccion})` : ''}</option>)}
+                  </select>
+                  <p className="text-[10px] text-dark-400 mt-1">Este cliente tiene múltiples sedes registradas. Las estaciones se filtrarán según la sede que elijas.</p>
+                </div>
+              )}
 
-              <div>
-                <label className="label-field">Dirección del Servicio</label>
-                <input type="text" className="input-field" value={form.direccion_servicio || ''} onChange={e => setForm(p => ({ ...p, direccion_servicio: e.target.value }))} placeholder="Dejar en blanco para usar la dirección registrada del cliente..." />
-              </div>
+              {sedesCliente.length === 0 && (
+                <div>
+                  <label className="label-field">Dirección del Servicio</label>
+                  <input type="text" className="input-field" value={form.direccion_servicio || ''} onChange={e => setForm(p => ({ ...p, direccion_servicio: e.target.value }))} placeholder="Dejar en blanco para usar la dirección registrada del cliente..." />
+                </div>
+              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>

@@ -213,6 +213,7 @@ export default function OrdenDetalle() {
             <OrdenEstaciones 
               ordenId={id}
               clienteId={orden.cliente_id}
+              sedeId={orden.sede_id}
               estaciones={estaciones}
               setEstaciones={setEstaciones}
               isAssignedTecnico={isAssignedTecnico}

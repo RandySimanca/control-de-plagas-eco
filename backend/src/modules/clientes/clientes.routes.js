@@ -20,4 +20,10 @@ router.post('/:id/estaciones', clientesController.createEstacion)
 router.put('/:id/estaciones/:estacion_id', requireAdmin, clientesController.updateEstacion)
 router.delete('/:id/estaciones/:estacion_id', requireAdmin, clientesController.deleteEstacion)
 
+// Sedes
+router.get('/:id/sedes', clientesController.listSedes)
+router.post('/:id/sedes', requireAdmin, clientesController.createSede)
+router.put('/:id/sedes/:sede_id', requireAdmin, clientesController.updateSede)
+router.delete('/:id/sedes/:sede_id', requireAdmin, clientesController.deleteSede)
+
 export default router

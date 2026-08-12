@@ -27,7 +27,7 @@ export const remove = catchAsync(async (req, res) => {
 })
 
 export const listEstaciones = catchAsync(async (req, res) => {
-  const data = await clientesService.listEstaciones(req.params.id)
+  const data = await clientesService.listEstaciones(req.params.id, req.query.sede_id)
   res.json({ success: true, data })
 })
 
@@ -43,5 +43,26 @@ export const updateEstacion = catchAsync(async (req, res) => {
 
 export const deleteEstacion = catchAsync(async (req, res) => {
   await clientesService.deleteEstacion(req.params.estacion_id)
+  res.status(204).send()
+})
+
+// Sedes
+export const listSedes = catchAsync(async (req, res) => {
+  const data = await clientesService.listSedes(req.params.id)
+  res.json({ success: true, data })
+})
+
+export const createSede = catchAsync(async (req, res) => {
+  const data = await clientesService.createSede(req.params.id, req.body)
+  res.status(201).json({ success: true, data })
+})
+
+export const updateSede = catchAsync(async (req, res) => {
+  const data = await clientesService.updateSede(req.params.sede_id, req.body)
+  res.json({ success: true, data })
+})
+
+export const deleteSede = catchAsync(async (req, res) => {
+  await clientesService.deleteSede(req.params.sede_id)
   res.status(204).send()
 })

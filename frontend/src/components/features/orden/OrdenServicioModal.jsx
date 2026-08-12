@@ -264,6 +264,7 @@ export default function OrdenServicioModal({
                     <OrdenEstaciones
                       ordenId={orden.id}
                       clienteId={orden.cliente_id}
+                      sedeId={orden.sede_id}
                       estaciones={estaciones}
                       setEstaciones={setEstaciones}
                       isAssignedTecnico={isAssignedTecnico}

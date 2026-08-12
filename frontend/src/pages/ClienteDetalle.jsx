@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { api } from '../lib/api'
 import {
   ArrowLeft, Edit, Trash2, Phone, Mail, MapPin, Calendar,
-  ClipboardList, Building2, Home
+  ClipboardList, Building2, Home, Map, Plus, X, Loader2
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { confirmDelete, successAlert } from '../lib/alerts'
@@ -16,7 +16,14 @@ export default function ClienteDetalle() {
   const { isAdmin } = useAuth()
   const [cliente, setCliente] = useState(null)
   const [ordenes, setOrdenes] = useState([])
+  const [sedes, setSedes] = useState([])
   const [loading, setLoading] = useState(true)
+  
+  // Estado para modal/formulario de nueva Sede
+  const [showSedeForm, setShowSedeForm] = useState(false)
+  const [nuevaSede, setNuevaSede] = useState({ nombre: '', direccion: '', municipio: '' })
+  const [savingSede, setSavingSede] = useState(false)
+  
   useEffect(() => {
     load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -25,12 +32,14 @@ export default function ClienteDetalle() {
   async function load() {
     try {
       const token = localStorage.getItem('token')
-      const [clienteRes, ordenesRes] = await Promise.all([
+      const [clienteRes, ordenesRes, sedesRes] = await Promise.all([
         api.get(`/clientes/${id}`, { token }),
-        api.get('/servicios', { token, params: { cliente_id: id } })
+        api.get('/servicios', { token, params: { cliente_id: id } }),
+        api.get(`/clientes/${id}/sedes`, { token })
       ])
       setCliente(clienteRes.data)
       setOrdenes(ordenesRes.data || [])
+      setSedes(sedesRes.data || [])
     } catch {
       toast.error('Error cargando cliente')
       navigate('/clientes')
@@ -49,6 +58,39 @@ export default function ClienteDetalle() {
       await successAlert('Cliente eliminado', 'El cliente ha sido desactivado correctamente.')
       navigate('/clientes')
     } catch { toast.error('Error al eliminar') }
+  }
+
+  async function handleAddSede(e) {
+    e.preventDefault()
+    if (!nuevaSede.nombre.trim()) return toast.error('El nombre de la sede es obligatorio')
+    
+    setSavingSede(true)
+    try {
+      const token = localStorage.getItem('token')
+      const { data } = await api.post(`/clientes/${id}/sedes`, nuevaSede, { token })
+      setSedes(prev => [...prev, data.data])
+      setShowSedeForm(false)
+      setNuevaSede({ nombre: '', direccion: '', municipio: '' })
+      toast.success('Sede creada correctamente')
+    } catch (err) {
+      toast.error('Error al crear sede: ' + err.message)
+    } finally {
+      setSavingSede(false)
+    }
+  }
+
+  async function handleDeleteSede(sedeId) {
+    const isConfirmed = await confirmDelete('¿Eliminar esta sede?', 'Esto no eliminará las estaciones ni órdenes, pero quedarán huérfanas de sede.')
+    if (!isConfirmed) return
+    
+    try {
+      const token = localStorage.getItem('token')
+      await api.delete(`/clientes/${id}/sedes/${sedeId}`, { token })
+      setSedes(prev => prev.filter(s => s.id !== sedeId))
+      toast.success('Sede eliminada')
+    } catch (err) {
+      toast.error('Error al eliminar sede: ' + err.message)
+    }
   }
 
   const estadoBadge = { programada: 'badge-programada', en_progreso: 'badge-en-progreso', completada: 'badge-completada' }
@@ -152,6 +194,76 @@ export default function ClienteDetalle() {
           <div className="mt-6 pt-6 border-t border-dark-100">
             <h3 className="text-xs font-bold text-dark-400 uppercase tracking-wider mb-2">Notas</h3>
             <p className="text-sm text-dark-600 leading-relaxed">{cliente.notas}</p>
+          </div>
+        )}
+      </div>
+
+      {/* Sedes / Locaciones */}
+      <div className="card mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold text-dark-900 flex items-center gap-2">
+            <Map className="w-5 h-5 text-primary-600" /> Sedes y Locaciones
+          </h2>
+          {isAdmin && !showSedeForm && (
+            <button onClick={() => setShowSedeForm(true)} className="btn-secondary text-sm">
+              <Plus className="w-4 h-4" /> Agregar Sede
+            </button>
+          )}
+        </div>
+
+        {showSedeForm && (
+          <form onSubmit={handleAddSede} className="bg-primary-50/50 p-4 rounded-xl border border-primary-100 mb-4 space-y-3">
+            <h3 className="text-sm font-bold text-primary-800">Nueva Sede</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="label-field">Nombre de la Sede</label>
+                <input type="text" className="input-field bg-white" placeholder="Ej. Sede Norte" required value={nuevaSede.nombre} onChange={e => setNuevaSede({...nuevaSede, nombre: e.target.value})} />
+              </div>
+              <div>
+                <label className="label-field">Dirección</label>
+                <input type="text" className="input-field bg-white" placeholder="Dirección física" value={nuevaSede.direccion} onChange={e => setNuevaSede({...nuevaSede, direccion: e.target.value})} />
+              </div>
+              <div>
+                <label className="label-field">Municipio/Ciudad</label>
+                <input type="text" className="input-field bg-white" placeholder="Ej. Bogotá" value={nuevaSede.municipio} onChange={e => setNuevaSede({...nuevaSede, municipio: e.target.value})} />
+              </div>
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button type="submit" disabled={savingSede} className="btn-primary text-sm">
+                {savingSede ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Guardar Sede'}
+              </button>
+              <button type="button" onClick={() => setShowSedeForm(false)} className="btn-secondary text-sm">Cancelar</button>
+            </div>
+          </form>
+        )}
+
+        {sedes.length === 0 && !showSedeForm ? (
+          <div className="text-center py-6 bg-dark-50 rounded-xl border border-dashed border-dark-200">
+            <Map className="w-8 h-8 text-dark-300 mx-auto mb-2" />
+            <p className="text-sm font-bold text-dark-500">Este cliente no tiene sedes registradas</p>
+            <p className="text-xs text-dark-400 mt-1">Si dejas el cliente sin sedes, todas las estaciones se manejarán de forma global.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {sedes.map(sede => (
+              <div key={sede.id} className="p-3 border rounded-xl bg-white hover:border-primary-200 hover:shadow-sm transition-all group flex justify-between items-start">
+                <div>
+                  <h4 className="text-sm font-bold text-dark-900 flex items-center gap-2">
+                    <MapPin className="w-3.5 h-3.5 text-primary-500" /> {sede.nombre}
+                  </h4>
+                  {(sede.direccion || sede.municipio) && (
+                    <p className="text-xs text-dark-500 mt-1 ml-5.5">
+                      {sede.direccion} {sede.direccion && sede.municipio ? '-' : ''} {sede.municipio}
+                    </p>
+                  )}
+                </div>
+                {isAdmin && (
+                  <button onClick={() => handleDeleteSede(sede.id)} className="p-1.5 text-dark-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100" title="Eliminar sede">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            ))}
           </div>
         )}
       </div>
