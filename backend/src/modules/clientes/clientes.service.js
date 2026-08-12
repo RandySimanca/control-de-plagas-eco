@@ -81,6 +81,42 @@ export async function deleteCliente (id) {
 }
 
 
+export async function listEstaciones(clienteId) {
+  const { rows } = await pool.query('SELECT * FROM estaciones WHERE cliente_id = $1 ORDER BY tipo, numero', [clienteId])
+  return rows
+}
+
+export async function createEstacion(clienteId, body) {
+  const { rows } = await pool.query(
+    `INSERT INTO estaciones (cliente_id, numero, tipo, ubicacion, estado, fecha_instalacion, codigo_qr) 
+     VALUES ($1, $2, $3, $4, $5, COALESCE($6, NOW()), $7) RETURNING *`,
+    [clienteId, body.numero, body.tipo, body.ubicacion || null, body.estado || 'activa', body.fecha_instalacion || null, body.codigo_qr || null]
+  )
+  return rows[0]
+}
+
+export async function updateEstacion(id, body) {
+  const allowed = ['numero', 'tipo', 'ubicacion', 'estado', 'fecha_instalacion', 'codigo_qr']
+  const sets = []
+  const vals = []
+  for (const key of allowed) {
+    if (body[key] !== undefined) {
+      vals.push(body[key])
+      sets.push(`${key} = $${vals.length}`)
+    }
+  }
+  if (!sets.length) throw new AppError('No hay campos para actualizar', 400)
+  vals.push(id)
+  const { rows } = await pool.query(`UPDATE estaciones SET ${sets.join(', ')}, updated_at = NOW() WHERE id = $${vals.length} RETURNING *`, vals)
+  if (!rows[0]) throw new AppError('Estación no encontrada', 404)
+  return rows[0]
+}
+
+export async function deleteEstacion(id) {
+  const { rowCount } = await pool.query('DELETE FROM estaciones WHERE id = $1', [id])
+  if (!rowCount) throw new AppError('Estación no encontrada', 404)
+}
+
 /**
 import { pool } from '../../config/database.js'
 import { AppError } from '../../utils/AppError.js'

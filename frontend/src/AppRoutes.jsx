@@ -17,9 +17,11 @@ import PortalLogin from './pages/portal/PortalLogin'
 import PortalCliente from './pages/portal/PortalCliente'
 import PortalOrdenDetalle from './pages/portal/PortalOrdenDetalle'
 import Configuracion from './pages/admin/Configuracion'
+import Productos from './pages/admin/Productos'
 import DocumentosLegales from './pages/admin/DocumentosLegales'
 import PortalSolicitudForm from './pages/portal/PortalSolicitudForm'
 import Solicitudes from './pages/admin/Solicitudes'
+import Auditoria from './pages/admin/Auditoria'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 
@@ -78,6 +80,12 @@ export default function AppRoutes() {
         } />
         <Route path="admin/configuracion" element={
           <ProtectedRoute allowedRoles={['admin']}><Configuracion /></ProtectedRoute>
+        } />
+        <Route path="admin/productos" element={
+          <ProtectedRoute allowedRoles={['admin']}><Productos /></ProtectedRoute>
+        } />
+        <Route path="admin/auditoria" element={
+          <ProtectedRoute allowedRoles={['admin']}><Auditoria /></ProtectedRoute>
         } />
         <Route path="admin/documentos" element={
           <ProtectedRoute allowedRoles={['admin']}><DocumentosLegales /></ProtectedRoute>

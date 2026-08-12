@@ -76,6 +76,14 @@ export function OfflineProvider({ children }) {
 
       if (ordenes.length === 0) return
 
+      // Cachear el catálogo de productos para uso offline
+      try {
+        const { data: catRes } = await api.get('/productos-catalogo', { token })
+        await db.cache_listas.put({ clave: 'productos_catalogo', data: catRes || [], updated_at: Date.now() })
+      } catch (err) {
+        console.warn('Error cacheando catálogo de productos:', err)
+      }
+
       // 2. Descargar el snapshot completo de cada orden y guardarlo en IndexedDB
       let cachedCount = 0
       for (const orden of ordenes) {
@@ -85,12 +93,13 @@ export function OfflineProvider({ children }) {
           const unaHora = 60 * 60 * 1000
           if (existing && (Date.now() - existing.updated_at) < unaHora) continue
 
-          const [prodsRes, fotosRes, certRes, actividadesRes, estacRes] = await Promise.all([
+          const [prodsRes, fotosRes, certRes, actividadesRes, estacRes, estacMaestrasRes] = await Promise.all([
             api.get(`/ordenes/${orden.id}/productos`, { token }),
             api.get(`/ordenes/${orden.id}/fotos`, { token }),
             api.get(`/ordenes/${orden.id}/certificado`, { token }),
             api.get(`/ordenes/${orden.id}/actividades`, { token }),
-            api.get(`/ordenes/${orden.id}/estaciones`, { token })
+            api.get(`/ordenes/${orden.id}/estaciones`, { token }),
+            api.get(`/clientes/${orden.cliente_id}/estaciones`, { token })
           ])
 
           const snapshot = {
@@ -101,6 +110,7 @@ export function OfflineProvider({ children }) {
             certificado: certRes.data || null,
             actividades: actividadesRes.data || [],
             estaciones: estacRes.data || [],
+            estaciones_maestras: estacMaestrasRes.data?.data || [],
             updated_at: Date.now()
           }
 

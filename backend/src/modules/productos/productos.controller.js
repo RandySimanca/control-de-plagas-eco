@@ -1,0 +1,71 @@
+import { catchAsync } from '../../utils/catchAsync.js';
+import * as productosService from './productos.service.js';
+
+export const listProductosCatalogo = catchAsync(async (req, res) => {
+  const productos = await productosService.listProductosCatalogo(req.query);
+  res.json({ success: true, data: productos });
+});
+
+export const createProductoCatalogo = catchAsync(async (req, res) => {
+  const producto = await productosService.createProductoCatalogo(req.body);
+  res.status(201).json({ success: true, data: producto });
+});
+
+export const updateProductoCatalogo = catchAsync(async (req, res) => {
+  const producto = await productosService.updateProductoCatalogo(req.params.id, req.body);
+  res.json({ success: true, data: producto });
+});
+
+export const deleteProductoCatalogo = catchAsync(async (req, res) => {
+  await productosService.deleteProductoCatalogo(req.params.id);
+  res.status(204).end();
+});
+
+// ─── STOCK ────────────────────────────────────────────────────────────────────
+
+export const getMovimientosStock = catchAsync(async (req, res) => {
+  const limit = parseInt(req.query.limit) || 50;
+  const offset = parseInt(req.query.offset) || 0;
+  const movimientos = await productosService.getMovimientosStock(req.params.id, limit, offset);
+  res.json({ success: true, data: movimientos });
+});
+
+export const reabastecerStock = catchAsync(async (req, res) => {
+  const { cantidad_presentaciones, notas } = req.body;
+  if (!cantidad_presentaciones || parseFloat(cantidad_presentaciones) <= 0) {
+    return res.status(400).json({ success: false, message: 'cantidad_presentaciones debe ser mayor a 0' });
+  }
+  const result = await productosService.reabastecerStock(
+    req.params.id,
+    parseFloat(cantidad_presentaciones),
+    notas,
+    req.user.id
+  );
+  res.json({ success: true, data: result });
+});
+
+export const ajusteManualStock = catchAsync(async (req, res) => {
+  const { nuevo_stock, notas } = req.body;
+  if (nuevo_stock == null || parseFloat(nuevo_stock) < 0) {
+    return res.status(400).json({ success: false, message: 'nuevo_stock debe ser >= 0' });
+  }
+  const producto = await productosService.ajusteManualStock(
+    req.params.id,
+    parseFloat(nuevo_stock),
+    notas,
+    req.user.id
+  );
+  res.json({ success: true, data: producto });
+});
+
+// ─── AUDITORIA ────────────────────────────────────────────────────────────────
+
+export const getAuditoria = catchAsync(async (req, res) => {
+  const data = await productosService.getAuditoriaProductos(req.query);
+  res.json({ success: true, data });
+});
+
+export const getAuditoriaResumen = catchAsync(async (req, res) => {
+  const data = await productosService.getAuditoriaResumen(req.query);
+  res.json({ success: true, data });
+});

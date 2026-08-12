@@ -1,6 +1,7 @@
 import { pool } from '../../config/database.js'
 import { AppError } from '../../utils/AppError.js'
 import { storage } from '../../utils/storage.js'
+import { _ajustarStock } from '../productos/productos.service.js'
 
 async function getProfile(userId) {
   const { rows } = await pool.query('SELECT * FROM profiles WHERE id = $1', [userId])
@@ -309,7 +310,13 @@ export async function listEstaciones(ordenId, user) {
   if (ordenId) await assertOrdenAccess(ordenId, user)
   else if (user.role !== 'admin') throw new AppError('orden_id es obligatorio', 400)
     
-  const { rows: estaciones } = await pool.query('SELECT * FROM estaciones_usadas WHERE ($1::uuid IS NULL OR orden_id = $1) ORDER BY created_at DESC', [ordenId || null])
+  const { rows: estaciones } = await pool.query(`
+    SELECT eu.*, e.numero as numero_estacion, e.ubicacion as ubicacion_estacion, e.codigo_qr 
+    FROM estaciones_usadas eu
+    LEFT JOIN estaciones e ON e.id = eu.estacion_id
+    WHERE ($1::uuid IS NULL OR eu.orden_id = $1) 
+    ORDER BY eu.created_at DESC
+  `, [ordenId || null])
   
   if (estaciones.length > 0) {
     const ids = estaciones.map(e => e.id)
@@ -324,9 +331,9 @@ export async function listEstaciones(ordenId, user) {
 export async function createEstacion(body, user) {
   await assertOrdenAccess(body.orden_id, user)
   const { rows } = await pool.query(
-    `INSERT INTO estaciones_usadas (id, orden_id, tipo_estacion, cantidad, observaciones, foto_antes_url, foto_despues_url, es_nueva_instalacion)
-     VALUES (COALESCE($1, gen_random_uuid()), $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-    [body.id || null, body.orden_id, body.tipo_estacion, body.cantidad || 0, body.observaciones || null, body.foto_antes_url || null, body.foto_despues_url || null, body.es_nueva_instalacion || false]
+    `INSERT INTO estaciones_usadas (id, orden_id, estacion_id, tipo_estacion, cantidad, observaciones, foto_antes_url, foto_despues_url, es_nueva_instalacion)
+     VALUES (COALESCE($1, gen_random_uuid()), $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+    [body.id || null, body.orden_id, body.estacion_id || null, body.tipo_estacion, body.cantidad || 0, body.observaciones || null, body.foto_antes_url || null, body.foto_despues_url || null, body.es_nueva_instalacion || false]
   )
   const estacion = rows[0]
   estacion.fotos = []
@@ -379,33 +386,150 @@ export async function listProductos(ordenId, user) {
 }
 export async function createProducto(body, user) {
   await assertOrdenAccess(body.orden_id, user)
-  const { rows } = await pool.query(
-    `INSERT INTO productos_usados (id, orden_id, ingrediente_activo, cantidad, tipo_producto, dosis, nombre_comercial)
-     VALUES (COALESCE($1, gen_random_uuid()), $2, $3, $4, $5, $6, $7) RETURNING *`,
-    [body.id || null, body.orden_id, body.ingrediente_activo || null, body.cantidad || null, body.tipo_producto || null, body.dosis || null, body.nombre_comercial || null]
-  )
-  return rows[0]
+
+  const catalogoId = body.catalogo_id || null
+  const cantidadNumerica = body.cantidad_numerica != null ? parseFloat(body.cantidad_numerica) : null
+  const unidad = body.unidad || null
+
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+
+    const { rows } = await client.query(
+      `INSERT INTO productos_usados
+         (id, orden_id, ingrediente_activo, cantidad, tipo_producto, dosis, nombre_comercial,
+          catalogo_id, cantidad_numerica, unidad)
+       VALUES (COALESCE($1, gen_random_uuid()), $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       RETURNING *`,
+      [
+        body.id || null,
+        body.orden_id,
+        body.ingrediente_activo || null,
+        body.cantidad || null,
+        body.tipo_producto || null,
+        body.dosis || null,
+        body.nombre_comercial || null,
+        catalogoId,
+        cantidadNumerica,
+        unidad
+      ]
+    )
+
+    // Descontar del stock si el producto proviene del catálogo y tiene cantidad numérica
+    if (catalogoId && cantidadNumerica > 0) {
+      await _ajustarStock(
+        catalogoId,
+        -cantidadNumerica,
+        'salida',
+        body.orden_id,
+        'orden_servicio',
+        null,
+        `Usado en orden ${body.orden_id}`,
+        user.id,
+        client
+      )
+    }
+
+    await client.query('COMMIT')
+    return rows[0]
+  } catch (err) {
+    await client.query('ROLLBACK')
+    throw err
+  } finally {
+    client.release()
+  }
 }
 export async function updateProducto(id, body, user) {
-  const { rows: prodRows } = await pool.query('SELECT orden_id FROM productos_usados WHERE id = $1', [id])
-  if (prodRows[0]) await assertOrdenAccess(prodRows[0].orden_id, user)
-  const { rows } = await pool.query(
-    `UPDATE productos_usados 
-     SET ingrediente_activo = COALESCE($2, ingrediente_activo),
-         cantidad = COALESCE($3, cantidad),
-         tipo_producto = COALESCE($4, tipo_producto),
-         dosis = COALESCE($5, dosis),
-         nombre_comercial = COALESCE($6, nombre_comercial)
-     WHERE id = $1 RETURNING *`,
-    [id, body.ingrediente_activo, body.cantidad, body.tipo_producto, body.dosis, body.nombre_comercial]
+  const { rows: prodRows } = await pool.query(
+    'SELECT orden_id, catalogo_id, cantidad_numerica FROM productos_usados WHERE id = $1', [id]
   )
-  if (!rows[0]) throw new AppError('Producto no encontrado', 404)
-  return rows[0]
+  if (!prodRows[0]) throw new AppError('Producto no encontrado', 404)
+  await assertOrdenAccess(prodRows[0].orden_id, user)
+
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+
+    const { rows } = await client.query(
+      `UPDATE productos_usados
+       SET ingrediente_activo = COALESCE($2, ingrediente_activo),
+           cantidad = COALESCE($3, cantidad),
+           tipo_producto = COALESCE($4, tipo_producto),
+           dosis = COALESCE($5, dosis),
+           nombre_comercial = COALESCE($6, nombre_comercial),
+           cantidad_numerica = COALESCE($7, cantidad_numerica),
+           unidad = COALESCE($8, unidad)
+       WHERE id = $1 RETURNING *`,
+      [id, body.ingrediente_activo, body.cantidad, body.tipo_producto, body.dosis,
+       body.nombre_comercial, body.cantidad_numerica ?? null, body.unidad ?? null]
+    )
+    if (!rows[0]) throw new AppError('Producto no encontrado', 404)
+
+    // Ajustar la diferencia en stock si cambió la cantidad_numerica
+    const catalogoId = prodRows[0].catalogo_id
+    const cantAnterior = parseFloat(prodRows[0].cantidad_numerica || 0)
+    const cantNueva = body.cantidad_numerica != null ? parseFloat(body.cantidad_numerica) : cantAnterior
+    const diferencia = cantNueva - cantAnterior
+
+    if (catalogoId && diferencia !== 0) {
+      await _ajustarStock(
+        catalogoId,
+        -diferencia, // Negativo = más consumo, Positivo = menos consumo
+        diferencia > 0 ? 'salida' : 'ajuste_manual',
+        prodRows[0].orden_id,
+        'orden_servicio',
+        null,
+        `Edición de producto en orden ${prodRows[0].orden_id}`,
+        user.id,
+        client
+      )
+    }
+
+    await client.query('COMMIT')
+    return rows[0]
+  } catch (err) {
+    await client.query('ROLLBACK')
+    throw err
+  } finally {
+    client.release()
+  }
 }
 export async function deleteProducto(id, user) {
-  const { rows } = await pool.query('SELECT orden_id FROM productos_usados WHERE id = $1', [id])
-  if (rows[0]) await assertOrdenAccess(rows[0].orden_id, user)
-  await pool.query('DELETE FROM productos_usados WHERE id = $1', [id])
+  const { rows } = await pool.query(
+    'SELECT orden_id, catalogo_id, cantidad_numerica FROM productos_usados WHERE id = $1', [id]
+  )
+  if (!rows[0]) return // Ya no existe
+  await assertOrdenAccess(rows[0].orden_id, user)
+
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+    await client.query('DELETE FROM productos_usados WHERE id = $1', [id])
+
+    // Devolver la cantidad al stock si el producto proviene del catálogo
+    const catalogoId = rows[0].catalogo_id
+    const cantidadNumerica = parseFloat(rows[0].cantidad_numerica || 0)
+    if (catalogoId && cantidadNumerica > 0) {
+      await _ajustarStock(
+        catalogoId,
+        cantidadNumerica, // Positivo = devolución al stock
+        'ajuste_manual',
+        rows[0].orden_id,
+        'orden_servicio',
+        null,
+        `Producto eliminado de orden ${rows[0].orden_id} — stock restaurado`,
+        user.id,
+        client
+      )
+    }
+
+    await client.query('COMMIT')
+  } catch (err) {
+    await client.query('ROLLBACK')
+    throw err
+  } finally {
+    client.release()
+  }
 }
 
 export async function listSolicitudes(user, filters = {}) {

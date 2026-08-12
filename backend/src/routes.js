@@ -6,6 +6,7 @@ import documentosRoutes from './modules/documentos/documentos.routes.js'
 import profilesRoutes from './modules/profiles/profiles.routes.js'
 import uploadRoutes from './modules/upload/upload.routes.js'
 import operacionesRoutes from './modules/operaciones/operaciones.routes.js'
+import productosRoutes from './modules/productos/productos.routes.js'
 
 const router = Router()
 
@@ -21,6 +22,7 @@ router.use('/configuracion', configuracionRoutes)
 router.use('/documentos-legales', documentosRoutes)
 router.use('/profiles', profilesRoutes)
 router.use('/upload', uploadRoutes)
+router.use('/productos-catalogo', productosRoutes)
 
 // Operational Modules (Unified)
 // We mount at /servicios, /ordenes, and /ordenes-servicio for base order management

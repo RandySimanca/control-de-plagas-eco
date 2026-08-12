@@ -206,11 +206,13 @@ export default function OrdenDetalle() {
               ordenEstado={orden.estado}
               queueOrExecute={queueOrExecute}
               ordenTipoPlaga={orden.tipo_plaga}
+              isOnline={isOnline}
             />
 
             {/* 3. Estaciones */}
             <OrdenEstaciones 
               ordenId={id}
+              clienteId={orden.cliente_id}
               estaciones={estaciones}
               setEstaciones={setEstaciones}
               isAssignedTecnico={isAssignedTecnico}

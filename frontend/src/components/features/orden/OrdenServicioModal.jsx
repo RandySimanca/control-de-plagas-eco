@@ -256,6 +256,7 @@ export default function OrdenServicioModal({
                       queueOrExecute={queueOrExecute}
                       ordenTipoPlaga={orden.tipo_plaga}
                       servicioFiltro={servicioNombre}
+                      isOnline={isOnline}
                     />
                   )}
 

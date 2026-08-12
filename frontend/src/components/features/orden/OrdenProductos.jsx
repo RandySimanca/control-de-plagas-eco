@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Package, Plus, Trash2, Edit, X, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { generateUUID } from '../../../utils/uuid'
 import { confirmDelete, successAlert } from '../../../lib/alerts'
 import { parseTipoPlaga } from '../../../utils/tipoPlaga'
+import db from '../../../lib/db'
+import api from '../../../lib/api'
 
 export default function OrdenProductos({
   ordenId,
@@ -13,20 +15,48 @@ export default function OrdenProductos({
   ordenEstado,
   queueOrExecute,
   ordenTipoPlaga,
-  servicioFiltro
+  servicioFiltro,
+  isOnline
 }) {
   const [showAddModal, setShowAddModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [editingId, setEditingId] = useState(null)
+  const [catalogo, setCatalogo] = useState([])
 
   const [formData, setFormData] = useState({
     nombre_comercial: '',
     ingrediente_activo: '',
     dosis: '',
     cantidad: '',
-    tipo_producto: servicioFiltro || ''
+    cantidad_numerica: '',
+    unidad: '',
+    tipo_producto: servicioFiltro || '',
+    es_manual: false,
+    catalogo_id: null,
+    _stock_disponible: null,
+    _unidad_base: ''
   })
+
+  useEffect(() => {
+    async function loadCatalogo() {
+      try {
+        if (isOnline) {
+          const token = localStorage.getItem('token')
+          const { data } = await api.get('/productos-catalogo', { token })
+          setCatalogo(data?.filter(p => p.estado === 'activo') || [])
+        } else {
+          const cached = await db.cache_listas.get('productos_catalogo')
+          if (cached && cached.data) {
+            setCatalogo(cached.data.filter(p => p.estado === 'activo'))
+          }
+        }
+      } catch (err) {
+        console.error('Error cargando catálogo', err)
+      }
+    }
+    loadCatalogo()
+  }, [isOnline])
 
   const tiposControl = parseTipoPlaga(ordenTipoPlaga);
 
@@ -38,30 +68,82 @@ export default function OrdenProductos({
       ingrediente_activo: '',
       dosis: '',
       cantidad: '',
-      tipo_producto: servicioFiltro || (tiposControl.length === 1 ? tiposControl[0] : '')
+      cantidad_numerica: '',
+      unidad: '',
+      tipo_producto: servicioFiltro || (tiposControl.length === 1 ? tiposControl[0] : ''),
+      es_manual: false,
+      catalogo_id: null,
+      _stock_disponible: null,
+      _unidad_base: ''
     })
     setEditingId(null)
+  }
+
+  function handleProductSelect(e) {
+    const val = e.target.value
+    if (val === 'manual') {
+      setFormData({
+        ...formData,
+        nombre_comercial: '', ingrediente_activo: '', dosis: '',
+        es_manual: true, catalogo_id: null, _stock_disponible: null, _unidad_base: '',
+        cantidad_numerica: '', unidad: ''
+      })
+    } else {
+      const prod = catalogo.find(p => p.id === val)
+      if (prod) {
+        setFormData({
+          ...formData,
+          nombre_comercial: prod.nombre_comercial,
+          ingrediente_activo: prod.ingrediente_activo || '',
+          dosis: prod.dosis_recomendada || '',
+          es_manual: false,
+          tipo_producto: formData.tipo_producto || prod.tipo_producto || '',
+          catalogo_id: prod.id,
+          unidad: prod.unidad_base || 'unidad',
+          _stock_disponible: parseFloat(prod.stock_actual || 0),
+          _unidad_base: prod.unidad_base || 'unidad'
+        })
+      }
+    }
   }
 
   async function handleSave(e) {
     e.preventDefault()
     if (!formData.nombre_comercial.trim()) return
 
-    // Si venimos desde un servicio específico, siempre forzar ese tipo
     const tipoFinal = servicioFiltro || formData.tipo_producto
+    // Construir cantidad en texto para retrocompatibilidad
+    const cantidadTexto = formData.cantidad_numerica
+      ? `${formData.cantidad_numerica} ${formData.unidad || ''}`.trim()
+      : formData.cantidad || 'N/A'
 
     setIsSaving(true)
     try {
       if (editingId) {
-        // Edit
-        const payload = { ...formData, tipo_producto: tipoFinal, id: editingId, nombre_producto: formData.nombre_comercial, cantidad: formData.cantidad || 'N/A' }
+        const payload = {
+          ...formData, tipo_producto: tipoFinal, id: editingId,
+          nombre_producto: formData.nombre_comercial,
+          cantidad: cantidadTexto,
+          cantidad_numerica: formData.cantidad_numerica ? parseFloat(formData.cantidad_numerica) : null,
+          unidad: formData.unidad || null,
+          catalogo_id: formData.catalogo_id || null
+        }
+        delete payload.es_manual; delete payload._stock_disponible; delete payload._unidad_base
         const { queued } = await queueOrExecute('productos_usados', 'update', payload, ordenId)
         setProductos(productos.map(p => p.id === editingId ? { ...p, ...payload } : p))
         toast.success(queued ? 'Actualizado offline ⚡' : 'Producto actualizado')
         setShowEditModal(false)
       } else {
-        // Create
-        const payload = { ...formData, tipo_producto: tipoFinal, id: generateUUID(), orden_id: ordenId, created_at: new Date().toISOString(), nombre_producto: formData.nombre_comercial, cantidad: formData.cantidad || 'N/A' }
+        const payload = {
+          ...formData, tipo_producto: tipoFinal,
+          id: generateUUID(), orden_id: ordenId, created_at: new Date().toISOString(),
+          nombre_producto: formData.nombre_comercial,
+          cantidad: cantidadTexto,
+          cantidad_numerica: formData.cantidad_numerica ? parseFloat(formData.cantidad_numerica) : null,
+          unidad: formData.unidad || null,
+          catalogo_id: formData.catalogo_id || null
+        }
+        delete payload.es_manual; delete payload._stock_disponible; delete payload._unidad_base
         const { data, queued } = await queueOrExecute('productos_usados', 'insert', payload, ordenId)
         const savedData = data?.[0] || payload
         setProductos([savedData, ...productos])
@@ -90,12 +172,22 @@ export default function OrdenProductos({
   }
 
   function openEdit(prod) {
+    const match = prod.catalogo_id
+      ? catalogo.find(c => c.id === prod.catalogo_id)
+      : catalogo.find(c => c.nombre_comercial === (prod.nombre_comercial || prod.nombre_producto))
+
     setFormData({
       nombre_comercial: prod.nombre_comercial || prod.nombre_producto || '',
       ingrediente_activo: prod.ingrediente_activo || '',
       dosis: prod.dosis || '',
       cantidad: prod.cantidad || '',
-      tipo_producto: prod.tipo_producto || ''
+      cantidad_numerica: prod.cantidad_numerica ?? '',
+      unidad: prod.unidad || match?.unidad_base || '',
+      tipo_producto: prod.tipo_producto || '',
+      es_manual: !match,
+      catalogo_id: prod.catalogo_id || match?.id || null,
+      _stock_disponible: match ? parseFloat(match.stock_actual || 0) : null,
+      _unidad_base: match?.unidad_base || ''
     })
     setEditingId(prod.id)
     setShowEditModal(true)
@@ -200,7 +292,7 @@ export default function OrdenProductos({
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <form onSubmit={handleSave} className="p-6 space-y-4">
+            <form onSubmit={handleSave} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
               {servicioFiltro ? (
                 <div className="bg-indigo-50/80 p-3 rounded-xl border border-indigo-200/60 mb-2">
                   <span className="text-xs text-indigo-700 font-bold block uppercase tracking-wider">Control Específico:</span>
@@ -222,38 +314,100 @@ export default function OrdenProductos({
                   </select>
                 </div>
               )}
+
               <div>
-                <label className="label-field">Nombre Comercial *</label>
-                <input
-                  type="text"
-                  className="input-field"
-                  value={formData.nombre_comercial}
-                  onChange={e => setFormData({ ...formData, nombre_comercial: e.target.value })}
-                  placeholder="Ej: K-Othrine WG 250"
+                <label className="label-field">Producto del Catálogo *</label>
+                <select
+                  className="input-field font-semibold text-primary-700"
+                  value={formData.es_manual ? 'manual' : (catalogo.find(c => c.nombre_comercial === formData.nombre_comercial)?.id || '')}
+                  onChange={handleProductSelect}
                   required
-                />
+                >
+                  <option value="" disabled>Seleccione un producto...</option>
+                  {catalogo.map(c => (
+                    <option key={c.id} value={c.id}>{c.nombre_comercial} {c.tipo_producto ? `(${c.tipo_producto})` : ''}</option>
+                  ))}
+                  <option value="manual">-- Otro (Ingreso Manual) --</option>
+                </select>
               </div>
+
+              {formData.es_manual && (
+                <div>
+                  <label className="label-field">Nombre Comercial (Manual) *</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    value={formData.nombre_comercial}
+                    onChange={e => setFormData({ ...formData, nombre_comercial: e.target.value })}
+                    placeholder="Ej: K-Othrine WG 250"
+                    required={formData.es_manual}
+                  />
+                </div>
+              )}
+              
               <div>
                 <label className="label-field">Ingrediente Activo</label>
                 <input
                   type="text"
-                  className="input-field"
+                  className={`input-field ${!formData.es_manual ? 'bg-dark-50/50' : ''}`}
                   value={formData.ingrediente_activo}
                   onChange={e => setFormData({ ...formData, ingrediente_activo: e.target.value })}
                   placeholder="Ej: Deltametrina"
+                  readOnly={!formData.es_manual}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="label-field">Dosis a Usar</label>
+                <input
+                  type="text"
+                  className={`input-field ${!formData.es_manual ? 'bg-dark-50/50' : ''}`}
+                  value={formData.dosis}
+                  onChange={e => setFormData({ ...formData, dosis: e.target.value })}
+                  placeholder="Ej: 5g / Litro"
+                />
+              </div>
+
+              {/* Cantidad numérica + unidad (si proviene del catálogo) */}
+              {!formData.es_manual && formData.catalogo_id ? (
                 <div>
-                  <label className="label-field">Dosis a Usar</label>
-                  <input
-                    type="text"
-                    className="input-field"
-                    value={formData.dosis}
-                    onChange={e => setFormData({ ...formData, dosis: e.target.value })}
-                    placeholder="Ej: 5g / Litro"
-                  />
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="label-field mb-0">Cantidad Usada *</label>
+                    {formData._stock_disponible !== null && (
+                      <span className={`text-xs font-bold ${
+                        formData._stock_disponible === 0 ? 'text-red-600'
+                        : parseFloat(formData.cantidad_numerica || 0) > formData._stock_disponible ? 'text-amber-600'
+                        : 'text-green-700'
+                      }`}>
+                        Disponible: {formData._stock_disponible.toLocaleString()} {formData._unidad_base}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="number" min="0.001" step="0.001" required
+                      className="input-field flex-1"
+                      value={formData.cantidad_numerica}
+                      onChange={e => setFormData({ ...formData, cantidad_numerica: e.target.value })}
+                      placeholder="Ej: 250"
+                    />
+                    <span className="input-field w-20 bg-dark-50 text-center font-bold text-dark-700 cursor-default">
+                      {formData._unidad_base || formData.unidad || '—'}
+                    </span>
+                  </div>
+                  {/* Advertencia de stock insuficiente */}
+                  {formData._stock_disponible !== null &&
+                   parseFloat(formData.cantidad_numerica || 0) > formData._stock_disponible &&
+                   formData._stock_disponible >= 0 && (
+                    <div className="flex items-center gap-2 mt-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5">
+                      <span>⚠️</span>
+                      <span>
+                        La cantidad ingresada supera el stock disponible.
+                        Se registrará de todas formas, pero el inventario quedará en cero.
+                      </span>
+                    </div>
+                  )}
                 </div>
+              ) : (
                 <div>
                   <label className="label-field">Cantidad Usada</label>
                   <input
@@ -264,7 +418,7 @@ export default function OrdenProductos({
                     placeholder="Ej: 2 Litros"
                   />
                 </div>
-              </div>
+              )}
               
               <div className="flex gap-3 pt-4">
                 <button type="submit" disabled={isSaving} className="btn-primary flex-1">

@@ -3,8 +3,8 @@ import { NavLink, Outlet, useNavigate, useLocation, Link } from 'react-router-do
 import { useAuth } from '../../contexts/AuthContext'
 import {
   LayoutDashboard, Users, ClipboardList, FileCheck, UserCog,
-  Menu, X, LogOut, Shield, Bug, Download, ClipboardCheck,
-  WifiOff, RefreshCw, Key, Search, Bell, ChevronDown, CheckCircle2, Clock, AlertCircle, ArrowLeft
+  Menu, X, LogOut, Shield, Bug, Download, ClipboardCheck, Package,
+  WifiOff, RefreshCw, Key, Search, Bell, ChevronDown, CheckCircle2, Clock, AlertCircle, ArrowLeft, FileSearch
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useInstallPrompt } from '../../hooks/useInstallPrompt'
@@ -184,6 +184,8 @@ export default function Layout() {
 
   if (isAdmin) {
     navItems.push({ to: '/admin/usuarios', icon: UserCog, label: 'Usuarios' })
+    navItems.push({ to: '/admin/productos', icon: Package, label: 'Productos' })
+    navItems.push({ to: '/admin/auditoria', icon: FileSearch, label: 'Auditoría' })
     navItems.push({ to: '/admin/configuracion', icon: Shield, label: 'Configuración' })
     navItems.push({ to: '/admin/solicitudes', icon: ClipboardCheck, label: 'Solicitudes', badge: requestCount })
   }

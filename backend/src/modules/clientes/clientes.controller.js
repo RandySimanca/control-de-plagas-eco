@@ -25,3 +25,23 @@ export const remove = catchAsync(async (req, res) => {
   await clientesService.deleteCliente(req.params.id)
   res.status(204).send()
 })
+
+export const listEstaciones = catchAsync(async (req, res) => {
+  const data = await clientesService.listEstaciones(req.params.id)
+  res.json({ success: true, data })
+})
+
+export const createEstacion = catchAsync(async (req, res) => {
+  const data = await clientesService.createEstacion(req.params.id, req.body)
+  res.status(201).json({ success: true, data })
+})
+
+export const updateEstacion = catchAsync(async (req, res) => {
+  const data = await clientesService.updateEstacion(req.params.estacion_id, req.body)
+  res.json({ success: true, data })
+})
+
+export const deleteEstacion = catchAsync(async (req, res) => {
+  await clientesService.deleteEstacion(req.params.estacion_id)
+  res.status(204).send()
+})
