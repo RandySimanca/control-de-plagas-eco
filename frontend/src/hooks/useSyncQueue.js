@@ -31,8 +31,13 @@ export function useSyncQueue() {
     if (isOnline) {
       // Ejecutar directamente vía API
       const token = localStorage.getItem('token')
-      const endpoint = `/${table.replace(/_/g, '-')}` // Convertir table_name a table-name
+      let endpoint = `/${table.replace(/_/g, '-')}` // Convertir table_name a table-name
       let result
+
+      // Caso especial: Crear estación maestra requiere el ID de cliente en la ruta
+      if (table === 'estaciones' && operation === 'insert' && payload.cliente_id) {
+        endpoint = `/clientes/${payload.cliente_id}/estaciones`
+      }
 
         if (operation === 'insert') {
           const res = await api.post(endpoint, payload, { token })
