@@ -31,6 +31,7 @@ export const deleteFoto = catchAsync(async (req, res) => { await service.deleteF
 
 export const listEstaciones = catchAsync(async (req, res) => res.json({ success: true, data: await service.listEstaciones(req.query.orden_id, req.user) }))
 export const createEstacion = catchAsync(async (req, res) => res.status(201).json({ success: true, data: await service.createEstacion(req.body, req.user) }))
+export const updateEstacion = catchAsync(async (req, res) => res.json({ success: true, data: await service.updateEstacion(req.params.id, req.body, req.user) }))
 export const deleteEstacion = catchAsync(async (req, res) => { await service.deleteEstacion(req.params.id, req.user); res.status(204).send() })
 export const deleteEstacionesByOrden = catchAsync(async (req, res) => { await service.deleteEstacionesByOrden(req.query.orden_id || req.body?.orden_id, req.user); res.status(204).send() })
 

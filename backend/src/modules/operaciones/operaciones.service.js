@@ -339,6 +339,27 @@ export async function createEstacion(body, user) {
   estacion.fotos = []
   return estacion
 }
+export async function updateEstacion(id, body, user) {
+  const { rows } = await pool.query('SELECT orden_id FROM estaciones_usadas WHERE id = $1', [id])
+  if (rows[0]) await assertOrdenAccess(rows[0].orden_id, user)
+  else throw new AppError('Registro no encontrado', 404)
+
+  const allowed = ['observaciones', 'es_nueva_instalacion']
+  const sets = []
+  const vals = []
+  for (const key of allowed) {
+    if (body[key] !== undefined) {
+      vals.push(body[key])
+      sets.push(`${key} = $${vals.length}`)
+    }
+  }
+  if (!sets.length) throw new AppError('No hay campos para actualizar', 400)
+  vals.push(id)
+  
+  const res = await pool.query(`UPDATE estaciones_usadas SET ${sets.join(', ')} WHERE id = $${vals.length} RETURNING *`, vals)
+  return res.rows[0]
+}
+
 export async function deleteEstacion(id, user) {
   const { rows } = await pool.query('SELECT orden_id FROM estaciones_usadas WHERE id = $1', [id])
   if (rows[0]) await assertOrdenAccess(rows[0].orden_id, user)

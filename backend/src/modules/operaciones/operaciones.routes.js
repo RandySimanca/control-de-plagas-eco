@@ -33,6 +33,7 @@ router.delete('/fotos-servicio/:id', controller.deleteFoto)
 
 router.get('/estaciones-usadas', controller.listEstaciones)
 router.post('/estaciones-usadas', controller.createEstacion)
+router.patch('/estaciones-usadas/:id', controller.updateEstacion)
 router.delete('/estaciones-usadas/:id', controller.deleteEstacion)
 router.delete('/estaciones-usadas', controller.deleteEstacionesByOrden)
 
