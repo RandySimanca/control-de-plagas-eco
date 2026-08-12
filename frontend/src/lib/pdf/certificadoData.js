@@ -223,6 +223,8 @@ export async function prepareCertificadoData(params) {
     }))
   }
 
+  const tecnicoNombre = orden.profiles?.nombre_completo || orden.tecnico_nombre || 'TÉCNICO OPERATIVO';
+
   return {
     ...params,
     normalized: {
@@ -233,7 +235,8 @@ export async function prepareCertificadoData(params) {
       firmaData,
       fechaEjecucion,
       tanques: normalizedTanques,
-      areasPorTipo
+      areasPorTipo,
+      tecnicoNombre
     }
   }
 }

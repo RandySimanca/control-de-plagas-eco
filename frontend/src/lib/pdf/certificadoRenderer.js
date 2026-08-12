@@ -401,7 +401,7 @@ export async function renderCertificado(data) {
       drawRow('Material', tanque.material)
       drawRow('Capacidad', tanque.capacidad_valor ? `${tanque.capacidad_valor} ${tanque.capacidad_unidad || ''}` : null)
       drawRow('Ubicación', tanque.ubicacion)
-      drawRow('Técnico', data.tecnico)
+      drawRow('Técnico', data.normalized.tecnicoNombre)
       drawRow('Fecha', fechaEjecucion)
 
       y = Math.max(fichaStartY + fichaFotoH + 8, dy + 4)
@@ -532,7 +532,7 @@ export async function renderCertificado(data) {
   }
 
   doc.setFont(undefined, 'bold')
-  doc.text(orden.tecnico_nombre?.toUpperCase() || 'TÉCNICO OPERATIVO', margin + 3, y); y += 4
+  doc.text(data.normalized.tecnicoNombre.toUpperCase(), margin + 3, y); y += 4
   doc.setFont(undefined, 'normal')
   doc.text('Técnico Especialista', margin + 3, y); y += 4
   doc.text(config?.nombre_empresa || 'DEROSH S.A.S', margin + 3, y)
