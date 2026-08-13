@@ -21,7 +21,11 @@ export const HELP_CONTENT = {
 
   certificados: 'Certificados de control de plagas generados automáticamente al finalizar una orden. Sirven como soporte legal para el cliente y se pueden descargar en PDF.',
 
-  usuarios: 'Gestión de los usuarios internos del sistema (administradores y técnicos). Aquí se crean cuentas, se asignan roles y se desactivan accesos cuando un empleado deja de trabajar en la empresa.',
+  usuarios: [
+    'Aquí se administran las cuentas de los usuarios del sistema: administradores, técnicos y clientes con acceso al portal.',
+    'Puedes crear nuevas cuentas, asignar el rol correspondiente y, en el caso de clientes, vincular la cuenta al registro del cliente para que vea sus servicios en el portal.',
+    'Cuando alguien deja de trabajar en la empresa o un cliente ya no debe tener acceso, desactiva su cuenta en lugar de eliminarla, para conservar el historial asociado.',
+  ],
 
   configuracion: 'Ajustes generales de la cuenta: datos de la empresa, parámetros que se usan en los certificados y otras configuraciones del sistema.',
 
@@ -48,4 +52,22 @@ export const HELP_CONTENT = {
   ],
 
   portalSolicitudForm: 'Formulario para solicitar un nuevo servicio. Indica el tipo de servicio, una descripción de lo que necesitas, la dirección y la fecha que prefieres. La empresa revisará tu solicitud y te enviará una cotización.',
+
+  sedes: [
+    'Las sedes representan las distintas ubicaciones físicas de este cliente (sucursales, plantas, bodegas, etc.).',
+    'Puedes agregar una sede indicando su nombre, dirección y municipio.',
+    'Si el cliente no tiene sedes registradas, las estaciones y órdenes se manejan de forma global, sin asociarlas a una ubicación específica.',
+  ],
+
+  productos: [
+    'Catálogo de productos usados en los servicios: nombre, tipo, unidad de medida y stock disponible.',
+    'Aquí se registran nuevos productos, se edita su información y se actualiza el inventario a medida que se consume o se reabastece.',
+    'Los productos con stock bajo quedan señalados para que sepas cuáles reabastecer pronto.',
+  ],
+
+  auditoria: [
+    'Aquí se rastrea el consumo de productos por técnico y por cliente a lo largo del tiempo.',
+    'Filtra por técnico, producto o rango de fechas para revisar qué se aplicó y en qué órdenes.',
+    'Puedes exportar el resultado a CSV para llevar el control o compartirlo con quien lo necesite.',
+  ],
 }

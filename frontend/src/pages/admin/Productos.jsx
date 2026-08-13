@@ -7,6 +7,8 @@ import {
 import toast from 'react-hot-toast'
 import api from '../../lib/api'
 import { confirmDelete } from '../../lib/alerts'
+import HelpButton from '../../components/features/HelpButton'
+import { HELP_CONTENT } from '../../lib/helpContent'
 
 const CATEGORIAS = [
   { value: 'liquido', label: 'Líquido concentrado' },
@@ -254,7 +256,10 @@ export default function Productos() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-dark-900">Catálogo e Inventario</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-dark-900">Catálogo e Inventario</h1>
+            <HelpButton title="Catálogo e Inventario" content={HELP_CONTENT.productos} />
+          </div>
           <p className="text-dark-500">Gestione productos, stock y reabastecimiento</p>
         </div>
         <button onClick={() => openModal()} className="btn-primary flex items-center gap-2">

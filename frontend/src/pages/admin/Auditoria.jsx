@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { FileSearch, Search, Filter, Download, User, Package, Users, Calendar, Loader2 } from 'lucide-react'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
+import HelpButton from '../../components/features/HelpButton'
+import { HELP_CONTENT } from '../../lib/helpContent'
 
 // Helper para formato de fecha simple
 const formatDate = (dateStr) => {
@@ -12,7 +14,7 @@ const formatDate = (dateStr) => {
 
 const formatTimestamp = () => {
   const d = new Date()
-  return `${d.getFullYear()}${(d.getMonth()+1).toString().padStart(2,'0')}${d.getDate().toString().padStart(2,'0')}_${d.getHours().toString().padStart(2,'0')}${d.getMinutes().toString().padStart(2,'0')}${d.getSeconds().toString().padStart(2,'0')}`
+  return `${d.getFullYear()}${(d.getMonth() + 1).toString().padStart(2, '0')}${d.getDate().toString().padStart(2, '0')}_${d.getHours().toString().padStart(2, '0')}${d.getMinutes().toString().padStart(2, '0')}${d.getSeconds().toString().padStart(2, '0')}`
 }
 
 export default function Auditoria() {
@@ -24,7 +26,7 @@ export default function Auditoria() {
     tecnicoTop: null,
     productoTop: null
   })
-  
+
   // Options for filters
   const [tecnicos, setTecnicos] = useState([])
   const [productosCat, setProductosCat] = useState([])
@@ -49,7 +51,7 @@ export default function Auditoria() {
           api.get('/productos-catalogo', { token }),
           api.get('/clientes', { token })
         ])
-        
+
         // Filter out only tecnicos
         setTecnicos((resTecnicos.data || []).filter(p => p.rol === 'tecnico' || p.rol === 'admin'))
         setProductosCat(resProductos.data || [])
@@ -67,20 +69,20 @@ export default function Auditoria() {
     setLoading(true)
     try {
       const token = localStorage.getItem('token')
-      
+
       // Build query string
       const queryParams = new URLSearchParams()
       Object.entries(filters).forEach(([key, value]) => {
         if (value) queryParams.append(key, value)
       })
-      
+
       const queryString = queryParams.toString() ? `?${queryParams.toString()}` : ''
-      
+
       const [resData, resSummary] = await Promise.all([
         api.get(`/productos-catalogo/auditoria${queryString}`, { token }),
         api.get(`/productos-catalogo/auditoria/resumen${queryString}`, { token })
       ])
-      
+
       setData(resData.data || [])
       setResumen(resSummary.data || {
         totalProductos: 0, totalOrdenes: 0, tecnicoTop: null, productoTop: null
@@ -121,14 +123,14 @@ export default function Auditoria() {
 
     // Prepare CSV headers
     const headers = ['Fecha', 'Técnico', 'Producto', 'Cantidad', 'Unidad', 'Orden', 'Cliente', 'Estado']
-    
+
     // Convert data to CSV rows
     const rows = data.map(item => {
       const fecha = item.fecha_programada ? formatDate(item.fecha_programada) : 'N/A'
       const cant = item.cantidad_numerica != null ? item.cantidad_numerica : item.cantidad_texto || '0'
       const unit = item.unidad || ''
       const ordenCod = `#ORD-${(item.orden_id || '').split('-')[0].toUpperCase()}`
-      
+
       return [
         fecha,
         `"${item.tecnico_nombre || 'N/A'}"`,
@@ -164,11 +166,14 @@ export default function Auditoria() {
                 <FileSearch className="w-6 h-6 text-primary-600" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-dark-900">Auditoría de Productos</h1>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-2xl font-bold text-dark-900">Auditoría de Productos</h1>
+                  <HelpButton title="Auditoría de Productos" content={HELP_CONTENT.productos} />
+                </div>
                 <p className="text-sm text-dark-500 mt-1">Rastreo de consumo por técnicos y clientes</p>
               </div>
             </div>
-            
+
             <button
               onClick={exportToCSV}
               className="btn-primary"
@@ -184,7 +189,7 @@ export default function Auditoria() {
       {/* Content */}
       <div className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8">
         <div className="max-w-7xl mx-auto space-y-6">
-          
+
           {/* Summary KPIs */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="card flex items-center gap-4">
@@ -196,7 +201,7 @@ export default function Auditoria() {
                 <p className="text-2xl font-bold text-dark-900">{resumen.totalProductos}</p>
               </div>
             </div>
-            
+
             <div className="card flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
                 <Calendar className="w-6 h-6" />
@@ -206,7 +211,7 @@ export default function Auditoria() {
                 <p className="text-2xl font-bold text-dark-900">{resumen.totalOrdenes}</p>
               </div>
             </div>
-            
+
             <div className="card flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
                 <User className="w-6 h-6" />
@@ -219,7 +224,7 @@ export default function Auditoria() {
                 <p className="text-xs text-dark-400">{resumen.tecnicoTop?.cantidad || 0} aplicaciones</p>
               </div>
             </div>
-            
+
             <div className="card flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center shrink-0">
                 <FileSearch className="w-6 h-6" />
@@ -240,7 +245,7 @@ export default function Auditoria() {
               <Filter className="w-5 h-5 text-dark-400" />
               <h2 className="text-base font-bold text-dark-900">Filtros de Búsqueda</h2>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
               <div>
                 <label className="label-field text-xs">Técnico</label>
@@ -256,7 +261,7 @@ export default function Auditoria() {
                   ))}
                 </select>
               </div>
-              
+
               <div>
                 <label className="label-field text-xs">Producto</label>
                 <select
@@ -271,7 +276,7 @@ export default function Auditoria() {
                   ))}
                 </select>
               </div>
-              
+
               <div>
                 <label className="label-field text-xs">Cliente</label>
                 <select
@@ -286,7 +291,7 @@ export default function Auditoria() {
                   ))}
                 </select>
               </div>
-              
+
               <div>
                 <label className="label-field text-xs">Desde Fecha</label>
                 <input
@@ -297,7 +302,7 @@ export default function Auditoria() {
                   className="input-field py-2 text-sm"
                 />
               </div>
-              
+
               <div>
                 <label className="label-field text-xs">Hasta Fecha</label>
                 <input
@@ -309,7 +314,7 @@ export default function Auditoria() {
                 />
               </div>
             </div>
-            
+
             <div className="flex justify-end gap-3 mt-4">
               <button onClick={clearFilters} className="btn-ghost text-sm py-1.5">
                 Limpiar
@@ -325,7 +330,7 @@ export default function Auditoria() {
                 Resultados ({data.length})
               </h3>
             </div>
-            
+
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
@@ -375,7 +380,7 @@ export default function Auditoria() {
                         </td>
                         <td className="p-3">
                           <p className="text-sm font-semibold text-primary-700 bg-primary-50 inline-block px-2 py-0.5 rounded-md">
-                            {item.cantidad_numerica != null ? item.cantidad_numerica : item.cantidad_texto || '-'} 
+                            {item.cantidad_numerica != null ? item.cantidad_numerica : item.cantidad_texto || '-'}
                             {item.unidad ? ` ${item.unidad}` : ''}
                           </p>
                         </td>
@@ -388,11 +393,10 @@ export default function Auditoria() {
                           </p>
                         </td>
                         <td className="p-3">
-                          <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md ${
-                            item.orden_estado === 'completada' ? 'bg-green-100 text-green-700' :
+                          <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md ${item.orden_estado === 'completada' ? 'bg-green-100 text-green-700' :
                             item.orden_estado === 'en_progreso' ? 'bg-blue-100 text-blue-700' :
-                            'bg-dark-100 text-dark-600'
-                          }`}>
+                              'bg-dark-100 text-dark-600'
+                            }`}>
                             {item.orden_estado || 'N/A'}
                           </span>
                         </td>
@@ -403,7 +407,7 @@ export default function Auditoria() {
               </table>
             </div>
           </div>
-          
+
         </div>
       </div>
     </div>

@@ -9,6 +9,8 @@ import {
 import toast from 'react-hot-toast'
 import { confirmDelete, successAlert } from '../lib/alerts'
 import { parseTipoPlaga } from '../utils/tipoPlaga'
+import HelpButton from '../components/features/HelpButton'
+import { HELP_CONTENT } from '../lib/helpContent'
 
 export default function ClienteDetalle() {
   const { id } = useParams()
@@ -18,12 +20,12 @@ export default function ClienteDetalle() {
   const [ordenes, setOrdenes] = useState([])
   const [sedes, setSedes] = useState([])
   const [loading, setLoading] = useState(true)
-  
+
   // Estado para modal/formulario de nueva Sede
   const [showSedeForm, setShowSedeForm] = useState(false)
   const [nuevaSede, setNuevaSede] = useState({ nombre: '', direccion: '', municipio: '' })
   const [savingSede, setSavingSede] = useState(false)
-  
+
   useEffect(() => {
     load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -63,7 +65,7 @@ export default function ClienteDetalle() {
   async function handleAddSede(e) {
     e.preventDefault()
     if (!nuevaSede.nombre.trim()) return toast.error('El nombre de la sede es obligatorio')
-    
+
     setSavingSede(true)
     try {
       const token = localStorage.getItem('token')
@@ -82,7 +84,7 @@ export default function ClienteDetalle() {
   async function handleDeleteSede(sedeId) {
     const isConfirmed = await confirmDelete('¿Eliminar esta sede?', 'Esto no eliminará las estaciones ni órdenes, pero quedarán huérfanas de sede.')
     if (!isConfirmed) return
-    
+
     try {
       const token = localStorage.getItem('token')
       await api.delete(`/clientes/${id}/sedes/${sedeId}`, { token })
@@ -112,10 +114,9 @@ export default function ClienteDetalle() {
       <div className="card mb-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <div className="flex items-center gap-4">
-            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${
-              cliente.tipo === 'industrial' ? 'bg-orange-100' : 
+            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${cliente.tipo === 'industrial' ? 'bg-orange-100' :
               cliente.tipo === 'comercial' ? 'bg-blue-100' : 'bg-purple-100'
-            }`}>
+              }`}>
               {cliente.tipo === 'industrial' || cliente.tipo === 'comercial'
                 ? <Building2 className="w-7 h-7 text-orange-600" />
                 : <Home className="w-7 h-7 text-purple-600" />}
@@ -124,8 +125,8 @@ export default function ClienteDetalle() {
               <h1 className="text-xl font-bold text-dark-900">{cliente.nombre}</h1>
               <div className="flex gap-2 items-center mt-1">
                 <span className={
-                  cliente.tipo === 'industrial' ? 'badge-industrial' : 
-                  cliente.tipo === 'comercial' ? 'badge-blue' : 'badge-residencial'
+                  cliente.tipo === 'industrial' ? 'badge-industrial' :
+                    cliente.tipo === 'comercial' ? 'badge-blue' : 'badge-residencial'
                 }>
                   {cliente.tipo}
                 </span>
@@ -137,9 +138,12 @@ export default function ClienteDetalle() {
           </div>
           {isAdmin && (
             <div className="flex gap-2">
-              <Link to={`/clientes/${id}/editar`} className="btn-secondary text-sm">
+              <button
+                onClick={() => navigate('/clientes', { state: { openModal: id } })}
+                className="btn-secondary text-sm"
+              >
                 <Edit className="w-4 h-4" /> Editar
-              </Link>
+              </button>
               <button onClick={handleDelete} className="btn-danger text-sm">
                 <Trash2 className="w-4 h-4" /> Eliminar
               </button>
@@ -201,9 +205,16 @@ export default function ClienteDetalle() {
       {/* Sedes / Locaciones */}
       <div className="card mb-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-dark-900 flex items-center gap-2">
-            <Map className="w-5 h-5 text-primary-600" /> Sedes y Locaciones
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-bold text-dark-900 flex items-center gap-2">
+              <Map className="w-5 h-5 text-primary-600" /> Sedes y Locaciones
+            </h2>
+            <HelpButton title="Sedes y Locaciones" content={HELP_CONTENT.sedes} />
+
+          </div>
+
+
+
           {isAdmin && !showSedeForm && (
             <button onClick={() => setShowSedeForm(true)} className="btn-secondary text-sm">
               <Plus className="w-4 h-4" /> Agregar Sede
@@ -217,15 +228,15 @@ export default function ClienteDetalle() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <label className="label-field">Nombre de la Sede</label>
-                <input type="text" className="input-field bg-white" placeholder="Ej. Sede Norte" required value={nuevaSede.nombre} onChange={e => setNuevaSede({...nuevaSede, nombre: e.target.value})} />
+                <input type="text" className="input-field bg-white" placeholder="Ej. Sede Norte" required value={nuevaSede.nombre} onChange={e => setNuevaSede({ ...nuevaSede, nombre: e.target.value })} />
               </div>
               <div>
                 <label className="label-field">Dirección</label>
-                <input type="text" className="input-field bg-white" placeholder="Dirección física" value={nuevaSede.direccion} onChange={e => setNuevaSede({...nuevaSede, direccion: e.target.value})} />
+                <input type="text" className="input-field bg-white" placeholder="Dirección física" value={nuevaSede.direccion} onChange={e => setNuevaSede({ ...nuevaSede, direccion: e.target.value })} />
               </div>
               <div>
                 <label className="label-field">Municipio/Ciudad</label>
-                <input type="text" className="input-field bg-white" placeholder="Ej. Bogotá" value={nuevaSede.municipio} onChange={e => setNuevaSede({...nuevaSede, municipio: e.target.value})} />
+                <input type="text" className="input-field bg-white" placeholder="Ej. Bogotá" value={nuevaSede.municipio} onChange={e => setNuevaSede({ ...nuevaSede, municipio: e.target.value })} />
               </div>
             </div>
             <div className="flex gap-2 pt-1">

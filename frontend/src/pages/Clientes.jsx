@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { api } from '../lib/api'
-import { Plus, Search, Building2, Home, Phone, Mail, ChevronRight, X, Save, Loader2, UserPlus, Trash2, UserCheck, UserX } from 'lucide-react'
+import { Plus, Search, Building2, Home, Phone, Mail, ChevronRight, X, Save, Loader2, UserPlus, Trash2, UserCheck, UserX, Edit } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { confirmDelete, successAlert } from '../lib/alerts'
 import HelpButton from '../components/features/HelpButton'
@@ -17,6 +17,7 @@ const EMPTY_FORM = {
 
 export default function Clientes() {
   const { isAdmin } = useAuth()
+  const navigate = useNavigate()
   const [clientes, setClientes] = useState([])
   const [search, setSearch] = useState('')
   const [filtroTipo, setFiltroTipo] = useState('todos')
@@ -285,14 +286,15 @@ export default function Clientes() {
                 <th className="px-6 py-4 text-[11px] font-bold tracking-wider uppercase text-dark-400 hidden md:table-cell">Contacto</th>
                 <th className="px-6 py-4 text-[11px] font-bold tracking-wider uppercase text-dark-400 hidden lg:table-cell">Dirección</th>
                 <th className="px-6 py-4 text-[11px] font-bold tracking-wider uppercase text-dark-400 text-center">Estado</th>
+                {isAdmin && <th className="px-4 py-4"></th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-dark-100/60">
               {filtered.map(c => (
                 <tr 
                   key={c.id} 
-                  className={`group transition-colors duration-200 ${isAdmin ? 'cursor-pointer hover:bg-primary-50/30' : ''}`}
-                  onClick={() => isAdmin && openModal(c.id)}
+                  className={`group transition-colors duration-200 cursor-pointer hover:bg-primary-50/30`}
+                  onClick={() => navigate(`/clientes/${c.id}`)}
                 >
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-4">
@@ -326,16 +328,25 @@ export default function Clientes() {
                     </span>
                   </td>
                   <td className="px-6 py-4 text-center">
-                    {c.activo ? (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-700 ring-1 ring-inset ring-green-600/20">
-                        <UserCheck className="w-3.5 h-3.5" /> Activo
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-dark-50 text-dark-600 ring-1 ring-inset ring-dark-500/20">
-                        <UserX className="w-3.5 h-3.5" /> Inactivo
-                      </span>
-                    )}
+                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
+                      c.activo 
+                        ? 'bg-green-50 text-green-700 ring-1 ring-inset ring-green-600/20' 
+                        : 'bg-dark-100 text-dark-600 ring-1 ring-inset ring-dark-500/10'
+                    }`}>
+                      {c.activo ? 'Activo' : 'Inactivo'}
+                    </span>
                   </td>
+                  {isAdmin && (
+                    <td className="px-4 py-4 text-right">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); openModal(c.id); }}
+                        className="p-2 text-dark-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                        title="Editar cliente"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
