@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
-import { FileText, ClipboardList, Loader2, Eye } from 'lucide-react'
+import { FileText, ClipboardList, Loader2, Eye, ShieldCheck, Clock } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../../../lib/api'
 import RelevamientoModal from './RelevamientoModal'
-import { descargarInformeTecnico } from '../../../lib/generarInformeTecnico'
+import { abrirInformeTecnico } from '../../../lib/generarInformeTecnico'
 import { puedeGenerarInforme, ESPECIES_DEFAULT } from '../../../utils/tipoVisitaConfig'
+import { useConfig } from '../../../contexts/ConfigContext'
+import { generateFolio } from '../../../utils/empresaUtils'
 
 export default function OrdenInformeTecnico({
   orden,
@@ -17,8 +19,11 @@ export default function OrdenInformeTecnico({
   const [showModal, setShowModal] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [especiesOpciones, setEspeciesOpciones] = useState(ESPECIES_DEFAULT)
+  const { nombreEmpresa } = useConfig()
 
   const canEdit = isAdmin && orden.estado === 'en_progreso'
+  const informeGenerado = Boolean(relevamiento?.informe_generado_at)
+  const informeAprobado = Boolean(relevamiento?.aprobado)
 
   useEffect(() => {
     async function loadEspecies() {
@@ -35,7 +40,7 @@ export default function OrdenInformeTecnico({
     loadEspecies()
   }, [])
 
-  async function handleDownload() {
+  async function handleGenerarInforme() {
     if (!puedeGenerarInforme(relevamiento)) {
       toast.error('El relevamiento debe tener especie, ubicación y diagnóstico completos')
       return
@@ -43,12 +48,29 @@ export default function OrdenInformeTecnico({
     setDownloading(true)
     try {
       const token = localStorage.getItem('token')
-      const { data: config } = await api.get('/configuracion', { token })
+      const folio = relevamiento.folio || generateFolio(nombreEmpresa)
+      const [{ data: config }, { data: informeActualizado }] = await Promise.all([
+        api.get('/configuracion', { token }),
+        api.post('/informes-tecnicos', { orden_id: orden.id, folio }, { token })
+      ])
+
+      setRelevamiento(informeActualizado)
+
       const cliente = orden.clientes || { nombre: orden.cliente_nombre }
       const tecnico = orden.profiles || {}
 
-      await descargarInformeTecnico({ orden, cliente, relevamiento, config, tecnico })
-      toast.success('Informe técnico descargado')
+      await abrirInformeTecnico({
+        orden,
+        cliente,
+        relevamiento: informeActualizado,
+        config,
+        tecnico,
+        folio: informeActualizado.folio
+      })
+
+      toast.success(informeGenerado
+        ? 'Informe regenerado. Pendiente de aprobación del administrador.'
+        : 'Informe generado. Pendiente de aprobación del administrador.')
     } catch (err) {
       toast.error('Error al generar informe: ' + err.message)
     } finally {
@@ -72,9 +94,31 @@ export default function OrdenInformeTecnico({
           </div>
         ) : (
           <div className="space-y-4">
+            {informeGenerado && (
+              <div className={`flex items-start gap-3 p-3 rounded-xl border text-sm ${
+                informeAprobado
+                  ? 'bg-green-50 border-green-200 text-green-800'
+                  : 'bg-amber-50 border-amber-200 text-amber-800'
+              }`}>
+                {informeAprobado
+                  ? <ShieldCheck className="w-5 h-5 shrink-0 mt-0.5" />
+                  : <Clock className="w-5 h-5 shrink-0 mt-0.5" />}
+                <div>
+                  <p className="font-semibold">
+                    {informeAprobado ? 'Informe aprobado y visible para el cliente' : 'Informe pendiente de aprobación'}
+                  </p>
+                  <p className="text-xs mt-0.5 opacity-80">
+                    {informeAprobado
+                      ? `Folio: ${relevamiento.folio || '—'} — Aprobado el ${relevamiento.fecha_aprobacion ? new Date(relevamiento.fecha_aprobacion).toLocaleDateString('es') : '—'}`
+                      : 'Revise el PDF en el menú Certificados y apruebe para que el cliente pueda descargarlo.'}
+                  </p>
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
               <div className="bg-dark-50 rounded-xl p-3">
-                <p className="text-xs text-dark-400 font-medium uppercase tracking-wide mb-1">Estado</p>
+                <p className="text-xs text-dark-400 font-medium uppercase tracking-wide mb-1">Estado relevamiento</p>
                 <p className={`font-semibold ${estado === 'completo' ? 'text-emerald-700' : 'text-amber-700'}`}>
                   {estado === 'completo' ? 'Completo' : estado === 'borrador' ? 'Borrador' : 'Sin datos'}
                 </p>
@@ -106,21 +150,21 @@ export default function OrdenInformeTecnico({
               </button>
               <button
                 type="button"
-                onClick={handleDownload}
+                onClick={handleGenerarInforme}
                 disabled={downloading || !puedeGenerarInforme(relevamiento)}
                 className="btn-primary text-sm flex-1 disabled:opacity-50"
               >
                 {downloading ? (
                   <Loader2 className="w-4 h-4 animate-spin mx-auto" />
                 ) : (
-                  <><FileText className="w-4 h-4 inline mr-1" /> Descargar Informe PDF</>
+                  <><FileText className="w-4 h-4 inline mr-1" /> {informeGenerado ? 'Regenerar Informe PDF' : 'Generar Informe PDF'}</>
                 )}
               </button>
             </div>
 
             {!puedeGenerarInforme(relevamiento) && (
               <p className="text-xs text-amber-600">
-                Para descargar el informe, el relevamiento debe incluir al menos especie, ubicación y diagnóstico.
+                Para generar el informe, el relevamiento debe incluir al menos especie, ubicación y diagnóstico.
               </p>
             )}
           </div>

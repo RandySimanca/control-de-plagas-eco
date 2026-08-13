@@ -73,3 +73,9 @@ export const upsertRelevamiento = catchAsync(async (req, res) => res.json({ succ
 export const createFotoRelevamiento = catchAsync(async (req, res) => res.status(201).json({ success: true, data: await service.createFotoRelevamiento(req.body, req.user) }))
 export const updateFotoRelevamiento = catchAsync(async (req, res) => res.json({ success: true, data: await service.updateFotoRelevamiento(req.params.id, req.body, req.user) }))
 export const deleteFotoRelevamiento = catchAsync(async (req, res) => { await service.deleteFotoRelevamiento(req.params.id, req.user); res.status(204).send() })
+
+export const listInformesTecnicos = catchAsync(async (req, res) => res.json({ success: true, data: await service.listInformesTecnicos(req.user) }))
+export const getLatestInformeTecnicoByOrden = catchAsync(async (req, res) => res.json({ success: true, data: await service.getLatestInformeTecnicoByOrden(req.params.id, req.user) }))
+export const generarInformeTecnicoRecord = catchAsync(async (req, res) => res.status(201).json({ success: true, data: await service.generarInformeTecnicoRecord(req.body, req.user) }))
+export const aprobarInformeTecnico = catchAsync(async (req, res) => res.json({ success: true, data: await service.aprobarInformeTecnico(req.params.id, req.user) }))
+export const rechazarInformeTecnico = catchAsync(async (req, res) => res.json({ success: true, data: await service.rechazarInformeTecnico(req.params.id, req.user) }))

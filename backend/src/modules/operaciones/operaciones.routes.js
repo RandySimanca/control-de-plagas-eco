@@ -20,6 +20,11 @@ router.put('/certificados/:id', controller.updateCertificado)
 router.patch('/certificados/:id/aprobar', controller.aprobarCertificado)
 router.patch('/certificados/:id/rechazar', controller.rechazarCertificado)
 
+router.get('/informes-tecnicos', controller.listInformesTecnicos)
+router.post('/informes-tecnicos', controller.generarInformeTecnicoRecord)
+router.patch('/informes-tecnicos/:id/aprobar', controller.aprobarInformeTecnico)
+router.patch('/informes-tecnicos/:id/rechazar', controller.rechazarInformeTecnico)
+
 // Explicit routes for compatibility with older endpoints are now handled by routes.js mounts
 
 router.get('/actividades-servicio', controller.listActividades)
@@ -82,6 +87,7 @@ router.get('/:id/fotos', controller.getFotosByOrden)
 router.get('/:id/actividades', controller.getActividadesByOrden)
 router.get('/:id/estaciones', controller.getEstacionesByOrden)
 router.get('/:id/certificado', controller.getLatestCertificadoByOrden)
+router.get('/:id/informe-tecnico', controller.getLatestInformeTecnicoByOrden)
 router.get('/:id/relevamiento', controller.getRelevamientoByOrden)
 router.get('/:id/tanques', controller.getTanquesByOrden)
 

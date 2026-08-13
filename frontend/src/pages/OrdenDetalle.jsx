@@ -26,7 +26,7 @@ import {
   OrdenInformeTecnico
 } from '../components/features/orden'
 import OrdenLavadoTanques from '../components/features/orden/OrdenLavadoTanques'
-import { isVisitaTecnica } from '../utils/tipoVisitaConfig'
+import { isVisitaTecnica, puedeGenerarInforme } from '../utils/tipoVisitaConfig'
 
 export default function OrdenDetalle() {
   const { id } = useParams()
@@ -148,6 +148,16 @@ export default function OrdenDetalle() {
           const folio = generateFolio(nombreEmpresa)
           await queueOrExecute('certificados', 'insert', { orden_id: id, folio }, id)
           setCertificado({ folio })
+        }
+        if (orden.tipo_visita === 'tecnica' && relevamiento && puedeGenerarInforme(relevamiento) && !relevamiento.informe_generado_at) {
+          try {
+            const token = localStorage.getItem('token')
+            const folio = generateFolio(nombreEmpresa)
+            const { data } = await api.post('/informes-tecnicos', { orden_id: id, folio }, { token })
+            setRelevamiento(data)
+          } catch (err) {
+            console.error('Error al registrar informe técnico:', err)
+          }
         }
       }
       await queueOrExecute('ordenes_servicio', 'update', updates, id)

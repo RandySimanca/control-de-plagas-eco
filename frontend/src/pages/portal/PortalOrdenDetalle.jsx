@@ -8,9 +8,11 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { abrirCertificado } from '../../lib/generarCertificado'
+import { abrirInformeTecnico } from '../../lib/generarInformeTecnico'
 import { getAuthImageUrl } from '../../utils/imageUtils'
 import { parseTipoPlaga } from '../../utils/tipoPlaga'
 import { formatFechaLarga } from '../../utils/dateUtils'
+import { isVisitaTecnica } from '../../utils/tipoVisitaConfig'
 
 export default function PortalOrdenDetalle() {
   const { id } = useParams()
@@ -21,6 +23,7 @@ export default function PortalOrdenDetalle() {
   const [fotos, setFotos] = useState([])
   const [actividades, setActividades] = useState([])
   const [certificado, setCertificado] = useState(null)
+  const [informeTecnico, setInformeTecnico] = useState(null)
   const [loading, setLoading] = useState(true)
   const [descargando, setDescargando] = useState(false)
 
@@ -30,21 +33,38 @@ export default function PortalOrdenDetalle() {
   async function load() {
     try {
       const token = localStorage.getItem('token')
-      const [ordenRes, prodsRes, fotosRes, certRes, actividadesRes, estacRes] = await Promise.all([
-        api.get(`/ordenes/${id}`, { token }),
+      const ordenRes = await api.get(`/ordenes/${id}`, { token })
+      const ordenData = ordenRes.data
+      const esVisitaTecnicaOrden = isVisitaTecnica(ordenData)
+
+      const requests = [
         api.get(`/ordenes/${id}/productos`, { token }),
         api.get(`/ordenes/${id}/fotos`, { token }),
-        api.get(`/ordenes/${id}/certificado`, { token }),
         api.get(`/ordenes/${id}/actividades`, { token }),
         api.get(`/ordenes/${id}/estaciones`, { token })
-      ])
+      ]
 
-      setOrden(ordenRes.data)
+      if (esVisitaTecnicaOrden) {
+        requests.push(api.get(`/ordenes/${id}/informe-tecnico`, { token }))
+      } else {
+        requests.push(api.get(`/ordenes/${id}/certificado`, { token }))
+      }
+
+      const [prodsRes, fotosRes, actividadesRes, estacRes, docRes] = await Promise.all(requests)
+
+      setOrden(ordenData)
       setProductos(prodsRes.data || [])
       setEstaciones(estacRes.data || [])
       setFotos(fotosRes.data || [])
-      setCertificado(certRes.data || null)
       setActividades(actividadesRes.data || [])
+
+      if (esVisitaTecnicaOrden) {
+        setInformeTecnico(docRes.data || null)
+        setCertificado(null)
+      } else {
+        setCertificado(docRes.data || null)
+        setInformeTecnico(null)
+      }
     } catch (err) {
       console.error(err)
       toast.error('No se pudo cargar el detalle de la orden')
@@ -79,6 +99,29 @@ export default function PortalOrdenDetalle() {
     }
   }
 
+  async function descargarInformeTecnico() {
+    setDescargando(true)
+    try {
+      const token = localStorage.getItem('token')
+      const configRes = await api.get('/configuracion', { token })
+      const config = configRes.data
+      await abrirInformeTecnico({
+        orden,
+        cliente: orden.clientes,
+        relevamiento: informeTecnico,
+        config,
+        tecnico: orden.profiles || {},
+        folio: informeTecnico.folio
+      })
+    } catch (err) {
+      toast.error('Error al descargar: ' + err.message)
+    } finally {
+      setDescargando(false)
+    }
+  }
+
+  const esVisitaTecnicaOrden = isVisitaTecnica(orden)
+  const documentoDisponible = esVisitaTecnicaOrden ? informeTecnico : certificado
   const estadoBadge = { programada: 'badge-programada', en_progreso: 'badge-en-progreso', completada: 'badge-completada' }
   const estadoLabel = { programada: 'Programada', en_progreso: 'Tratamiento en Curso', completada: 'Servicio Finalizado' }
 
@@ -298,27 +341,37 @@ export default function PortalOrdenDetalle() {
           </div>
         )}
 
-        {/* Reporte Final y Certificado */}
+        {/* Reporte Final y Certificado / Informe Técnico */}
         {orden.estado === 'completada' && (
           <div className="bg-primary-600 p-6 rounded-2xl shadow-lg text-white flex flex-col md:flex-row md:items-center justify-between gap-6 transition-all hover:bg-primary-700">
             <div>
               <div className="flex items-center gap-3 mb-2">
                 <CheckCircle2 className="w-8 h-8" />
-                <h3 className="text-xl font-bold">Servicio Finalizado Exitosamente</h3>
+                <h3 className="text-xl font-bold">
+                  {esVisitaTecnicaOrden ? 'Visita Técnica Finalizada' : 'Servicio Finalizado Exitosamente'}
+                </h3>
               </div>
-              {certificado
-                ? <p className="text-primary-100">Ya puede descargar su certificado de control de plagas y el informe detallado.</p>
-                : <p className="text-primary-100">Su certificado está siendo revisado por nuestro equipo. Lo notificaremos cuando esté disponible.</p>
+              {documentoDisponible
+                ? <p className="text-primary-100">
+                    {esVisitaTecnicaOrden
+                      ? 'Ya puede descargar su informe técnico de relevamiento.'
+                      : 'Ya puede descargar su certificado de control de plagas y el informe detallado.'}
+                  </p>
+                : <p className="text-primary-100">
+                    {esVisitaTecnicaOrden
+                      ? 'Su informe técnico está siendo revisado por nuestro equipo. Lo notificaremos cuando esté disponible.'
+                      : 'Su certificado está siendo revisado por nuestro equipo. Lo notificaremos cuando esté disponible.'}
+                  </p>
               }
             </div>
-            {certificado ? (
-              <button 
-                onClick={descargarCertificado} 
+            {documentoDisponible ? (
+              <button
+                onClick={esVisitaTecnicaOrden ? descargarInformeTecnico : descargarCertificado}
                 disabled={descargando}
                 className="bg-white text-primary-600 px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-xl hover:scale-105 transition-transform"
               >
                 {descargando ? <div className="w-5 h-5 border-2 border-primary-600 border-t-transparent animate-spin rounded-full" /> : <Download className="w-5 h-5" />}
-                Descargar Certificado PDF
+                {esVisitaTecnicaOrden ? 'Descargar Informe PDF' : 'Descargar Certificado PDF'}
               </button>
             ) : (
               <div className="bg-primary-500/50 px-4 py-3 rounded-xl text-sm flex items-center gap-2">

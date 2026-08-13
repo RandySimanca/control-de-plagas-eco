@@ -965,3 +965,115 @@ export async function deleteFotoRelevamiento(id, user) {
     )
   }
 }
+
+function relevamientoPuedeGenerarInforme(relevamiento) {
+  if (!relevamiento) return false
+  const especies = relevamiento.especies || []
+  const tieneEspecie = Array.isArray(especies) ? especies.length > 0 : false
+  const tieneUbicacion = Boolean(relevamiento.ubicacion?.trim())
+  const tieneDiagnostico = Boolean(relevamiento.diagnostico?.trim())
+  return tieneEspecie && tieneUbicacion && tieneDiagnostico
+}
+
+export async function listInformesTecnicos(user) {
+  const params = []
+  const conditions = ['r.informe_generado_at IS NOT NULL', "o.tipo_visita = 'tecnica'"]
+
+  if (user.role === 'tecnico') {
+    params.push(user.id)
+    conditions.push(`o.tecnico_id = $${params.length}`)
+  } else if (user.role === 'cliente') {
+    const profile = await getProfile(user.id)
+    params.push(profile?.cliente_id || null)
+    conditions.push(`o.cliente_id = $${params.length}`)
+    conditions.push('r.aprobado = true')
+  }
+
+  const where = `WHERE ${conditions.join(' AND ')}`
+
+  const { rows } = await pool.query(
+    `
+      SELECT r.*, row_to_json(o) AS ordenes_servicio
+      FROM relevamientos r
+      JOIN (
+        SELECT o.*, row_to_json(cl) AS clientes, row_to_json(p) AS profiles
+        FROM ordenes_servicio o
+        LEFT JOIN clientes cl ON cl.id = o.cliente_id
+        LEFT JOIN profiles p ON p.id = o.tecnico_id
+      ) o ON o.id = r.orden_id
+      ${where}
+      ORDER BY r.informe_generado_at DESC
+    `,
+    params
+  )
+  return rows
+}
+
+export async function getLatestInformeTecnicoByOrden(ordenId, user) {
+  await assertOrdenAccess(ordenId, user)
+  const aprobadoFilter = user.role === 'cliente' ? ' AND aprobado = true' : ''
+  const { rows } = await pool.query(
+    `SELECT * FROM relevamientos WHERE orden_id = $1 AND informe_generado_at IS NOT NULL${aprobadoFilter} LIMIT 1`,
+    [ordenId]
+  )
+  if (!rows[0]) return null
+  return attachFotosToRelevamiento(rows[0])
+}
+
+export async function generarInformeTecnicoRecord(body, user) {
+  await assertOrdenAccess(body.orden_id, user)
+
+  const { rows: ordenRows } = await pool.query(
+    "SELECT tipo_visita FROM ordenes_servicio WHERE id = $1",
+    [body.orden_id]
+  )
+  if (ordenRows[0]?.tipo_visita !== 'tecnica') {
+    throw new AppError('Esta orden no es una visita técnica', 400)
+  }
+
+  const relevamiento = await getRelevamientoByOrden(body.orden_id, user)
+  if (!relevamiento) throw new AppError('No hay relevamiento para esta orden', 400)
+  if (!relevamientoPuedeGenerarInforme(relevamiento)) {
+    throw new AppError('El relevamiento debe incluir especie, ubicación y diagnóstico', 400)
+  }
+
+  const { rows } = await pool.query(
+    `UPDATE relevamientos SET
+      folio = COALESCE($2, folio),
+      informe_generado_at = NOW(),
+      aprobado = false,
+      aprobado_por = NULL,
+      fecha_aprobacion = NULL,
+      updated_at = NOW()
+     WHERE orden_id = $1
+     RETURNING *`,
+    [body.orden_id, body.folio || null]
+  )
+  return attachFotosToRelevamiento(rows[0])
+}
+
+export async function aprobarInformeTecnico(id, user) {
+  if (user.role !== 'admin') throw new AppError('Solo administradores pueden aprobar informes técnicos', 403)
+  const { rows } = await pool.query(
+    `UPDATE relevamientos
+     SET aprobado = true, aprobado_por = $2, fecha_aprobacion = NOW(), updated_at = NOW()
+     WHERE id = $1 AND informe_generado_at IS NOT NULL
+     RETURNING *`,
+    [id, user.id]
+  )
+  if (!rows[0]) throw new AppError('Informe técnico no encontrado', 404)
+  return rows[0]
+}
+
+export async function rechazarInformeTecnico(id, user) {
+  if (user.role !== 'admin') throw new AppError('Solo administradores pueden gestionar informes técnicos', 403)
+  const { rows } = await pool.query(
+    `UPDATE relevamientos
+     SET aprobado = false, aprobado_por = NULL, fecha_aprobacion = NULL, updated_at = NOW()
+     WHERE id = $1 AND informe_generado_at IS NOT NULL
+     RETURNING *`,
+    [id]
+  )
+  if (!rows[0]) throw new AppError('Informe técnico no encontrado', 404)
+  return rows[0]
+}

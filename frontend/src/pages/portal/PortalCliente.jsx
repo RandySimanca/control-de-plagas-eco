@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { generarCertificado as _generarCertificado, abrirCertificado } from '../../lib/generarCertificado'
+import { abrirInformeTecnico } from '../../lib/generarInformeTecnico'
 import { useNavigate, Link, useLocation } from 'react-router-dom'
 import {
   Bug, LogOut, ClipboardList, FileCheck, Calendar, Download,
@@ -25,6 +26,7 @@ export default function PortalCliente() {
   const { canInstall, promptInstall } = useInstallPrompt()
   const [ordenes, setOrdenes] = useState([])
   const [certificados, setCertificados] = useState([])
+  const [informesTecnicos, setInformesTecnicos] = useState([])
   const [documentos, setDocumentos] = useState([])
   const [solicitudes, setSolicitudes] = useState([])
   const [tab, setTab] = useState(() => {
@@ -53,15 +55,17 @@ useEffect(() => {
       if (!profile?.cliente_id) { setLoading(false); return }
       try {
         const token = localStorage.getItem('token')
-        const [ordenesRes, certRes, docsRes, solRes] = await Promise.all([
+        const [ordenesRes, certRes, informesRes, docsRes, solRes] = await Promise.all([
           api.get('/ordenes-servicio', { token }),
           api.get('/certificados', { token }),
+          api.get('/informes-tecnicos', { token }),
           api.get('/documentos-legales', { token }),
           api.get('/solicitudes-servicio', { token })
         ])
 
         setOrdenes(ordenesRes.data || [])
         setCertificados(certRes.data || [])
+        setInformesTecnicos(informesRes.data || [])
         setDocumentos(docsRes.data || [])
         setSolicitudes(solRes.data || [])
       } catch (err) {
@@ -146,6 +150,45 @@ useEffect(() => {
       toast.error('Error al generar certificado')
     }
   }
+
+  async function descargarInforme(informe) {
+    try {
+      const orden = informe.ordenes_servicio
+      const token = localStorage.getItem('token')
+      const { data: config } = await api.get('/configuracion', { token })
+
+      await abrirInformeTecnico({
+        orden,
+        cliente: orden.clientes,
+        relevamiento: informe,
+        config,
+        tecnico: orden.profiles || {},
+        folio: informe.folio
+      })
+    } catch {
+      toast.error('Error al generar informe técnico')
+    }
+  }
+
+  const documentosPortal = [
+    ...certificados.map(c => ({
+      tipo: 'certificado',
+      id: c.id,
+      folio: c.folio,
+      created_at: c.created_at,
+      raw: c
+    })),
+    ...informesTecnicos.map(i => ({
+      tipo: 'informe_tecnico',
+      id: i.id,
+      folio: i.folio,
+      created_at: i.informe_generado_at || i.created_at,
+      raw: i
+    }))
+  ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+
+  const ordenesCompletadas = ordenes.filter(o => o.estado === 'completada')
+  const tieneDocumentosPendientes = documentosPortal.length === 0 && ordenesCompletadas.length > 0
 
   async function handleLogout() {
     await logout()
@@ -604,40 +647,47 @@ useEffect(() => {
             {/* TAB CONTENT: CERTIFICADOS */}
             {tab === 'certificados' && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {certificados.length === 0 ? (
+                {documentosPortal.length === 0 ? (
                   <div className="col-span-full p-12 text-center bg-white rounded-3xl border border-dark-100 shadow-sm">
                     <FileCheck className="w-12 h-12 text-dark-200 mx-auto mb-3" />
-                    {ordenes.some(o => o.estado === 'completada') ? (
+                    {tieneDocumentosPendientes ? (
                       <>
-                        <p className="text-dark-700 font-semibold">Su certificado está en revisión</p>
-                        <p className="text-dark-400 text-sm mt-1">Nuestro equipo está verificando el documento. Le notificaremos cuando esté disponible para descarga.</p>
+                        <p className="text-dark-700 font-semibold">Su documento está en revisión</p>
+                        <p className="text-dark-400 text-sm mt-1">Nuestro equipo está verificando el certificado o informe técnico. Le notificaremos cuando esté disponible para descarga.</p>
                       </>
                     ) : (
-                      <p className="text-dark-500 font-medium">No hay certificados emitidos</p>
+                      <p className="text-dark-500 font-medium">No hay certificados ni informes emitidos</p>
                     )}
                   </div>
                 ) : (
-                  certificados.map(cert => (
-                    <div key={cert.id} className="group bg-linear-to-b from-white to-dark-50/30 rounded-3xl p-5 sm:p-6 border border-dark-100/80 shadow-sm hover:shadow-xl hover:shadow-green-500/10 hover:border-green-300 hover:-translate-y-1 transition-all duration-300 flex flex-col h-full relative overflow-hidden">
-                      <div className="absolute bottom-0 left-0 w-32 h-32 bg-green-400/10 rounded-full blur-2xl -ml-10 -mb-10 transition-opacity opacity-0 group-hover:opacity-100 pointer-events-none"></div>
-                      <div className="flex-1 flex items-start gap-4 mb-5 relative z-10">
-                        <div className="w-12 h-12 rounded-xl bg-linear-to-br from-dark-50 to-dark-100 border border-dark-200/50 flex items-center justify-center shrink-0 shadow-sm group-hover:scale-110 group-hover:shadow-md group-hover:from-green-50 group-hover:to-green-100 group-hover:border-green-200 transition-all duration-300">
-                          <FileCheck className="w-6 h-6 text-dark-600 group-hover:text-green-600 transition-colors" />
+                  documentosPortal.map(doc => {
+                    const isInforme = doc.tipo === 'informe_tecnico'
+                    return (
+                      <div key={`${doc.tipo}-${doc.id}`} className={`group bg-linear-to-b from-white to-dark-50/30 rounded-3xl p-5 sm:p-6 border border-dark-100/80 shadow-sm hover:shadow-xl ${isInforme ? 'hover:shadow-indigo-500/10 hover:border-indigo-300' : 'hover:shadow-green-500/10 hover:border-green-300'} hover:-translate-y-1 transition-all duration-300 flex flex-col h-full relative overflow-hidden`}>
+                        <div className={`absolute bottom-0 left-0 w-32 h-32 rounded-full blur-2xl -ml-10 -mb-10 transition-opacity opacity-0 group-hover:opacity-100 pointer-events-none ${isInforme ? 'bg-indigo-400/10' : 'bg-green-400/10'}`}></div>
+                        <div className="flex-1 flex items-start gap-4 mb-5 relative z-10">
+                          <div className={`w-12 h-12 rounded-xl bg-linear-to-br from-dark-50 to-dark-100 border border-dark-200/50 flex items-center justify-center shrink-0 shadow-sm group-hover:scale-110 group-hover:shadow-md transition-all duration-300 ${isInforme ? 'group-hover:from-indigo-50 group-hover:to-indigo-100 group-hover:border-indigo-200' : 'group-hover:from-green-50 group-hover:to-green-100 group-hover:border-green-200'}`}>
+                            {isInforme
+                              ? <FileText className="w-6 h-6 text-dark-600 group-hover:text-indigo-600 transition-colors" />
+                              : <FileCheck className="w-6 h-6 text-dark-600 group-hover:text-green-600 transition-colors" />}
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold text-dark-400 uppercase tracking-wider mb-1">
+                              {isInforme ? 'Informe Técnico' : 'Certificado Oficial'}
+                            </p>
+                            <p className={`text-sm font-bold text-dark-900 break-all transition-colors ${isInforme ? 'group-hover:text-indigo-800' : 'group-hover:text-green-800'}`}>Folio: {doc.folio}</p>
+                            <p className="text-xs font-medium text-dark-500 mt-0.5">{new Date(doc.created_at).toLocaleDateString()}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-xs font-bold text-dark-400 uppercase tracking-wider mb-1">Certificado Oficial</p>
-                          <p className="text-sm font-bold text-dark-900 break-all group-hover:text-green-800 transition-colors">Folio: {cert.folio}</p>
-                          <p className="text-xs font-medium text-dark-500 mt-0.5">{new Date(cert.created_at).toLocaleDateString()}</p>
-                        </div>
+                        <button
+                          onClick={() => isInforme ? descargarInforme(doc.raw) : descargarCert(doc.raw)}
+                          className={`relative z-10 w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-dark-700 bg-white border border-dark-200 rounded-xl transition-all shadow-sm hover:shadow ${isInforme ? 'hover:border-indigo-400 hover:bg-indigo-50 hover:text-indigo-700' : 'hover:border-green-400 hover:bg-green-50 hover:text-green-700'}`}
+                        >
+                          <Download className="w-4 h-4" /> Descargar PDF
+                        </button>
                       </div>
-                      <button 
-                        onClick={() => descargarCert(cert)} 
-                        className="relative z-10 w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-dark-700 bg-white border border-dark-200 hover:border-green-400 hover:bg-green-50 hover:text-green-700 rounded-xl transition-all shadow-sm hover:shadow"
-                      >
-                         <Download className="w-4 h-4" /> Descargar PDF
-                      </button>
-                    </div>
-                  ))
+                    )
+                  })
                 )}
               </div>
             )}

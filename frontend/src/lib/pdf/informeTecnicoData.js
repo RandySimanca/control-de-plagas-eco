@@ -1,4 +1,5 @@
 import { getImgData } from './certificadoData'
+import { formatFechaLarga } from '../../utils/dateUtils'
 
 export async function prepareInformeTecnicoData(params) {
   const { orden, cliente, relevamiento, config, tecnico } = params
@@ -12,9 +13,7 @@ export async function prepareInformeTecnicoData(params) {
   })))
 
   const direccion = orden?.direccion_servicio || cliente?.direccion || 'N/A'
-  const fechaVisita = orden?.fecha_programada
-    ? new Date(orden.fecha_programada).toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' })
-    : new Date().toLocaleDateString('es-CO')
+  const fechaVisita = formatFechaLarga(orden?.fecha_programada, false, new Date().toLocaleDateString('es-CO'))
 
   return {
     orden,
