@@ -59,6 +59,12 @@ router.delete('/fotos-bitacora-tanques/:id', controller.deleteFotoBitacoraTanque
 router.post('/fotos-estaciones', controller.createFotoEstacion)
 router.delete('/fotos-estaciones/:id', controller.deleteFotoEstacion)
 
+router.get('/relevamientos', controller.getRelevamientoByOrdenQuery)
+router.post('/relevamientos', controller.upsertRelevamiento)
+router.post('/fotos-relevamiento', controller.createFotoRelevamiento)
+router.patch('/fotos-relevamiento/:id', controller.updateFotoRelevamiento)
+router.delete('/fotos-relevamiento/:id', controller.deleteFotoRelevamiento)
+
 // 2. Base routes for when mounted at /ordenes or /servicios (Relative paths)
 router.get('/', controller.listOrdenes)
 router.post('/', controller.createOrden)
@@ -76,6 +82,7 @@ router.get('/:id/fotos', controller.getFotosByOrden)
 router.get('/:id/actividades', controller.getActividadesByOrden)
 router.get('/:id/estaciones', controller.getEstacionesByOrden)
 router.get('/:id/certificado', controller.getLatestCertificadoByOrden)
+router.get('/:id/relevamiento', controller.getRelevamientoByOrden)
 router.get('/:id/tanques', controller.getTanquesByOrden)
 
 export default router

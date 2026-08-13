@@ -9,6 +9,7 @@ import OrdenEstaciones from './OrdenEstaciones'
 import OrdenTecnicoDetalles from './OrdenTecnicoDetalles'
 import OrdenLavadoTanques from './OrdenLavadoTanques'
 import ActividadWizardModal from './ActividadWizardModal'
+import { getTarjetasServicioModal } from '../../../utils/tipoVisitaConfig'
 import { generateUUID } from '../../../utils/uuid'
 
 export default function OrdenServicioModal({
@@ -48,7 +49,7 @@ export default function OrdenServicioModal({
     ? productos.filter(p => p.tipo_producto?.toLowerCase() === servicioNombre?.toLowerCase())
     : productos
 
-  const subBotones = [
+  const subBotonesAll = [
     {
       id: 'bitacora',
       titulo: 'Bitácora & Avances',
@@ -81,6 +82,9 @@ export default function OrdenServicioModal({
       gradient: 'from-purple-600 to-violet-800 border-purple-400/30'
     }
   ]
+
+  const tarjetasPermitidas = getTarjetasServicioModal(orden?.tipo_visita)
+  const subBotones = subBotonesAll.filter(b => tarjetasPermitidas.includes(b.id))
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/70 backdrop-blur-sm animate-fadeIn">

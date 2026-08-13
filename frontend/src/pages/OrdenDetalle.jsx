@@ -22,9 +22,11 @@ import {
   OrdenCertificado,
   OrdenTecnicoDetalles,
   OrdenEditarModal,
-  OrdenTecnicoHub
+  OrdenTecnicoHub,
+  OrdenInformeTecnico
 } from '../components/features/orden'
 import OrdenLavadoTanques from '../components/features/orden/OrdenLavadoTanques'
+import { isVisitaTecnica } from '../utils/tipoVisitaConfig'
 
 export default function OrdenDetalle() {
   const { id } = useParams()
@@ -42,6 +44,7 @@ export default function OrdenDetalle() {
   const [fotos, setFotos] = useState([])
   const [certificado, setCertificado] = useState(null)
   const [actividades, setActividades] = useState([])
+  const [relevamiento, setRelevamiento] = useState(null)
   const [loading, setLoading] = useState(true)
   const [showEditModal, setShowEditModal] = useState(false)
 
@@ -52,14 +55,25 @@ export default function OrdenDetalle() {
     try {
       if (isOnline) {
         const token = localStorage.getItem('token')
-        const [ordenRes, prodsRes, fotosRes, certRes, actividadesRes, estacRes] = await Promise.all([
+        const requests = [
           api.get(`/ordenes/${id}`, { token }),
           api.get(`/ordenes/${id}/productos`, { token }),
           api.get(`/ordenes/${id}/fotos`, { token }),
           api.get(`/ordenes/${id}/certificado`, { token }),
           api.get(`/ordenes/${id}/actividades`, { token }),
           api.get(`/ordenes/${id}/estaciones`, { token })
-        ])
+        ]
+        const [ordenRes, prodsRes, fotosRes, certRes, actividadesRes, estacRes] = await Promise.all(requests)
+
+        let relevamientoData = null
+        if (ordenRes.data?.tipo_visita === 'tecnica') {
+          try {
+            const relRes = await api.get(`/ordenes/${id}/relevamiento`, { token })
+            relevamientoData = relRes.data || null
+          } catch {
+            relevamientoData = null
+          }
+        }
 
         const snapshot = {
           id,
@@ -69,6 +83,7 @@ export default function OrdenDetalle() {
           certificado: certRes.data || null,
           actividades: actividadesRes.data || [],
           estaciones: estacRes.data || [],
+          relevamiento: relevamientoData,
           updated_at: Date.now()
         }
 
@@ -104,6 +119,7 @@ export default function OrdenDetalle() {
     setFotos(snapshot.fotos)
     setCertificado(snapshot.certificado)
     setActividades(snapshot.actividades)
+    setRelevamiento(snapshot.relevamiento || null)
   }
 
   // --- Handlers de Alto Nivel ---
@@ -128,7 +144,7 @@ export default function OrdenDetalle() {
       }
       if (nuevoEstado === 'completada') {
         updates.fecha_completada = new Date().toISOString().split('T')[0]
-        if (!certificado) {
+        if (!certificado && orden.tipo_visita !== 'tecnica') {
           const folio = generateFolio(nombreEmpresa)
           await queueOrExecute('certificados', 'insert', { orden_id: id, folio }, id)
           setCertificado({ folio })
@@ -154,6 +170,7 @@ export default function OrdenDetalle() {
   if (!orden) return null
 
   const isAssignedTecnico = orden.tecnico_id === profile?.id || profile?.rol === 'tecnico'
+  const esVisitaTecnica = isVisitaTecnica(orden)
 
   return (
     <div className={`max-w-4xl mx-auto ${isAssignedTecnico && orden.estado === 'en_progreso' ? 'pb-24 sm:pb-0' : ''}`}>
@@ -185,6 +202,8 @@ export default function OrdenDetalle() {
           setFotos={setFotos}
           certificado={certificado}
           setCertificado={setCertificado}
+          relevamiento={relevamiento}
+          setRelevamiento={setRelevamiento}
           isAssignedTecnico={isAssignedTecnico}
           isAdmin={isAdmin}
           queueOrExecute={queueOrExecute}
@@ -193,8 +212,20 @@ export default function OrdenDetalle() {
         />
       </div>
 
-      {/* Vista tradicional: solo visible para admin (el técnico usa el Hub) */}
-      {!isAssignedTecnico && (
+      {/* Vista admin: informe técnico para visitas de relevamiento */}
+      {isAdmin && esVisitaTecnica && (
+        <OrdenInformeTecnico
+          orden={orden}
+          relevamiento={relevamiento}
+          setRelevamiento={setRelevamiento}
+          isAdmin={isAdmin}
+          queuePhoto={queuePhoto}
+          queueOrExecute={queueOrExecute}
+        />
+      )}
+
+      {/* Vista tradicional: solo visible para admin en visitas de servicio */}
+      {!isAssignedTecnico && !esVisitaTecnica && (
         <>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
             {/* 2. Productos */}
@@ -288,7 +319,7 @@ export default function OrdenDetalle() {
       )}
 
       {/* FAB móvil: registrar avance rápido (técnico en campo) */}
-      {isAssignedTecnico && orden.estado === 'en_progreso' && (
+      {isAssignedTecnico && orden.estado === 'en_progreso' && !esVisitaTecnica && (
         <button
           type="button"
           onClick={() => actividadesRef.current?.openWizard()}

@@ -3,6 +3,7 @@ import { X, Save, Loader2, Droplets } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../../../lib/api'
 import { parseTipoPlaga } from '../../../utils/tipoPlaga'
+import { TIPOS_VISITA } from '../../../utils/tipoVisitaConfig'
 
 export default function OrdenEditarModal({ orden, onClose, onSave, queueOrExecute }) {
   const [tecnicos, setTecnicos] = useState([])
@@ -12,6 +13,7 @@ export default function OrdenEditarModal({ orden, onClose, onSave, queueOrExecut
   const [form, setForm] = useState({
     tecnico_id: orden.tecnico_id || '',
     fecha_programada: orden.fecha_programada ? orden.fecha_programada.split('T')[0] : '',
+    tipo_visita: orden.tipo_visita || 'servicio',
     tipo_plaga: parseTipoPlaga(orden.tipo_plaga),
     observaciones: orden.observaciones || '',
     estado: orden.estado || 'programada',
@@ -45,6 +47,7 @@ export default function OrdenEditarModal({ orden, onClose, onSave, queueOrExecut
         tecnico_id: form.tecnico_id || null,
         fecha_programada: form.fecha_programada || null,
         tipo_plaga: Array.isArray(form.tipo_plaga) ? form.tipo_plaga.join(', ') : form.tipo_plaga,
+        tipo_visita: form.tipo_visita || 'servicio',
         observaciones: form.observaciones,
         estado: form.estado,
         lavado_tanques: form.lavado_tanques,
@@ -126,6 +129,25 @@ export default function OrdenEditarModal({ orden, onClose, onSave, queueOrExecut
           </div>
 
           <div>
+            <label className="label-field">Tipo de Visita</label>
+            <select
+              className="input-field"
+              value={form.tipo_visita}
+              onChange={e => setForm(f => ({
+                ...f,
+                tipo_visita: e.target.value,
+                tipo_plaga: e.target.value === 'tecnica' ? [] : f.tipo_plaga,
+                lavado_tanques: e.target.value === 'tecnica' ? false : f.lavado_tanques
+              }))}
+            >
+              {TIPOS_VISITA.map(t => (
+                <option key={t.id} value={t.id}>{t.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {form.tipo_visita !== 'tecnica' && (
+          <div>
             <label className="label-field">Tipo de Control</label>
             <div className="flex flex-wrap gap-2 p-2 border rounded-md">
               {['Desinsectación', 'Desratización', 'Desinfección', 'Desodoracion', 'Lavado de Tanques'].map(tipo => {
@@ -175,6 +197,7 @@ export default function OrdenEditarModal({ orden, onClose, onSave, queueOrExecut
               </div>
             )}
           </div>
+          )}
 
           <div>
             <label className="label-field">Dirección del Servicio</label>

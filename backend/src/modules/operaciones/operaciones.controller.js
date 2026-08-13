@@ -62,3 +62,14 @@ export const deleteFotoBitacoraTanque = catchAsync(async (req, res) => { await s
 // --- FOTOS DE ESTACIONES ---
 export const createFotoEstacion = catchAsync(async (req, res) => res.status(201).json({ success: true, data: await service.createFotoEstacion(req.body, req.user) }))
 export const deleteFotoEstacion = catchAsync(async (req, res) => { await service.deleteFotoEstacion(req.params.id, req.user); res.status(204).send() })
+
+// --- RELEVAMIENTO TÉCNICO ---
+export const getRelevamientoByOrden = catchAsync(async (req, res) => res.json({ success: true, data: await service.getRelevamientoByOrden(req.params.id, req.user) }))
+export const getRelevamientoByOrdenQuery = catchAsync(async (req, res) => {
+  if (!req.query.orden_id) return res.status(400).json({ success: false, message: 'orden_id es obligatorio' })
+  res.json({ success: true, data: await service.getRelevamientoByOrden(req.query.orden_id, req.user) })
+})
+export const upsertRelevamiento = catchAsync(async (req, res) => res.json({ success: true, data: await service.upsertRelevamiento(req.body, req.user) }))
+export const createFotoRelevamiento = catchAsync(async (req, res) => res.status(201).json({ success: true, data: await service.createFotoRelevamiento(req.body, req.user) }))
+export const updateFotoRelevamiento = catchAsync(async (req, res) => res.json({ success: true, data: await service.updateFotoRelevamiento(req.params.id, req.body, req.user) }))
+export const deleteFotoRelevamiento = catchAsync(async (req, res) => { await service.deleteFotoRelevamiento(req.params.id, req.user); res.status(204).send() })

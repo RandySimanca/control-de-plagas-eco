@@ -5,8 +5,10 @@ import {
 } from 'lucide-react'
 
 import { parseTipoPlaga } from '../../../utils/tipoPlaga'
+import { isVisitaTecnica } from '../../../utils/tipoVisitaConfig'
 import OrdenServicioModal from './OrdenServicioModal'
 import OrdenCertificado from './OrdenCertificado'
+import OrdenRelevamientoHub from './OrdenRelevamientoHub'
 import OrdenFotos from './OrdenFotos'
 import ActividadWizardModal from './ActividadWizardModal'
 import { generateUUID } from '../../../utils/uuid'
@@ -66,6 +68,8 @@ export default function OrdenTecnicoHub({
   setFotos,
   certificado,
   setCertificado,
+  relevamiento,
+  setRelevamiento,
   isAssignedTecnico,
   isAdmin,
   queueOrExecute,
@@ -78,6 +82,7 @@ export default function OrdenTecnicoHub({
 
   const canEdit = (isAssignedTecnico || isAdmin) && orden.estado === 'en_progreso'
   const clienteNombre = orden.clientes?.nombre || orden.cliente_nombre || 'Cliente sin nombre'
+  const esVisitaTecnica = isVisitaTecnica(orden)
 
   // Obtener todos los tipos de control para la orden
   const tiposPlagaParsed = parseTipoPlaga(orden.tipo_plaga)
@@ -99,7 +104,7 @@ export default function OrdenTecnicoHub({
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <span className="text-xs font-extrabold uppercase tracking-wider text-primary-400 bg-primary-950/80 border border-primary-500/30 px-3 py-1 rounded-full">
-                Servicios Asignados ({serviciosControl.length})
+                {esVisitaTecnica ? 'Visita Técnica' : `Servicios Asignados (${serviciosControl.length})`}
               </span>
               {orden.estado === 'en_progreso' && (
                 <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2.5 py-1 rounded-full">
@@ -113,21 +118,35 @@ export default function OrdenTecnicoHub({
             <p className="text-xs sm:text-sm text-dark-300 flex items-center gap-2">
               <span>Folio: <strong className="text-white">#{orden.id?.substring(0, 8)}</strong></span>
               <span>•</span>
-              <span>Toca un servicio para trabajar</span>
+              <span>{esVisitaTecnica ? 'Relevamiento previo a cotización' : 'Toca un servicio para trabajar'}</span>
             </p>
           </div>
         </div>
       </div>
 
-      {/* 2. Grid por Tipo de Control / Servicio (2 Columnas Móvil) */}
+      {/* 2. Tarjetas según tipo de visita */}
       <div>
         <div className="flex items-center justify-between mb-3 px-1">
           <h3 className="text-sm font-bold text-dark-700 uppercase tracking-wider flex items-center gap-2">
-            <Layers className="w-4 h-4 text-primary-600" /> Elige el Servicio a Realizar
+            <Layers className="w-4 h-4 text-primary-600" />
+            {esVisitaTecnica ? 'Actividades de Relevamiento' : 'Elige el Servicio a Realizar'}
           </h3>
-          <span className="text-xs text-dark-400 font-medium">Toca para abrir actividades</span>
+          {!esVisitaTecnica && (
+            <span className="text-xs text-dark-400 font-medium">Toca para abrir actividades</span>
+          )}
         </div>
 
+        {esVisitaTecnica ? (
+          <OrdenRelevamientoHub
+            orden={orden}
+            relevamiento={relevamiento}
+            setRelevamiento={setRelevamiento}
+            canEdit={canEdit}
+            queuePhoto={queuePhoto}
+            queueOrExecute={queueOrExecute}
+            isOnline={isOnline}
+          />
+        ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           
           {/* TARJETAS POR CADA TIPO DE CONTROL / SERVICIO */}
@@ -207,6 +226,7 @@ export default function OrdenTecnicoHub({
           </div>
 
         </div>
+        )}
       </div>
 
       {/* 3. MODALES DE CADA SERVICIO / TIPO DE CONTROL */}

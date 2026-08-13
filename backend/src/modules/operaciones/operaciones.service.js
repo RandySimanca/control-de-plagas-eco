@@ -85,9 +85,11 @@ export async function createOrden(body, user) {
   const isLavado = body.lavado_tanques === true
   const cantidadTanques = body.lavado_tanques_cantidad ? parseInt(body.lavado_tanques_cantidad, 10) : 0
   
+  const tipoVisita = body.tipo_visita || 'servicio'
+
   const { rows } = await pool.query(
-    `INSERT INTO ordenes_servicio (cliente_id, tecnico_id, fecha_programada, tipo_plaga, observaciones, estado, lavado_tanques, lavado_tanques_cantidad, direccion_servicio, sede_id)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+    `INSERT INTO ordenes_servicio (cliente_id, tecnico_id, fecha_programada, tipo_plaga, observaciones, estado, lavado_tanques, lavado_tanques_cantidad, direccion_servicio, sede_id, tipo_visita)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
     [
       body.cliente_id,
       body.tecnico_id || null,
@@ -98,11 +100,19 @@ export async function createOrden(body, user) {
       isLavado,
       cantidadTanques,
       body.direccion_servicio || null,
-      body.sede_id || null
+      body.sede_id || null,
+      tipoVisita
     ]
   )
   
   const newOrden = rows[0]
+
+  if (tipoVisita === 'tecnica') {
+    await pool.query(
+      'INSERT INTO relevamientos (orden_id, estado) VALUES ($1, $2)',
+      [newOrden.id, 'borrador']
+    )
+  }
   
   if (isLavado && cantidadTanques > 0) {
     for (let i = 1; i <= cantidadTanques; i++) {
@@ -118,7 +128,7 @@ export async function createOrden(body, user) {
 
 export async function updateOrden(id, body, user) {
   await assertOrdenAccess(id, user)
-  const allowed = ['cliente_id', 'tecnico_id', 'fecha_programada', 'fecha_inicio', 'tipo_plaga', 'observaciones', 'estado', 'recomendaciones', 'areas_intervenidas', 'metodos_aplicacion', 'fecha_completada', 'lavado_tanques', 'lavado_tanques_cantidad', 'direccion_servicio', 'sede_id']
+  const allowed = ['cliente_id', 'tecnico_id', 'fecha_programada', 'fecha_inicio', 'tipo_plaga', 'tipo_visita', 'observaciones', 'estado', 'recomendaciones', 'areas_intervenidas', 'metodos_aplicacion', 'fecha_completada', 'lavado_tanques', 'lavado_tanques_cantidad', 'direccion_servicio', 'sede_id']
   const sets = []
   const vals = []
   for (const key of allowed) {
@@ -130,6 +140,14 @@ export async function updateOrden(id, body, user) {
   if (!sets.length) throw new AppError('No hay campos para actualizar', 400)
   vals.push(id)
   const { rows } = await pool.query(`UPDATE ordenes_servicio SET ${sets.join(', ')}, updated_at = NOW() WHERE id = $${vals.length} RETURNING *`, vals)
+
+  if (body.tipo_visita === 'tecnica') {
+    const { rows: rel } = await pool.query('SELECT id FROM relevamientos WHERE orden_id = $1', [id])
+    if (!rel[0]) {
+      await pool.query('INSERT INTO relevamientos (orden_id, estado) VALUES ($1, $2)', [id, 'borrador'])
+    }
+  }
+
   return rows[0]
 }
 
@@ -800,6 +818,150 @@ export async function deleteFotoBitacoraTanque(id, user) {
   if (fRows[0]?.storage_path) {
     storage.delete(fRows[0].storage_path).catch(err =>
       console.error('Error al eliminar foto de bitácora del almacenamiento:', err)
+    )
+  }
+}
+
+// --- RELEVAMIENTO TÉCNICO ---
+
+async function attachFotosToRelevamiento(relevamiento) {
+  if (!relevamiento) return null
+  const { rows: fotos } = await pool.query(
+    'SELECT * FROM fotos_relevamiento WHERE relevamiento_id = $1 ORDER BY created_at ASC',
+    [relevamiento.id]
+  )
+  relevamiento.fotos = fotos
+  return relevamiento
+}
+
+export async function getRelevamientoByOrden(ordenId, user) {
+  await assertOrdenAccess(ordenId, user)
+  const { rows } = await pool.query('SELECT * FROM relevamientos WHERE orden_id = $1 LIMIT 1', [ordenId])
+  if (!rows[0]) return null
+  return attachFotosToRelevamiento(rows[0])
+}
+
+export async function upsertRelevamiento(body, user) {
+  await assertOrdenAccess(body.orden_id, user)
+
+  const fields = {
+    estado: body.estado || 'borrador',
+    especies: JSON.stringify(body.especies || []),
+    ubicacion: body.ubicacion || null,
+    area_afectada_valor: body.area_afectada_valor ?? null,
+    area_afectada_unidad: body.area_afectada_unidad || 'm²',
+    altura_estructura: body.altura_estructura || null,
+    puntos_acceso: JSON.stringify(body.puntos_acceso || []),
+    lugares_anidamiento: JSON.stringify(body.lugares_anidamiento || []),
+    nivel_acumulacion: body.nivel_acumulacion || null,
+    riesgos: body.riesgos || null,
+    sistema_control_recomendado: body.sistema_control_recomendado || null,
+    materiales_estimados: JSON.stringify(body.materiales_estimados || []),
+    diagnostico: body.diagnostico || null,
+    solucion_propuesta: body.solucion_propuesta || null
+  }
+
+  const { rows: existing } = await pool.query('SELECT id FROM relevamientos WHERE orden_id = $1', [body.orden_id])
+
+  let relevamiento
+  if (existing[0]) {
+    const { rows } = await pool.query(
+      `UPDATE relevamientos SET
+        estado = $2, especies = $3::jsonb, ubicacion = $4,
+        area_afectada_valor = $5, area_afectada_unidad = $6, altura_estructura = $7,
+        puntos_acceso = $8::jsonb, lugares_anidamiento = $9::jsonb, nivel_acumulacion = $10,
+        riesgos = $11, sistema_control_recomendado = $12, materiales_estimados = $13::jsonb,
+        diagnostico = $14, solucion_propuesta = $15, updated_at = NOW()
+       WHERE orden_id = $1 RETURNING *`,
+      [
+        body.orden_id,
+        fields.estado,
+        fields.especies,
+        fields.ubicacion,
+        fields.area_afectada_valor,
+        fields.area_afectada_unidad,
+        fields.altura_estructura,
+        fields.puntos_acceso,
+        fields.lugares_anidamiento,
+        fields.nivel_acumulacion,
+        fields.riesgos,
+        fields.sistema_control_recomendado,
+        fields.materiales_estimados,
+        fields.diagnostico,
+        fields.solucion_propuesta
+      ]
+    )
+    relevamiento = rows[0]
+  } else {
+    const { rows } = await pool.query(
+      `INSERT INTO relevamientos (
+        orden_id, estado, especies, ubicacion, area_afectada_valor, area_afectada_unidad,
+        altura_estructura, puntos_acceso, lugares_anidamiento, nivel_acumulacion, riesgos,
+        sistema_control_recomendado, materiales_estimados, diagnostico, solucion_propuesta
+      ) VALUES ($1,$2,$3::jsonb,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10,$11,$12,$13::jsonb,$14,$15) RETURNING *`,
+      [
+        body.orden_id,
+        fields.estado,
+        fields.especies,
+        fields.ubicacion,
+        fields.area_afectada_valor,
+        fields.area_afectada_unidad,
+        fields.altura_estructura,
+        fields.puntos_acceso,
+        fields.lugares_anidamiento,
+        fields.nivel_acumulacion,
+        fields.riesgos,
+        fields.sistema_control_recomendado,
+        fields.materiales_estimados,
+        fields.diagnostico,
+        fields.solucion_propuesta
+      ]
+    )
+    relevamiento = rows[0]
+  }
+
+  return attachFotosToRelevamiento(relevamiento)
+}
+
+export async function createFotoRelevamiento(body, user) {
+  const { rows: relRows } = await pool.query('SELECT orden_id FROM relevamientos WHERE id = $1', [body.relevamiento_id])
+  if (!relRows[0]) throw new AppError('Relevamiento no encontrado', 404)
+  await assertOrdenAccess(relRows[0].orden_id, user)
+
+  const { rows } = await pool.query(
+    'INSERT INTO fotos_relevamiento (id, relevamiento_id, url, descripcion, storage_path) VALUES (COALESCE($1, gen_random_uuid()), $2, $3, $4, $5) RETURNING *',
+    [body.id || null, body.relevamiento_id, body.url, body.descripcion || null, body.storage_path || null]
+  )
+  return rows[0]
+}
+
+export async function updateFotoRelevamiento(id, body, user) {
+  const { rows: fRows } = await pool.query(`
+    SELECT r.orden_id FROM fotos_relevamiento f
+    JOIN relevamientos r ON r.id = f.relevamiento_id
+    WHERE f.id = $1
+  `, [id])
+  if (!fRows[0]) throw new AppError('Foto no encontrada', 404)
+  await assertOrdenAccess(fRows[0].orden_id, user)
+
+  const { rows } = await pool.query(
+    'UPDATE fotos_relevamiento SET descripcion = COALESCE($2, descripcion) WHERE id = $1 RETURNING *',
+    [id, body.descripcion]
+  )
+  return rows[0]
+}
+
+export async function deleteFotoRelevamiento(id, user) {
+  const { rows: fRows } = await pool.query(`
+    SELECT r.orden_id, f.storage_path FROM fotos_relevamiento f
+    JOIN relevamientos r ON r.id = f.relevamiento_id
+    WHERE f.id = $1
+  `, [id])
+  if (fRows[0]) await assertOrdenAccess(fRows[0].orden_id, user)
+  await pool.query('DELETE FROM fotos_relevamiento WHERE id = $1', [id])
+  if (fRows[0]?.storage_path) {
+    storage.delete(fRows[0].storage_path).catch(err =>
+      console.error('Error al eliminar foto de relevamiento del almacenamiento:', err)
     )
   }
 }

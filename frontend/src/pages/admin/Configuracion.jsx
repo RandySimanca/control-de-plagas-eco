@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
 import { api } from '../../lib/api'
-import { Save, Loader2, Upload, Building2, Mail, Phone, MapPin, Type } from 'lucide-react'
+import { Save, Loader2, Upload, Building2, Mail, Phone, MapPin, Type, Plus, Trash2, Bug } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { getAuthImageUrl } from '../../utils/imageUtils'
 import HelpButton from '../../components/features/HelpButton'
 import { HELP_CONTENT } from '../../lib/helpContent'
+import { ESPECIES_DEFAULT } from '../../utils/tipoVisitaConfig'
 export default function Configuracion() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -19,8 +20,10 @@ export default function Configuracion() {
     logo_url: '',
     recomendaciones_generales: '',
     version_informe: '',
-    fecha_modelo_informe: ''
+    fecha_modelo_informe: '',
+    especies_causantes: [...ESPECIES_DEFAULT]
   })
+  const [nuevaEspecie, setNuevaEspecie] = useState('')
 
   useEffect(() => {
     loadConfig()
@@ -31,7 +34,11 @@ export default function Configuracion() {
       const token = localStorage.getItem('token')
       const { data } = await api.get('/configuracion', { token })
       if (data && Object.keys(data).length > 0) {
-        setForm(prev => ({ ...prev, ...data }))
+        setForm(prev => ({
+          ...prev,
+          ...data,
+          especies_causantes: data.especies_causantes?.length ? data.especies_causantes : [...ESPECIES_DEFAULT]
+        }))
       }
     } catch (err) {
       console.error('Error cargando configuración:', err)
@@ -224,6 +231,62 @@ export default function Configuracion() {
                   placeholder="Introduce una recomendación por línea..."
                 />
                 <p className="text-xs text-dark-400 mt-1">Cada salto de línea se listará como un punto separado (formato viñeta) en la sección 7 del certificado.</p>
+              </div>
+
+              <div>
+                <label className="label-field font-medium text-dark-700 flex items-center gap-2">
+                  <Bug className="w-4 h-4 text-primary-600" /> Especies causantes (Relevamiento técnico)
+                </label>
+                <p className="text-xs text-dark-400 mb-2">Opciones disponibles en el formulario de relevamiento de visitas técnicas.</p>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {(form.especies_causantes || []).map((esp, idx) => (
+                    <span key={idx} className="inline-flex items-center gap-1 px-3 py-1 bg-indigo-50 text-indigo-800 border border-indigo-200 rounded-full text-sm">
+                      {esp}
+                      <button
+                        type="button"
+                        onClick={() => setForm(prev => ({
+                          ...prev,
+                          especies_causantes: (prev.especies_causantes || []).filter((_, i) => i !== idx)
+                        }))}
+                        className="text-indigo-400 hover:text-red-500"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    className="input-field flex-1"
+                    value={nuevaEspecie}
+                    onChange={e => setNuevaEspecie(e.target.value)}
+                    placeholder="Nueva especie..."
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        const val = nuevaEspecie.trim()
+                        if (val && !(form.especies_causantes || []).includes(val)) {
+                          setForm(prev => ({ ...prev, especies_causantes: [...(prev.especies_causantes || []), val] }))
+                          setNuevaEspecie('')
+                        }
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="btn-secondary px-3"
+                    onClick={() => {
+                      const val = nuevaEspecie.trim()
+                      if (val && !(form.especies_causantes || []).includes(val)) {
+                        setForm(prev => ({ ...prev, especies_causantes: [...(prev.especies_causantes || []), val] }))
+                        setNuevaEspecie('')
+                      }
+                    }}
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
 
               <button type="submit" disabled={saving} className="btn-primary w-full mt-4">

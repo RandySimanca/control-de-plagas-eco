@@ -10,10 +10,12 @@ import { confirmDelete, successAlert } from '../lib/alerts'
 import HelpButton from '../components/features/HelpButton'
 import { HELP_CONTENT } from '../lib/helpContent'
 import { parseTipoPlaga } from '../utils/tipoPlaga'
+import { TIPOS_VISITA } from '../utils/tipoVisitaConfig'
 import { formatFecha } from '../utils/dateUtils'
 
 const EMPTY_FORM = {
   cliente_id: '', tecnico_id: '', fecha_programada: new Date().toISOString().split('T')[0],
+  tipo_visita: 'servicio',
   tipo_plaga: [], observaciones: '', estado: 'programada',
   solicitud_id: null,
   lavado_tanques: false,
@@ -45,10 +47,10 @@ export default function Ordenes() {
   const [submitted, setSubmitted] = useState(false)
 
   const location = useLocation()
-  
-  useEffect(() => { 
-    if (profile || isAdmin) loadOrdenes() 
-    
+
+  useEffect(() => {
+    if (profile || isAdmin) loadOrdenes()
+
     if (location.state?.openModal) {
       openModal(location.state.prefill)
       window.history.replaceState({}, document.title)
@@ -56,168 +58,169 @@ export default function Ordenes() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile, isAdmin, location, isOnline, lastSyncSuccess])
 
-   async function openModal(prefillData = null) {
-     const parsedPrefill = prefillData ? { ...prefillData } : null;
-     if (parsedPrefill && parsedPrefill.tipo_plaga) {
-       parsedPrefill.tipo_plaga = parseTipoPlaga(parsedPrefill.tipo_plaga);
-       if (parsedPrefill.tipo_plaga.includes('Lavado de Tanques')) {
-         parsedPrefill.lavado_tanques = true;
-         parsedPrefill.lavado_tanques_cantidad = parsedPrefill.lavado_tanques_cantidad || 1;
-       }
-     }
-     setSubmitted(false)
-     setForm({ 
-       ...EMPTY_FORM, 
-       tecnico_id: isAdmin ? '' : (profile?.id || ''),
-       ...parsedPrefill,
-       observaciones: '' // siempre en blanco para que el admin escriba sus instrucciones
-     })
-     
-     // Fetch clients and technicians if they haven't been loaded yet
-     if (clientes.length === 0 || tecnicos.length === 0) {
-       try {
-         const token = localStorage.getItem('token')
-         const [clientesRes, tecnicosRes] = await Promise.all([
-           api.get('/clientes', { token, params: { activo: true } }),
-           api.get('/profiles', { token, params: { rol: 'tecnico', activo: true } })
-         ])
-         setClientes(clientesRes.data || [])
-         setTecnicos(tecnicosRes.data || [])
-       } catch (err) {
-         console.error('Error fetching data for modal:', err)
-         toast.error('Error al cargar datos del formulario')
-       }
-     }
-     setShowModal(true)
-   }
+  async function openModal(prefillData = null) {
+    const parsedPrefill = prefillData ? { ...prefillData } : null;
+    if (parsedPrefill && parsedPrefill.tipo_plaga) {
+      parsedPrefill.tipo_plaga = parseTipoPlaga(parsedPrefill.tipo_plaga);
+      if (parsedPrefill.tipo_plaga.includes('Lavado de Tanques')) {
+        parsedPrefill.lavado_tanques = true;
+        parsedPrefill.lavado_tanques_cantidad = parsedPrefill.lavado_tanques_cantidad || 1;
+      }
+    }
+    setSubmitted(false)
+    setForm({
+      ...EMPTY_FORM,
+      tecnico_id: isAdmin ? '' : (profile?.id || ''),
+      ...parsedPrefill,
+      observaciones: '' // siempre en blanco para que el admin escriba sus instrucciones
+    })
 
-   function closeModal() { 
-     setShowModal(false);
-     setSedesCliente([]);
-   }
+    // Fetch clients and technicians if they haven't been loaded yet
+    if (clientes.length === 0 || tecnicos.length === 0) {
+      try {
+        const token = localStorage.getItem('token')
+        const [clientesRes, tecnicosRes] = await Promise.all([
+          api.get('/clientes', { token, params: { activo: true } }),
+          api.get('/profiles', { token, params: { rol: 'tecnico', activo: true } })
+        ])
+        setClientes(clientesRes.data || [])
+        setTecnicos(tecnicosRes.data || [])
+      } catch (err) {
+        console.error('Error fetching data for modal:', err)
+        toast.error('Error al cargar datos del formulario')
+      }
+    }
+    setShowModal(true)
+  }
 
-   // Efecto para cargar sedes cuando cambia el cliente
-   useEffect(() => {
-     async function loadSedes() {
-       if (!form.cliente_id) {
-         setSedesCliente([]);
-         setForm(p => ({ ...p, sede_id: '' }));
-         return;
-       }
-       try {
-         const token = localStorage.getItem('token');
-         const { data } = await api.get(`/clientes/${form.cliente_id}/sedes`, { token });
-         setSedesCliente(data.data || []);
-         // Si hay sedes, pero no hay seleccionada, o la actual no pertenece, resetear
-         const exists = (data.data || []).find(s => s.id === form.sede_id);
-         if (!exists) setForm(p => ({ ...p, sede_id: '' }));
-       } catch (err) {
-         console.error('Error cargando sedes', err);
-       }
-     }
-     if (showModal) loadSedes();
-   }, [form.cliente_id, showModal]);
+  function closeModal() {
+    setShowModal(false);
+    setSedesCliente([]);
+  }
 
-   async function handleSubmit(e) {
-     e.preventDefault()
-     setSubmitted(true)
-     if (!form.cliente_id) { toast.error('Selecciona un cliente'); return }
-     if (sedesCliente.length > 0 && !form.sede_id) { toast.error('Selecciona una sede para este cliente'); return }
-     if (!form.tecnico_id) { toast.error('Debes asignar un técnico antes de crear la orden'); return }
-     if (!form.fecha_programada) { toast.error('Selecciona una fecha'); return }
-     setSaving(true)
-     try {
-       const token = localStorage.getItem('token')
-       const { data } = await api.post('/ordenes-servicio', {
-         cliente_id: form.cliente_id,
-         tecnico_id: form.tecnico_id,
-         fecha_programada: form.fecha_programada,
-         tipo_plaga: Array.isArray(form.tipo_plaga) ? form.tipo_plaga.join(', ') : form.tipo_plaga,
-         observaciones: form.observaciones,
-         estado: form.estado,
-         lavado_tanques: form.lavado_tanques,
-         lavado_tanques_cantidad: form.lavado_tanques ? form.lavado_tanques_cantidad : 0,
-         direccion_servicio: form.direccion_servicio,
-         sede_id: form.sede_id || null
-       }, { token })
-       
-       // Si viene de una solicitud, actualizar el estado de la misma
-       if (form.solicitud_id) {
-         await api.patch(`/solicitudes-servicio/${form.solicitud_id}`, {
-           estado: 'convertida',
-           orden_id: data.id
-         }, { token })
-       }
+  // Efecto para cargar sedes cuando cambia el cliente
+  useEffect(() => {
+    async function loadSedes() {
+      if (!form.cliente_id) {
+        setSedesCliente([]);
+        setForm(p => ({ ...p, sede_id: '' }));
+        return;
+      }
+      try {
+        const token = localStorage.getItem('token');
+        const { data } = await api.get(`/clientes/${form.cliente_id}/sedes`, { token });
+        setSedesCliente(data.data || []);
+        // Si hay sedes, pero no hay seleccionada, o la actual no pertenece, resetear
+        const exists = (data.data || []).find(s => s.id === form.sede_id);
+        if (!exists) setForm(p => ({ ...p, sede_id: '' }));
+      } catch (err) {
+        console.error('Error cargando sedes', err);
+      }
+    }
+    if (showModal) loadSedes();
+  }, [form.cliente_id, showModal]);
 
-       closeModal()
-       await successAlert('¡Orden creada!', 'La nueva orden se ha generado y asignado.')
-       navigate(`/ordenes/${data.id}`)
-     } catch (err) {
-       toast.error('Error: ' + err.message)
-     } finally {
-       setSaving(false)
-     }
-   }
+  async function handleSubmit(e) {
+    e.preventDefault()
+    setSubmitted(true)
+    if (!form.cliente_id) { toast.error('Selecciona un cliente'); return }
+    if (sedesCliente.length > 0 && !form.sede_id) { toast.error('Selecciona una sede para este cliente'); return }
+    if (!form.tecnico_id) { toast.error('Debes asignar un técnico antes de crear la orden'); return }
+    if (!form.fecha_programada) { toast.error('Selecciona una fecha'); return }
+    setSaving(true)
+    try {
+      const token = localStorage.getItem('token')
+      const { data } = await api.post('/ordenes-servicio', {
+        cliente_id: form.cliente_id,
+        tecnico_id: form.tecnico_id,
+        fecha_programada: form.fecha_programada,
+        tipo_plaga: Array.isArray(form.tipo_plaga) ? form.tipo_plaga.join(', ') : form.tipo_plaga,
+        tipo_visita: form.tipo_visita || 'servicio',
+        observaciones: form.observaciones,
+        estado: form.estado,
+        lavado_tanques: form.lavado_tanques,
+        lavado_tanques_cantidad: form.lavado_tanques ? form.lavado_tanques_cantidad : 0,
+        direccion_servicio: form.direccion_servicio,
+        sede_id: form.sede_id || null
+      }, { token })
 
-   async function handleDelete(e, id) {
-     e.preventDefault()
-     e.stopPropagation()
-     const isConfirmed = await confirmDelete('¿Estás seguro de eliminar esta orden?', 'Se borrarán todos los datos asociados.')
-     if (!isConfirmed) return
-     try {
-       const token = localStorage.getItem('token')
-       await api.delete(`/ordenes-servicio/${id}`, { token })
-       
-       setOrdenes(ordenes.filter(o => o.id !== id))
-       await successAlert('Eliminada', 'La orden de servicio ha sido eliminada.')
-     } catch (err) {
-       toast.error('Error al eliminar: ' + err.message)
-     }
-   }
+      // Si viene de una solicitud, actualizar el estado de la misma
+      if (form.solicitud_id) {
+        await api.patch(`/solicitudes-servicio/${form.solicitud_id}`, {
+          estado: 'convertida',
+          orden_id: data.id
+        }, { token })
+      }
 
-   async function loadOrdenes() {
-     try {
-       if (isOnline) {
-         const token = localStorage.getItem('token')
-         const { data } = await api.get('/ordenes-servicio', { token })
-         const lista = data || []
-         setOrdenes(lista)
-         setIsOfflineData(false)
-         // Guardar en caché para uso offline
-         await db.cache_listas.put({ clave: CACHE_KEY_ORDENES, data: lista, updated_at: Date.now() })
-       } else {
-         // Sin conexión: leer desde caché de IndexedDB
-         const cached = await db.cache_listas.get(CACHE_KEY_ORDENES)
-         if (cached?.data) {
-           // Filtrar por técnico si corresponde
-           const lista = (!isAdmin && profile?.id)
-             ? cached.data.filter(o => o.tecnico_id === profile.id)
-             : cached.data
-           setOrdenes(lista)
-           setIsOfflineData(true)
-         } else {
-           setIsOfflineData(true)
-         }
-       }
-     } catch (err) {
-       console.error('Error:', err)
-       // Intentar recuperar desde caché aunque haya fallado la petición
-       try {
-         const cached = await db.cache_listas.get(CACHE_KEY_ORDENES)
-         if (cached?.data) {
-           const lista = (!isAdmin && profile?.id)
-             ? cached.data.filter(o => o.tecnico_id === profile.id)
-             : cached.data
-           setOrdenes(lista)
-           setIsOfflineData(true)
-           return
-         }
-       } catch { /* ignorar */ }
-       toast.error('Error al cargar órdenes')
-     } finally {
-       setLoading(false)
-     }
-   }
+      closeModal()
+      await successAlert('¡Orden creada!', 'La nueva orden se ha generado y asignado.')
+      navigate(`/ordenes/${data.id}`)
+    } catch (err) {
+      toast.error('Error: ' + err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleDelete(e, id) {
+    e.preventDefault()
+    e.stopPropagation()
+    const isConfirmed = await confirmDelete('¿Estás seguro de eliminar esta orden?', 'Se borrarán todos los datos asociados.')
+    if (!isConfirmed) return
+    try {
+      const token = localStorage.getItem('token')
+      await api.delete(`/ordenes-servicio/${id}`, { token })
+
+      setOrdenes(ordenes.filter(o => o.id !== id))
+      await successAlert('Eliminada', 'La orden de servicio ha sido eliminada.')
+    } catch (err) {
+      toast.error('Error al eliminar: ' + err.message)
+    }
+  }
+
+  async function loadOrdenes() {
+    try {
+      if (isOnline) {
+        const token = localStorage.getItem('token')
+        const { data } = await api.get('/ordenes-servicio', { token })
+        const lista = data || []
+        setOrdenes(lista)
+        setIsOfflineData(false)
+        // Guardar en caché para uso offline
+        await db.cache_listas.put({ clave: CACHE_KEY_ORDENES, data: lista, updated_at: Date.now() })
+      } else {
+        // Sin conexión: leer desde caché de IndexedDB
+        const cached = await db.cache_listas.get(CACHE_KEY_ORDENES)
+        if (cached?.data) {
+          // Filtrar por técnico si corresponde
+          const lista = (!isAdmin && profile?.id)
+            ? cached.data.filter(o => o.tecnico_id === profile.id)
+            : cached.data
+          setOrdenes(lista)
+          setIsOfflineData(true)
+        } else {
+          setIsOfflineData(true)
+        }
+      }
+    } catch (err) {
+      console.error('Error:', err)
+      // Intentar recuperar desde caché aunque haya fallado la petición
+      try {
+        const cached = await db.cache_listas.get(CACHE_KEY_ORDENES)
+        if (cached?.data) {
+          const lista = (!isAdmin && profile?.id)
+            ? cached.data.filter(o => o.tecnico_id === profile.id)
+            : cached.data
+          setOrdenes(lista)
+          setIsOfflineData(true)
+          return
+        }
+      } catch { /* ignorar */ }
+      toast.error('Error al cargar órdenes')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const tabs = [
     { key: 'todos', label: 'Todas', count: ordenes.length },
@@ -274,17 +277,17 @@ export default function Ordenes() {
                   {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
                 </select>
               </div>
-              
+
               {sedesCliente.length > 0 && (
                 <div>
                   <label className="label-field text-primary-700">Sede o Locación *</label>
-                  <select 
+                  <select
                     className={`input-field bg-primary-50/30 border-primary-200 ${submitted && !form.sede_id ? 'border-red-500 ring-2 ring-red-200 bg-red-50' : ''}`}
-                    value={form.sede_id} 
+                    value={form.sede_id}
                     onChange={e => {
                       const sede = sedesCliente.find(s => s.id === e.target.value);
-                      setForm(p => ({ 
-                        ...p, 
+                      setForm(p => ({
+                        ...p,
                         sede_id: e.target.value,
                         direccion_servicio: sede ? (sede.direccion || '') : p.direccion_servicio
                       }));
@@ -307,93 +310,131 @@ export default function Ordenes() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                <label className="label-field">Técnico *</label>
-                <select 
-                  className={`input-field ${submitted && !form.tecnico_id ? 'border-red-500 ring-2 ring-red-200 bg-red-50' : ''}`}
-                  value={form.tecnico_id || ''} 
-                  onChange={e => { setForm(p => ({ ...p, tecnico_id: e.target.value })); setSubmitted(false) }}
-                >
-                  <option value="">-- Seleccione un técnico --</option>
-                  {tecnicos.map(t => <option key={t.id} value={t.id}>{t.nombre_completo}</option>)}
-                </select>
-                {submitted && !form.tecnico_id && (
-                  <p className="text-xs text-red-500 mt-1 font-medium">⚠ Debes seleccionar un técnico para continuar</p>
-                )}
-              </div>
+                  <label className="label-field">Técnico *</label>
+                  <select
+                    className={`input-field ${submitted && !form.tecnico_id ? 'border-red-500 ring-2 ring-red-200 bg-red-50' : ''}`}
+                    value={form.tecnico_id || ''}
+                    onChange={e => { setForm(p => ({ ...p, tecnico_id: e.target.value })); setSubmitted(false) }}
+                  >
+                    <option value="">-- Seleccione un técnico --</option>
+                    {tecnicos.map(t => <option key={t.id} value={t.id}>{t.nombre_completo}</option>)}
+                  </select>
+                  {submitted && !form.tecnico_id && (
+                    <p className="text-xs text-red-500 mt-1 font-medium">⚠ Debes seleccionar un técnico para continuar</p>
+                  )}
+                </div>
                 <div>
                   <label className="label-field">Fecha programada *</label>
                   <input type="date" className="input-field" value={form.fecha_programada} onChange={e => setForm(p => ({ ...p, fecha_programada: e.target.value }))} />
                 </div>
               </div>
 
-{/**para cambiar a botones de selección múltiple en lugar de un select */}
-        
-  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-  <div>
-    <label className="label-field">Tipo de Control</label>
-    <div className="flex flex-wrap gap-2 p-2 border rounded-md">
-      {['Desinsectación', 'Desratización', 'Desinfección', 'Desodoracion', 'Lavado de Tanques'].map(tipo => {
-        const seleccionado = (form.tipo_plaga || []).includes(tipo);
-        return (
-          <button
-            key={tipo}
-            type="button"
-            onClick={() =>
-              setForm(p => {
-                const actuales = p.tipo_plaga || [];
-                const isSelected = actuales.includes(tipo);
-                const nuevos = isSelected
-                  ? actuales.filter(t => t !== tipo) // quitar si ya estaba
-                  : [...actuales, tipo];              // agregar si no estaba
-                
-                if (tipo === 'Lavado de Tanques') {
-                  return { 
-                    ...p, 
-                    tipo_plaga: nuevos,
-                    lavado_tanques: !isSelected,
-                    lavado_tanques_cantidad: !isSelected ? (p.lavado_tanques_cantidad || 1) : 0
-                  };
-                }
-                return { ...p, tipo_plaga: nuevos };
-              })
-            }
-            className={`px-3 py-1 rounded-full text-sm border transition-colors ${
-              seleccionado
-                ? 'bg-blue-600 text-white border-blue-600'
-                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-            }`}
-          >
-            {tipo}
-          </button>
-        );
-      })}
-    </div>
-    {form.lavado_tanques && (
-      <div className="mt-3 flex items-center gap-2 p-2 bg-cyan-50 border border-cyan-200 rounded-md">
-        <label className="text-sm text-cyan-800 font-medium">Cantidad de tanques:</label>
-        <input
-          type="number"
-          min="1"
-          value={form.lavado_tanques_cantidad}
-          onChange={e => setForm(p => ({ ...p, lavado_tanques_cantidad: e.target.value === '' ? '' : parseInt(e.target.value) || 1 }))}
-          onBlur={e => setForm(p => ({ ...p, lavado_tanques_cantidad: parseInt(e.target.value) || 1 }))}
-          className="w-16 text-center border border-cyan-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400"
-        />
-      </div>
-    )}
-  </div>
+              {/**para cambiar a botones de selección múltiple en lugar de un select */}
 
-  <div>
-    <label className="label-field">Estado</label>
-    <select className="input-field" value={form.estado} onChange={e => setForm(p => ({ ...p, estado: e.target.value }))}>
-      <option value="programada">Programada</option>
-      <option value="en_progreso">En Progreso</option>
-      <option value="completada">Completada</option>
-    </select>
-  </div>
-</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="label-field">Tipo de Visita *</label>
+                  <select
+                    className="input-field"
+                    value={form.tipo_visita || 'servicio'}
+                    onChange={e => setForm(p => ({
+                      ...p,
+                      tipo_visita: e.target.value,
+                      tipo_plaga: e.target.value === 'tecnica' ? [] : p.tipo_plaga,
+                      lavado_tanques: e.target.value === 'tecnica' ? false : p.lavado_tanques
+                    }))}
+                  >
+                    {TIPOS_VISITA.map(t => (
+                      <option key={t.id} value={t.id}>{t.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="label-field">Estado</label>
+                  <select className="input-field" value={form.estado} onChange={e => setForm(p => ({ ...p, estado: e.target.value }))}>
+                    <option value="programada">Programada</option>
+                    <option value="en_progreso">En Progreso</option>
+                    <option value="completada">Completada</option>
+                  </select>
+                </div>
+              </div>
 
-{/**
+              {form.tipo_visita !== 'tecnica' && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="label-field">Tipo de Control</label>
+                  <div className="flex flex-wrap gap-2 p-2 border rounded-md">
+                    {['Desinsectación', 'Desratización', 'Desinfección', 'Desodoracion', 'Control de aves', 'Lavado de Tanques'].map(tipo => {
+                      const seleccionado = (form.tipo_plaga || []).includes(tipo);
+                      return (
+                        <button
+                          key={tipo}
+                          type="button"
+                          onClick={() =>
+                            setForm(p => {
+                              const actuales = p.tipo_plaga || [];
+                              const isSelected = actuales.includes(tipo);
+                              const nuevos = isSelected
+                                ? actuales.filter(t => t !== tipo) // quitar si ya estaba
+                                : [...actuales, tipo];              // agregar si no estaba
+
+                              if (tipo === 'Lavado de Tanques') {
+                                return {
+                                  ...p,
+                                  tipo_plaga: nuevos,
+                                  lavado_tanques: !isSelected,
+                                  lavado_tanques_cantidad: !isSelected ? (p.lavado_tanques_cantidad || 1) : 0
+                                };
+                              }
+                              return { ...p, tipo_plaga: nuevos };
+                            })
+                          }
+                          className={`px-3 py-1 rounded-full text-sm border transition-colors ${seleccionado
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                            }`}
+                        >
+                          {tipo}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {form.lavado_tanques && (
+                    <div className="mt-3 flex items-center gap-2 p-2 bg-cyan-50 border border-cyan-200 rounded-md">
+                      <label className="text-sm text-cyan-800 font-medium">Cantidad de tanques:</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={form.lavado_tanques_cantidad}
+                        onChange={e => setForm(p => ({ ...p, lavado_tanques_cantidad: e.target.value === '' ? '' : parseInt(e.target.value) || 1 }))}
+                        onBlur={e => setForm(p => ({ ...p, lavado_tanques_cantidad: parseInt(e.target.value) || 1 }))}
+                        className="w-16 text-center border border-cyan-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+              )}
+
+              {form.tipo_visita === 'tecnica' && (
+                <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl text-sm text-indigo-800">
+                  Esta orden es una <strong>Visita Técnica</strong>. El técnico cargará el relevamiento en lugar de productos, estaciones y trampas.
+                </div>
+              )}
+
+              {/**
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 hidden">
+                <div>
+                  <label className="label-field">Estado</label>
+                  <select className="input-field" value={form.estado} onChange={e => setForm(p => ({ ...p, estado: e.target.value }))}>
+                    <option value="programada">Programada</option>
+                    <option value="en_progreso">En Progreso</option>
+                    <option value="completada">Completada</option>
+                  </select>
+                </div>
+              </div>
+**/}
+              {/**
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="label-field">Tipo de Control</label>
@@ -463,9 +504,8 @@ export default function Ordenes() {
             <button
               key={tab.key}
               onClick={() => setFiltroEstado(tab.key)}
-              className={`flex-1 min-w-fit px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
-                filtroEstado === tab.key ? 'bg-white text-dark-900 shadow-sm' : 'text-dark-500 hover:text-dark-700'
-              }`}
+              className={`flex-1 min-w-fit px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${filtroEstado === tab.key ? 'bg-white text-dark-900 shadow-sm' : 'text-dark-500 hover:text-dark-700'
+                }`}
             >
               {tab.label}
               <span className="ml-1.5 text-xs opacity-60">({tab.count})</span>
@@ -496,14 +536,12 @@ export default function Ordenes() {
             {filtered.map(orden => (
               <Link key={orden.id} to={`/ordenes/${orden.id}`} className="card-hover flex items-center justify-between group">
                 <div className="flex items-center gap-4 min-w-0 flex-1">
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
-                    orden.estado === 'completada' ? 'bg-green-100' :
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${orden.estado === 'completada' ? 'bg-green-100' :
                     orden.estado === 'en_progreso' ? 'bg-amber-100' : 'bg-blue-100'
-                  }`}>
-                    <Calendar className={`w-6 h-6 ${
-                      orden.estado === 'completada' ? 'text-green-600' :
+                    }`}>
+                    <Calendar className={`w-6 h-6 ${orden.estado === 'completada' ? 'text-green-600' :
                       orden.estado === 'en_progreso' ? 'text-amber-600' : 'text-blue-600'
-                    }`} />
+                      }`} />
                   </div>
                   <div className="min-w-0">
                     <p className="font-semibold text-dark-900 truncate">{orden.cliente_nombre}</p>
@@ -511,15 +549,18 @@ export default function Ordenes() {
                       <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> {formatFecha(orden.fecha_programada, undefined, 'Sin fecha')}</span>
                       <span className="flex items-center gap-1"><User className="w-3.5 h-3.5" /> {orden.tecnico_nombre || 'Sin asignar'}</span>
                     </div>
-                    {/**nuevo código para mostrar tipo de plaga parseado */}
-                    {orden.tipo_plaga && parseTipoPlaga(orden.tipo_plaga).length > 0 && (
-                        <p className="text-xs text-dark-500 mt-1">
-                          {parseTipoPlaga(orden.tipo_plaga).join(', ')}
-                        </p>
-                    )}
-                   { /** codigo antiguo 
+                    {orden.tipo_visita === 'tecnica' ? (
+                      <p className="text-xs text-indigo-600 mt-1 font-medium">
+                        {TIPOS_VISITA.find(t => t.id === orden.tipo_visita)?.label}
+                      </p>
+                    ) : orden.tipo_plaga && parseTipoPlaga(orden.tipo_plaga).length > 0 ? (
+                      <p className="text-xs text-dark-500 mt-1">
+                        {parseTipoPlaga(orden.tipo_plaga).join(', ')}
+                      </p>
+                    ) : null}
+                    {/** codigo antiguo 
                     {orden.tipo_plaga && <p className="text-xs text-dark-500 mt-1">{orden.tipo_plaga}</p>}*/}
-                  </div> 
+                  </div>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
                   <span className={estadoBadge[orden.estado]}>{estadoLabel[orden.estado]}</span>

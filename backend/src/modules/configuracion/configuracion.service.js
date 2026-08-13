@@ -16,13 +16,14 @@ export async function createConfig(data) {
     logo_url,
     recomendaciones_generales,
     version_informe,
-    fecha_modelo_informe
+    fecha_modelo_informe,
+    especies_causantes
   } = data;
 
   const { rows } = await pool.query(`
     INSERT INTO configuracion 
-      (nombre_empresa, nit, email_contacto, telefono_contacto, direccion_fiscal, footer_pdf, logo_url, recomendaciones_generales, version_informe, fecha_modelo_informe, updated_at)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
+      (nombre_empresa, nit, email_contacto, telefono_contacto, direccion_fiscal, footer_pdf, logo_url, recomendaciones_generales, version_informe, fecha_modelo_informe, especies_causantes, updated_at)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
     RETURNING *
   `, [
     nombre_empresa,
@@ -34,7 +35,8 @@ export async function createConfig(data) {
     logo_url,
     recomendaciones_generales,
     version_informe,
-    fecha_modelo_informe
+    fecha_modelo_informe,
+    JSON.stringify(especies_causantes || ['Palomas', 'Roedores', 'Insectos', 'Aves', 'Murciélagos', 'Otros'])
   ]);
 
   return rows[0];
@@ -44,7 +46,7 @@ export async function updateConfig(id, data) {
   const allowed = [
     'nombre_empresa', 'nit', 'email_contacto', 'telefono_contacto',
     'direccion_fiscal', 'footer_pdf', 'logo_url',
-    'recomendaciones_generales', 'version_informe', 'fecha_modelo_informe'
+    'recomendaciones_generales', 'version_informe', 'fecha_modelo_informe', 'especies_causantes'
   ];
 
   const fields = [];
@@ -53,8 +55,8 @@ export async function updateConfig(id, data) {
 
   for (const key of allowed) {
     if (data[key] !== undefined) {
-      fields.push(`${key} = $${idx}`);
-      values.push(data[key]);
+      fields.push(`${key} = $${idx}${key === 'especies_causantes' ? '::jsonb' : ''}`);
+      values.push(key === 'especies_causantes' ? JSON.stringify(data[key]) : data[key]);
       idx++;
     }
   }
