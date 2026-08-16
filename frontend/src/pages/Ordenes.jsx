@@ -18,6 +18,10 @@ const EMPTY_FORM = {
   tipo_visita: 'servicio',
   tipo_plaga: [], observaciones: '', estado: 'programada',
   solicitud_id: null,
+  solicitud_visita: false,
+  orden_visita_origen_id: null,
+  visita_tiene_costo: false,
+  costo_visita_tecnica: '',
   lavado_tanques: false,
   lavado_tanques_cantidad: 1,
   sede_id: '',
@@ -141,15 +145,30 @@ export default function Ordenes() {
         lavado_tanques: form.lavado_tanques,
         lavado_tanques_cantidad: form.lavado_tanques ? form.lavado_tanques_cantidad : 0,
         direccion_servicio: form.direccion_servicio,
-        sede_id: form.sede_id || null
+        sede_id: form.sede_id || null,
+        orden_visita_origen_id: form.orden_visita_origen_id || null,
+        costo_visita_tecnica: form.tipo_visita === 'tecnica' && form.visita_tiene_costo && form.costo_visita_tecnica
+          ? Number(form.costo_visita_tecnica)
+          : null
       }, { token })
 
-      // Si viene de una solicitud, actualizar el estado de la misma
+      // Si viene de una solicitud, actualizar según tipo de orden creada
       if (form.solicitud_id) {
-        await api.patch(`/solicitudes-servicio/${form.solicitud_id}`, {
-          estado: 'convertida',
-          orden_id: data.id
-        }, { token })
+        if (form.tipo_visita === 'tecnica') {
+          const patchData = {
+            estado: 'en_evaluacion',
+            orden_visita_id: data.id
+          }
+          if (form.visita_tiene_costo && form.costo_visita_tecnica) {
+            patchData.costo_visita_tecnica = Number(form.costo_visita_tecnica)
+          }
+          await api.patch(`/solicitudes-servicio/${form.solicitud_id}`, patchData, { token })
+        } else {
+          await api.patch(`/solicitudes-servicio/${form.solicitud_id}`, {
+            estado: 'convertida',
+            orden_id: data.id
+          }, { token })
+        }
       }
 
       closeModal()
@@ -417,8 +436,45 @@ export default function Ordenes() {
               )}
 
               {form.tipo_visita === 'tecnica' && (
-                <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl text-sm text-indigo-800">
-                  Esta orden es una <strong>Visita Técnica</strong>. El técnico cargará el relevamiento en lugar de productos, estaciones y trampas.
+                <div className="space-y-3 p-4 bg-indigo-50 border border-indigo-200 rounded-xl">
+                  <p className="text-sm text-indigo-800">
+                    Esta orden es una <strong>Visita Técnica</strong>. El técnico cargará el relevamiento en lugar de productos, estaciones y trampas.
+                  </p>
+                  <div className="flex items-center gap-3 pt-2 border-t border-indigo-200/60">
+                    <input
+                      type="checkbox"
+                      id="visita_tiene_costo"
+                      checked={form.visita_tiene_costo}
+                      onChange={e => setForm(p => ({
+                        ...p,
+                        visita_tiene_costo: e.target.checked,
+                        costo_visita_tecnica: e.target.checked ? p.costo_visita_tecnica : ''
+                      }))}
+                      className="w-4 h-4 rounded border-indigo-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <label htmlFor="visita_tiene_costo" className="text-sm font-semibold text-indigo-900">
+                      La visita técnica tiene costo
+                    </label>
+                  </div>
+                  {form.visita_tiene_costo && (
+                    <div>
+                      <label className="label-field text-indigo-800">Costo de la visita técnica ($)</label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        className="input-field border-indigo-200 bg-white"
+                        placeholder="Ej: 80.000"
+                        value={form.costo_visita_tecnica ? Number(form.costo_visita_tecnica).toLocaleString('es-CO') : ''}
+                        onChange={e => {
+                          const val = e.target.value.replace(/\D/g, '')
+                          setForm(p => ({ ...p, costo_visita_tecnica: val }))
+                        }}
+                      />
+                      <p className="text-xs text-indigo-600 mt-1">
+                        Si el cliente contrata el servicio, este valor se descontará de la cotización. Si no contrata, solo se cobra la visita.
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 

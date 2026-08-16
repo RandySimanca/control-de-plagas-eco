@@ -31,9 +31,10 @@ export const HELP_CONTENT = {
 
   solicitudes: [
     'Aquí llegan las solicitudes de servicio que los clientes envían desde su portal.',
-    'Por cada solicitud puedes enviar una cotización (precio + descripción), que el cliente verá y deberá aceptar.',
-    'Cuando se acepta, la solicitud puede convertirse en una orden de servicio formal y asignarse a un técnico.',
-    'Filtra por estado (todas, pendientes, cotizadas, etc.) para priorizar las que requieren respuesta.',
+    'Si el alcance del servicio es claro, puedes cotizar directamente (precio + descripción).',
+    'Si necesitas evaluar el sitio primero, programa una visita técnica: el técnico levanta un relevamiento y luego envías la cotización por la misma solicitud.',
+    'Cuando el cliente acepta, convierte la solicitud en una orden de servicio operativa para asignar al técnico.',
+    'Filtra por estado (pendientes, en evaluación, cotizadas, etc.) para priorizar las que requieren respuesta.',
   ],
 
   ordenDetalle: [
@@ -48,7 +49,7 @@ export const HELP_CONTENT = {
     'En "Historial" puedes ver todos los servicios realizados en tu propiedad.',
     'En "Certificados" puedes descargar los certificados de cada servicio finalizado.',
     'En "Documentos" puedes visualizar y descargar los documentos que validan y acreditan a {{empresa}}.',
-    'En "Solicitudes" puedes pedir un nuevo servicio y hacer seguimiento a su estado (pendiente, cotizada, programada).',
+    'En "Solicitudes" puedes pedir un nuevo servicio y hacer seguimiento a su estado (pendiente, en evaluación técnica, cotizada, programada).',
   ],
 
   portalSolicitudForm: 'Formulario para solicitar un nuevo servicio. Indica el tipo de servicio, una descripción de lo que necesitas, la dirección y la fecha que prefieres. La empresa revisará tu solicitud y te enviará una cotización.',

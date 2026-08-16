@@ -70,14 +70,6 @@ export default function Layout() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Actualizar última vez visto cuando entra a la página
-  useEffect(() => {
-    if (location.pathname === '/admin/solicitudes') {
-      localStorage.setItem('admin_last_viewed_solicitudes', new Date().toISOString())
-      setTimeout(() => setRequestCount(0), 0)
-    }
-  }, [location.pathname])
-
   // Cargar órdenes pendientes para la campanita de notificaciones
   const loadPendingNotifications = useCallback(async () => {
     try {
@@ -191,17 +183,10 @@ export default function Layout() {
   }
 
   const loadRequestCount = useCallback(async () => {
-    // Si estamos en la página, no mostramos el badge
-    if (location.pathname === '/admin/solicitudes') {
-      return
-    }
-
     try {
       const token = localStorage.getItem('token')
-      const lastViewed = localStorage.getItem('admin_last_viewed_solicitudes')
       const params = new URLSearchParams({
-        estado: ['pendiente', 'aceptada'].join(','),
-        ...(lastViewed && { updated_after: lastViewed })
+        estado: ['pendiente', 'cotizacion_solicitada', 'aceptada'].join(',')
       })
 
       const response = await api.get(`/solicitudes-servicio/count?${params}`, { token })
@@ -590,8 +575,8 @@ export default function Layout() {
                           <ClipboardCheck className="w-4 h-4" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="text-xs font-bold text-dark-900">Solicitudes pendientes</p>
-                          <p className="text-[11px] text-dark-500">{requestCount} cliente{requestCount !== 1 ? 's' : ''} solicitando servicio</p>
+                          <p className="text-xs font-bold text-dark-900">Solicitudes requieren atención</p>
+                          <p className="text-[11px] text-dark-500">Hay {requestCount} solicitud{requestCount !== 1 ? 'es' : ''} esperando acción</p>
                         </div>
                       </Link>
                     )}

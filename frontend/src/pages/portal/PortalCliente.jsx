@@ -5,7 +5,7 @@ import { abrirInformeTecnico } from '../../lib/generarInformeTecnico'
 import { useNavigate, Link, useLocation } from 'react-router-dom'
 import {
   Bug, LogOut, ClipboardList, FileCheck, Calendar, Download,
-  CheckCircle2, Clock, Play, ChevronRight, FileText, PlusCircle, Bell, Trash2, Shield, Send, X, Loader2, Key, Droplets
+  CheckCircle2, Clock, Play, ChevronRight, FileText, PlusCircle, Bell, Trash2, Shield, Send, X, Loader2, Key, Droplets, Search
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useInstallPrompt } from '../../hooks/useInstallPrompt'
@@ -18,6 +18,7 @@ import { HELP_CONTENT } from '../../lib/helpContent'
 import { useConfig } from '../../contexts/ConfigContext'
 import { parseTipoPlaga } from '../../utils/tipoPlaga'
 import { formatFecha } from '../../utils/dateUtils'
+import { ESTADO_SOLICITUD_LABELS, formatPrecioCol, tieneDesgloseVisita, findInformeForSolicitud } from '../../utils/solicitudUtils'
 export default function PortalCliente() {
   const { profile, logout } = useAuth()
   const { nombreEmpresa, logoUrl } = useConfig()
@@ -80,20 +81,44 @@ useEffect(() => {
   async function handleResponderCotizacion(sol, estado, motivo = null) {
     try {
       const token = localStorage.getItem('token')
-      await api.patch(`/solicitudes-servicio/${sol.id}`, {
-        estado: estado === 'aceptada' ? 'aceptada' : 'rechazada',
-        respuesta_cliente: estado,
-        respuesta_fecha: new Date().toISOString(),
-        motivo_rechazo: motivo,
-        cotizacion_leida_por_cliente: true
-      }, { token })
+      const payload = {
+        estado: estado,
+        respuesta_fecha: new Date().toISOString()
+      }
+
+      if (estado === 'aceptada' || (estado === 'rechazada' && sol.estado === 'cotizada')) {
+        payload.respuesta_cliente = estado
+        payload.motivo_rechazo = motivo
+        payload.cotizacion_leida_por_cliente = true
+      }
+
+      if (estado === 'visita_aprobada') {
+        payload.aceptacion_condiciones = 'aceptada'
+        payload.aceptacion_condiciones_fecha = new Date().toISOString()
+      }
+
+      if (estado === 'rechazada' && sol.estado === 'condiciones_enviadas') {
+        payload.aceptacion_condiciones = 'rechazada'
+        payload.aceptacion_condiciones_fecha = new Date().toISOString()
+        payload.motivo_rechazo = motivo
+      }
+
+      await api.patch(`/solicitudes-servicio/${sol.id}`, payload, { token })
 
       if (estado === 'aceptada' && profile?.activo === false) {
         await api.patch(`/clientes/${profile.cliente_id}`, { activo: true }, { token })
         await api.patch(`/profiles/${profile.id}`, { activo: true }, { token })
       }
 
-      toast.success('Respuesta enviada')
+      if (estado === 'rechazada' && Number(sol.costo_visita_tecnica) > 0) {
+        await successAlert(
+          'Oferta rechazada',
+          `La solicitud fue rechazada. El costo de la visita técnica ($${formatPrecioCol(sol.costo_visita_tecnica)}) queda pendiente de facturación.`
+        )
+      } else {
+        const msg = estado === 'visita_aprobada' ? 'Condiciones aceptadas correctamente' : (estado === 'aceptada' ? 'Cotización aceptada correctamente' : 'Respuesta enviada')
+        toast.success(msg)
+      }
       window.location.reload()
     } catch { toast.error('Error al actualizar') }
   }
@@ -116,6 +141,17 @@ useEffect(() => {
     if (sol.cotizacion_leida_por_cliente) return
     const token = localStorage.getItem('token')
     await api.patch(`/solicitudes-servicio/${sol.id}`, { cotizacion_leida_por_cliente: true }, { token })
+  }
+
+  async function handleSolicitarCotizacion(sol) {
+    try {
+      const token = localStorage.getItem('token')
+      await api.patch(`/solicitudes-servicio/${sol.id}`, { estado: 'cotizacion_solicitada' }, { token })
+      setSolicitudes(prev => prev.map(s => s.id === sol.id ? { ...s, estado: 'cotizacion_solicitada' } : s))
+      toast.success('Has aceptado el informe. Estamos elaborando tu cotización.')
+    } catch (err) {
+      toast.error('Error al enviar la solicitud')
+    }
   }
 
   async function descargarCert(cert) {
@@ -155,13 +191,17 @@ useEffect(() => {
     try {
       const orden = informe.ordenes_servicio
       const token = localStorage.getItem('token')
-      const { data: config } = await api.get('/configuracion', { token })
+      
+      const [configRes, relRes] = await Promise.all([
+        api.get('/configuracion', { token }),
+        api.get(`/ordenes/${orden.id}/relevamiento`, { token })
+      ])
 
       await abrirInformeTecnico({
         orden,
         cliente: orden.clientes,
-        relevamiento: informe,
-        config,
+        relevamiento: relRes.data || informe,
+        config: configRes.data,
         tecnico: orden.profiles || {},
         folio: informe.folio
       })
@@ -745,6 +785,11 @@ useEffect(() => {
                     let stateColors = ''
                     let stateIcon = null
                     if (sol.estado === 'pendiente') { stateColors = 'bg-amber-100 text-amber-700 ring-amber-600/20'; stateIcon = <Clock className="w-4 h-4" /> }
+                    else if (sol.estado === 'condiciones_enviadas') { stateColors = 'bg-amber-100 text-amber-700 ring-amber-600/20'; stateIcon = <Clock className="w-4 h-4" /> }
+                    else if (sol.estado === 'visita_aprobada') { stateColors = 'bg-emerald-100 text-emerald-800 ring-emerald-600/20'; stateIcon = <CheckCircle2 className="w-4 h-4" /> }
+                    else if (sol.estado === 'en_evaluacion') { stateColors = 'bg-violet-100 text-violet-700 ring-violet-600/20'; stateIcon = <Search className="w-4 h-4" /> }
+                    else if (sol.estado === 'informe_disponible') { stateColors = 'bg-indigo-100 text-indigo-700 ring-indigo-600/20'; stateIcon = <FileText className="w-4 h-4" /> }
+                    else if (sol.estado === 'cotizacion_solicitada') { stateColors = 'bg-indigo-100 text-indigo-700 ring-indigo-600/20'; stateIcon = <CheckCircle2 className="w-4 h-4" /> }
                     else if (sol.estado === 'cotizada') { stateColors = 'bg-blue-100 text-blue-700 ring-blue-600/20'; stateIcon = <Bell className="w-4 h-4" /> }
                     else if (sol.estado === 'aceptada') { stateColors = 'bg-green-100 text-green-700 ring-green-600/20'; stateIcon = <CheckCircle2 className="w-4 h-4" /> }
                     else if (sol.estado === 'convertida') { stateColors = 'bg-emerald-100 text-emerald-800 ring-emerald-600/20'; stateIcon = <CheckCircle2 className="w-4 h-4" /> }
@@ -763,7 +808,9 @@ useEffect(() => {
                           <div className="flex gap-4 sm:gap-5 items-start w-full">
                             <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center shrink-0 border ${
                               sol.estado === 'cotizada' ? 'bg-linear-to-br from-blue-50 to-blue-100 border-blue-200 text-blue-600' : 
-                              sol.estado === 'aceptada' || sol.estado === 'convertida' ? 'bg-linear-to-br from-emerald-50 to-emerald-100 border-emerald-200 text-emerald-600' :
+                              sol.estado === 'en_evaluacion' ? 'bg-linear-to-br from-violet-50 to-violet-100 border-violet-200 text-violet-600' :
+                              sol.estado === 'informe_disponible' ? 'bg-linear-to-br from-indigo-50 to-indigo-100 border-indigo-200 text-indigo-600' :
+                              sol.estado === 'aceptada' || sol.estado === 'convertida' || sol.estado === 'visita_aprobada' ? 'bg-linear-to-br from-emerald-50 to-emerald-100 border-emerald-200 text-emerald-600' :
                               sol.estado === 'rechazada' ? 'bg-linear-to-br from-red-50 to-red-100 border-red-200 text-red-600' :
                               'bg-linear-to-br from-amber-50 to-amber-100 border-amber-200 text-amber-600'
                             }`}>
@@ -774,7 +821,7 @@ useEffect(() => {
                                 <h3 className="font-bold text-base sm:text-lg text-dark-900 tracking-tight">{sol.tipo_servicio}</h3>
                                 <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider ring-1 ring-inset ${stateColors}`}>
                                   {stateIcon}
-                                  {sol.estado}
+                                  {ESTADO_SOLICITUD_LABELS[sol.estado] || sol.estado}
                                 </span>
                               </div>
                               <p className="text-sm text-dark-600 leading-relaxed max-w-3xl">{sol.descripcion}</p>
@@ -792,16 +839,136 @@ useEffect(() => {
                               >
                                 Ver Orden <ChevronRight className="w-4 h-4" />
                               </button>
-                            ) : (
+                            ) : (sol.estado === 'pendiente' || sol.estado === 'rechazada' || sol.estado === 'condiciones_enviadas') ? (
                               <button 
                                 onClick={() => handleDeleteSolicitud(sol.id)}
                                 className="w-full sm:w-auto px-5 py-2.5 text-sm font-bold text-red-600 bg-white border border-dark-200 hover:border-red-200 hover:bg-red-50 rounded-xl transition-all flex items-center justify-center gap-2"
                               >
                                 <Trash2 className="w-4 h-4" /> Eliminar
                               </button>
-                            )}
+                            ) : null}
                           </div>
                         </div>
+
+                        {sol.estado === 'condiciones_enviadas' && (
+                          <div className="mx-5 sm:mx-6 mb-5 sm:mb-6 p-6 bg-linear-to-br from-violet-50 to-indigo-50 border border-violet-100 rounded-2xl relative overflow-hidden animate-in fade-in slide-in-from-top-4">
+                            <div className="relative z-10">
+                              <div className="flex items-center gap-2 mb-3 text-violet-800">
+                                <Search className="w-5 h-5" />
+                                <h4 className="font-bold text-base tracking-tight">Condiciones de visita técnica</h4>
+                              </div>
+                              <div className="mb-6 flex flex-col gap-4">
+                                <p className="text-sm text-violet-900 leading-relaxed bg-white/60 p-4 rounded-xl border border-white/60 whitespace-pre-wrap">
+                                  {sol.condiciones_visita}
+                                </p>
+                              </div>
+                              <div className="flex flex-wrap sm:flex-nowrap gap-3">
+                                <button 
+                                  onClick={() => handleResponderCotizacion(sol, 'rechazada')} 
+                                  className="w-full sm:w-1/3 px-5 py-3 text-sm font-bold text-dark-600 bg-white border border-dark-200 hover:bg-red-50 hover:border-red-200 hover:text-red-600 rounded-xl transition-all"
+                                >
+                                  Rechazar
+                                </button>
+                                <button 
+                                  onClick={() => handleResponderCotizacion(sol, 'visita_aprobada')} 
+                                  className="w-full sm:w-2/3 px-5 py-3 text-sm font-bold text-white bg-violet-600 hover:bg-violet-700 rounded-xl shadow-lg shadow-violet-600/20 transition-all flex items-center justify-center gap-2 hover:-translate-y-0.5"
+                                >
+                                  <CheckCircle2 className="w-5 h-5" /> Aceptar Condiciones
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {sol.estado === 'visita_aprobada' && (
+                          <div className="mx-5 sm:mx-6 mb-5 sm:mb-6 p-6 bg-linear-to-br from-emerald-50 to-teal-50 border border-emerald-100 rounded-2xl">
+                            <div className="flex items-start gap-3 text-emerald-900">
+                              <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5" />
+                              <div>
+                                <h4 className="font-bold text-base tracking-tight">Condiciones Aceptadas</h4>
+                                <p className="text-sm text-emerald-800 mt-1 leading-relaxed">
+                                  Gracias. Próximamente programaremos la visita técnica y te notificaremos.
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {sol.estado === 'en_evaluacion' && (
+                          <div className="mx-5 sm:mx-6 mb-5 sm:mb-6 p-6 bg-linear-to-br from-violet-50 to-indigo-50 border border-violet-100 rounded-2xl">
+                            <div className="flex items-start gap-3 text-violet-900">
+                              <Search className="w-5 h-5 shrink-0 mt-0.5" />
+                              <div>
+                                <h4 className="font-bold text-base tracking-tight">Evaluación técnica en curso</h4>
+                                <p className="text-sm text-violet-800 mt-2 leading-relaxed">
+                                  Un técnico realizará una visita al sitio para inspeccionar y determinar el alcance del servicio.
+                                  Cuando termine el relevamiento, recibirás aquí la cotización con el precio y los detalles del trabajo.
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {sol.estado === 'rechazada' && Number(sol.costo_visita_tecnica) > 0 && (
+                          <div className="mx-5 sm:mx-6 mb-5 sm:mb-6 p-4 bg-amber-50 border border-amber-100 rounded-2xl">
+                            <p className="text-sm font-bold text-amber-900">Visita técnica pendiente de cobro</p>
+                            <p className="text-xs text-amber-800 mt-1">
+                              Monto a facturar por la visita técnica: <strong>${formatPrecioCol(sol.costo_visita_tecnica)}</strong>
+                            </p>
+                          </div>
+                        )}
+
+                        {sol.estado === 'informe_disponible' && (
+                          <div className="mx-5 sm:mx-6 mb-5 sm:mb-6 p-6 bg-linear-to-br from-indigo-50 to-blue-50 border border-indigo-100 rounded-2xl">
+                            <div className="flex items-start gap-3 text-indigo-900">
+                              <FileText className="w-5 h-5 shrink-0 mt-0.5" />
+                              <div className="w-full">
+                                <h4 className="font-bold text-base tracking-tight">Informe técnico publicado</h4>
+                                <p className="text-sm text-indigo-800 mt-1 mb-4 leading-relaxed">
+                                  El técnico ha completado el relevamiento y el informe técnico está disponible. Por favor, revísalo y confirma si estás de acuerdo para que podamos elaborar la cotización final del servicio.
+                                </p>
+                                <div className="flex flex-col sm:flex-row gap-3">
+                                  {findInformeForSolicitud(sol, informesTecnicos) && (
+                                    <button
+                                      onClick={() => descargarInforme(findInformeForSolicitud(sol, informesTecnicos))}
+                                      className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-bold text-indigo-700 bg-white border border-indigo-200 hover:border-indigo-300 hover:bg-indigo-50 rounded-xl transition-all shadow-sm"
+                                    >
+                                      <Download className="w-4 h-4" /> Ver informe técnico
+                                    </button>
+                                  )}
+                                  <button
+                                    onClick={() => handleSolicitarCotizacion(sol)}
+                                    className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-all shadow-sm"
+                                  >
+                                    <CheckCircle2 className="w-4 h-4" /> Aceptar Informe y Solicitar Cotización
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {sol.estado === 'cotizacion_solicitada' && (
+                          <div className="mx-5 sm:mx-6 mb-5 sm:mb-6 p-6 bg-linear-to-br from-blue-50 to-emerald-50 border border-blue-100 rounded-2xl">
+                            <div className="flex items-start gap-3 text-blue-900">
+                              <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5 text-emerald-600" />
+                              <div className="w-full">
+                                <h4 className="font-bold text-base tracking-tight">Informe aceptado</h4>
+                                <p className="text-sm text-blue-800 mt-1 mb-4 leading-relaxed">
+                                  Has aceptado el informe técnico. Estamos elaborando la cotización para el control de plagas basada en el relevamiento realizado. Recibirás una notificación cuando esté lista para tu revisión.
+                                </p>
+                                {findInformeForSolicitud(sol, informesTecnicos) && (
+                                  <button
+                                    onClick={() => descargarInforme(findInformeForSolicitud(sol, informesTecnicos))}
+                                    className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-bold text-blue-700 bg-white border border-blue-200 hover:border-blue-300 hover:bg-blue-50 rounded-xl transition-all shadow-sm"
+                                  >
+                                    <Download className="w-4 h-4" /> Ver informe técnico
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
 
                         {sol.estado === 'cotizada' && (
                           <div className="mx-5 sm:mx-6 mb-5 sm:mb-6 p-6 bg-linear-to-br from-blue-50 to-indigo-50 border border-blue-100 rounded-2xl relative overflow-hidden animate-in fade-in slide-in-from-top-4">
@@ -812,11 +979,35 @@ useEffect(() => {
                                 <Bell className="w-5 h-5 animate-bounce" style={{ animationDuration: '2s' }} />
                                 <h4 className="font-bold text-base tracking-tight">¡Hemos generado tu cotización!</h4>
                               </div>
-                              <div className="mb-6 flex flex-col md:flex-row md:items-end gap-4 md:gap-8">
-                                <div>
-                                  <p className="text-xs font-bold text-blue-600/70 uppercase tracking-wider mb-1">Precio Acordado</p>
-                                  <p className="text-3xl font-black text-blue-900 tracking-tight">${Number(sol.precio_cotizacion).toLocaleString()}</p>
-                                </div>
+                              <div className="mb-6 flex flex-col gap-4">
+                                {tieneDesgloseVisita(sol) ? (
+                                  <div className="bg-white/60 p-4 rounded-xl border border-white/60 space-y-2 text-sm">
+                                    <div className="flex justify-between gap-4">
+                                      <span className="text-blue-800 font-medium">Valor del servicio</span>
+                                      <span className="font-bold text-blue-900">${formatPrecioCol(sol.precio_servicio_bruto)}</span>
+                                    </div>
+                                    <div className="flex justify-between gap-4">
+                                      <span className="text-blue-800 font-medium">Visita técnica realizada</span>
+                                      <span className="font-bold text-blue-900">${formatPrecioCol(sol.costo_visita_tecnica)}</span>
+                                    </div>
+                                    <div className="flex justify-between gap-4 text-emerald-700">
+                                      <span>Descuento por visita técnica</span>
+                                      <span className="font-bold">-${formatPrecioCol(sol.descuento_visita_tecnica)}</span>
+                                    </div>
+                                    <div className="flex justify-between gap-4 pt-2 border-t border-blue-200/60">
+                                      <span className="text-xs font-bold text-blue-600/70 uppercase tracking-wider">Total si acepta</span>
+                                      <p className="text-3xl font-black text-blue-900 tracking-tight">${formatPrecioCol(sol.precio_cotizacion)}</p>
+                                    </div>
+                                    <p className="text-xs text-violet-700 pt-1">
+                                      Si rechaza el servicio, solo se factura la visita técnica (${formatPrecioCol(sol.costo_visita_tecnica)}).
+                                    </p>
+                                  </div>
+                                ) : (
+                                  <div>
+                                    <p className="text-xs font-bold text-blue-600/70 uppercase tracking-wider mb-1">Precio</p>
+                                    <p className="text-3xl font-black text-blue-900 tracking-tight">${formatPrecioCol(sol.precio_cotizacion)}</p>
+                                  </div>
+                                )}
                                 <div className="flex-1">
                                   <p className="text-xs font-bold text-blue-600/70 uppercase tracking-wider mb-1">Detalles</p>
                                   <p className="text-sm font-medium text-blue-800 leading-relaxed bg-white/50 p-3 rounded-xl border border-white/60">{sol.descripcion_cotizacion || 'Sin detalles adicionales especificados.'}</p>

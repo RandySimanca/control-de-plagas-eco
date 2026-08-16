@@ -86,10 +86,13 @@ export async function createOrden(body, user) {
   const cantidadTanques = body.lavado_tanques_cantidad ? parseInt(body.lavado_tanques_cantidad, 10) : 0
   
   const tipoVisita = body.tipo_visita || 'servicio'
+  const costoVisita = body.costo_visita_tecnica != null && body.costo_visita_tecnica !== ''
+    ? Number(body.costo_visita_tecnica)
+    : null
 
   const { rows } = await pool.query(
-    `INSERT INTO ordenes_servicio (cliente_id, tecnico_id, fecha_programada, tipo_plaga, observaciones, estado, lavado_tanques, lavado_tanques_cantidad, direccion_servicio, sede_id, tipo_visita)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
+    `INSERT INTO ordenes_servicio (cliente_id, tecnico_id, fecha_programada, tipo_plaga, observaciones, estado, lavado_tanques, lavado_tanques_cantidad, direccion_servicio, sede_id, tipo_visita, orden_visita_origen_id, costo_visita_tecnica)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
     [
       body.cliente_id,
       body.tecnico_id || null,
@@ -101,7 +104,9 @@ export async function createOrden(body, user) {
       cantidadTanques,
       body.direccion_servicio || null,
       body.sede_id || null,
-      tipoVisita
+      tipoVisita,
+      body.orden_visita_origen_id || null,
+      tipoVisita === 'tecnica' ? costoVisita : null
     ]
   )
   
@@ -128,7 +133,7 @@ export async function createOrden(body, user) {
 
 export async function updateOrden(id, body, user) {
   await assertOrdenAccess(id, user)
-  const allowed = ['cliente_id', 'tecnico_id', 'fecha_programada', 'fecha_inicio', 'tipo_plaga', 'tipo_visita', 'observaciones', 'estado', 'recomendaciones', 'areas_intervenidas', 'metodos_aplicacion', 'fecha_completada', 'lavado_tanques', 'lavado_tanques_cantidad', 'direccion_servicio', 'sede_id']
+  const allowed = ['cliente_id', 'tecnico_id', 'fecha_programada', 'fecha_inicio', 'tipo_plaga', 'tipo_visita', 'observaciones', 'estado', 'recomendaciones', 'areas_intervenidas', 'metodos_aplicacion', 'fecha_completada', 'lavado_tanques', 'lavado_tanques_cantidad', 'direccion_servicio', 'sede_id', 'costo_visita_tecnica']
   const sets = []
   const vals = []
   for (const key of allowed) {
@@ -616,18 +621,42 @@ export async function createSolicitud(body, user) {
   return rows[0]
 }
 export async function updateSolicitud(id, body, user) {
-  const { rows: solRows } = await pool.query('SELECT cliente_id, estado FROM solicitudes_servicio WHERE id = $1', [id])
+  const { rows: solRows } = await pool.query('SELECT * FROM solicitudes_servicio WHERE id = $1', [id])
   if (!solRows[0]) throw new AppError('Solicitud no encontrada', 404)
   
   const sol = solRows[0]
   const profile = await getProfile(user.id)
   
-  // Si es cliente, solo puede actualizar su propia solicitud y solo ciertos campos (aceptar/rechazar)
   if (user.role === 'cliente') {
     if (sol.cliente_id !== profile?.cliente_id) throw new AppError('No autorizado', 403)
-    
-    // Un cliente solo puede actualizar estos campos específicos al responder a una cotización
-    const allowedClientKeys = ['estado', 'respuesta_cliente', 'respuesta_fecha', 'motivo_rechazo', 'cotizacion_leida_por_cliente']
+
+    const acceptingConditions = body.estado === 'visita_aprobada' || body.aceptacion_condiciones === 'aceptada'
+    const rejectingConditions = body.estado === 'rechazada' && sol.estado === 'condiciones_enviadas'
+    const acceptingQuote = body.estado === 'aceptada'
+    const rejectingQuote = body.estado === 'rechazada' && sol.estado === 'cotizada'
+    const requestingQuote = body.estado === 'cotizacion_solicitada'
+
+    if (acceptingConditions && sol.estado !== 'condiciones_enviadas') {
+      throw new AppError('No hay condiciones de visita pendientes de aceptación', 400)
+    }
+    if (requestingQuote && sol.estado !== 'informe_disponible') {
+      throw new AppError('El informe no está disponible o ya fue procesado', 400)
+    }
+
+    if (rejectingConditions || requestingQuote) {
+      // permitido
+    } else if (rejectingQuote) {
+      // permitido
+    } else if (acceptingQuote && sol.estado !== 'cotizada') {
+      throw new AppError('No hay cotización pendiente de aceptación', 400)
+    } else if (body.estado === 'rechazada' && !rejectingConditions && !rejectingQuote) {
+      throw new AppError('No se puede rechazar la solicitud en este estado', 400)
+    }
+
+    const allowedClientKeys = [
+      'estado', 'respuesta_cliente', 'respuesta_fecha', 'motivo_rechazo',
+      'cotizacion_leida_por_cliente', 'aceptacion_condiciones', 'aceptacion_condiciones_fecha'
+    ]
     const keys = Object.keys(body).filter(k => allowedClientKeys.includes(k))
     
     if (keys.length === 0) throw new AppError('No tienes permiso para actualizar estos campos', 403)
@@ -643,9 +672,30 @@ export async function updateSolicitud(id, body, user) {
     return rows[0]
   }
   
-  // Si es admin, tiene acceso completo
   if (user.role === 'admin') {
-    const keys = ['estado', 'precio_cotizacion', 'descripcion_cotizacion', 'respuesta_cliente', 'respuesta_fecha', 'motivo_rechazo', 'cotizacion_leida_por_cliente', 'orden_id']
+    if (body.estado === 'condiciones_enviadas') {
+      if (!body.condiciones_visita?.trim()) {
+        throw new AppError('Debes indicar las condiciones de la visita técnica', 400)
+      }
+      if (sol.estado !== 'pendiente') {
+        throw new AppError('Solo se pueden enviar condiciones en solicitudes pendientes', 400)
+      }
+      body.condiciones_visita_enviadas_at = body.condiciones_visita_enviadas_at || new Date()
+    }
+
+    if (body.estado === 'cotizada') {
+      if (sol.orden_visita_id && sol.estado !== 'informe_disponible' && sol.estado !== 'cotizacion_solicitada') {
+        throw new AppError('La cotización del servicio solo puede enviarse después de publicar el informe técnico al cliente', 400)
+      }
+    }
+
+    const keys = [
+      'estado', 'precio_cotizacion', 'descripcion_cotizacion', 'respuesta_cliente', 'respuesta_fecha',
+      'motivo_rechazo', 'cotizacion_leida_por_cliente', 'orden_id', 'orden_visita_id',
+      'costo_visita_tecnica', 'precio_servicio_bruto', 'descuento_visita_tecnica',
+      'condiciones_visita', 'condiciones_visita_enviadas_at', 'aceptacion_condiciones',
+      'aceptacion_condiciones_fecha', 'informe_disponible_at'
+    ]
     const sets = []
     const vals = []
     for (const key of keys) {
@@ -655,6 +705,25 @@ export async function updateSolicitud(id, body, user) {
       }
     }
     if (!sets.length) throw new AppError('No hay campos para actualizar', 400)
+
+    // Validar totales de cotización con descuento de visita técnica
+    if (body.estado === 'cotizada' || body.precio_cotizacion != null) {
+      const bruto = body.precio_servicio_bruto != null ? Number(body.precio_servicio_bruto) : null
+      const costoVisita = body.costo_visita_tecnica != null ? Number(body.costo_visita_tecnica) : null
+      const descuento = body.descuento_visita_tecnica != null ? Number(body.descuento_visita_tecnica) : null
+      const neto = body.precio_cotizacion != null ? Number(body.precio_cotizacion) : null
+
+      if (bruto != null && descuento != null && neto != null) {
+        const netoEsperado = bruto - descuento
+        if (Math.abs(neto - netoEsperado) > 0.01) {
+          throw new AppError('El precio de cotización no coincide con el valor del servicio menos el descuento de visita', 400)
+        }
+      }
+      if (costoVisita != null && descuento != null && descuento > costoVisita) {
+        throw new AppError('El descuento no puede superar el costo de la visita técnica', 400)
+      }
+    }
+
     vals.push(id)
     const { rows } = await pool.query(`UPDATE solicitudes_servicio SET ${sets.join(', ')}, updated_at = NOW() WHERE id = $${vals.length} RETURNING *`, vals)
     return rows[0]
@@ -1062,6 +1131,16 @@ export async function aprobarInformeTecnico(id, user) {
     [id, user.id]
   )
   if (!rows[0]) throw new AppError('Informe técnico no encontrado', 404)
+
+  if (rows[0].orden_id) {
+    await pool.query(
+      `UPDATE solicitudes_servicio
+       SET estado = 'informe_disponible', informe_disponible_at = NOW(), updated_at = NOW()
+       WHERE orden_visita_id = $1 AND estado = 'en_evaluacion'`,
+      [rows[0].orden_id]
+    )
+  }
+
   return rows[0]
 }
 

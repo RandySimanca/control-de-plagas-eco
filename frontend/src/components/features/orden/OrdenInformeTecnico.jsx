@@ -4,7 +4,7 @@ import toast from 'react-hot-toast'
 import api from '../../../lib/api'
 import RelevamientoModal from './RelevamientoModal'
 import { abrirInformeTecnico } from '../../../lib/generarInformeTecnico'
-import { puedeGenerarInforme, ESPECIES_DEFAULT } from '../../../utils/tipoVisitaConfig'
+import { puedeGenerarInforme, ESPECIES_DEFAULT, NIVELES_ACUMULACION } from '../../../utils/tipoVisitaConfig'
 import { useConfig } from '../../../contexts/ConfigContext'
 import { generateFolio } from '../../../utils/empresaUtils'
 
@@ -131,6 +131,34 @@ export default function OrdenInformeTecnico({
                 <p className="text-xs text-dark-400 font-medium uppercase tracking-wide mb-1">Ubicación</p>
                 <p className="font-medium text-dark-800">{relevamiento.ubicacion || '—'}</p>
               </div>
+              {(relevamiento.area_afectada_valor || relevamiento.altura_estructura) && (
+                <>
+                  <div className="bg-dark-50 rounded-xl p-3">
+                    <p className="text-xs text-dark-400 font-medium uppercase tracking-wide mb-1">Área Afectada</p>
+                    <p className="font-medium text-dark-800">
+                      {relevamiento.area_afectada_valor ? `${relevamiento.area_afectada_valor} ${relevamiento.area_afectada_unidad || 'm²'}` : '—'}
+                    </p>
+                  </div>
+                  <div className="bg-dark-50 rounded-xl p-3">
+                    <p className="text-xs text-dark-400 font-medium uppercase tracking-wide mb-1">Altura / Estructura</p>
+                    <p className="font-medium text-dark-800">{relevamiento.altura_estructura || '—'}</p>
+                  </div>
+                </>
+              )}
+              {(relevamiento.nivel_acumulacion || relevamiento.riesgos) && (
+                <>
+                  <div className="bg-dark-50 rounded-xl p-3">
+                    <p className="text-xs text-dark-400 font-medium uppercase tracking-wide mb-1">Nivel Acumulación</p>
+                    <p className="font-medium text-dark-800">
+                      {NIVELES_ACUMULACION.find(n => n.id === relevamiento.nivel_acumulacion)?.label || relevamiento.nivel_acumulacion || '—'}
+                    </p>
+                  </div>
+                  <div className="bg-dark-50 rounded-xl p-3">
+                    <p className="text-xs text-dark-400 font-medium uppercase tracking-wide mb-1">Riesgos y Dificultades</p>
+                    <p className="font-medium text-dark-800">{relevamiento.riesgos || '—'}</p>
+                  </div>
+                </>
+              )}
               {relevamiento.diagnostico && (
                 <div className="bg-dark-50 rounded-xl p-3 sm:col-span-2">
                   <p className="text-xs text-dark-400 font-medium uppercase tracking-wide mb-1">Diagnóstico</p>
