@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import {
   Package, Plus, Search, Edit2, Trash2, X, Loader2,
   TrendingUp, History, AlertTriangle, ChevronDown, ChevronUp,
-  ArrowDownCircle, ArrowUpCircle, BarChart2
+  ArrowDownCircle, ArrowUpCircle, BarChart2, UserCheck, Tag
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../../lib/api'
@@ -15,7 +15,8 @@ const CATEGORIAS = [
   { value: 'granulado', label: 'Granulado / Polvo' },
   { value: 'gel', label: 'Gel / Cebo' },
   { value: 'trampa', label: 'Trampa / Dispositivo' },
-  { value: 'equipo', label: 'Equipo / EPP' },
+  { value: 'equipo', label: 'Equipo' },
+  { value: 'epp', label: 'EPP (Protección Personal)' },
   { value: 'otro', label: 'Otro' }
 ]
 
@@ -38,9 +39,11 @@ function StockBadge({ stock, minimo }) {
 
 export default function Productos() {
   const [productos, setProductos] = useState([])
+  const [tecnicos, setTecnicos] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStockBajo, setFilterStockBajo] = useState(false)
+  const [activeTab, setActiveTab] = useState('quimicos') // 'quimicos' | 'equipos_epp'
 
   // Modal: Crear / Editar
   const [showModal, setShowModal] = useState(false)
@@ -78,6 +81,22 @@ export default function Productos() {
   const [ajusteForm, setAjusteForm] = useState({ nuevo_stock: '', notas: '' })
   const [isAjustando, setIsAjustando] = useState(false)
 
+  // Modal: Asignar a Técnico (solo EPP)
+  const [showAsignarModal, setShowAsignarModal] = useState(false)
+  const [asignarProducto, setAsignarProducto] = useState(null)
+  const [asignarForm, setAsignarForm] = useState({ tecnico_id: '', cantidad: '', notas: '' })
+  const [isAsignando, setIsAsignando] = useState(false)
+
+  // Modal: Gestión de Activos (Seriales)
+  const [showActivosModal, setShowActivosModal] = useState(false)
+  const [activosProducto, setActivosProducto] = useState(null)
+  const [activosList, setActivosList] = useState([])
+  const [loadingActivos, setLoadingActivos] = useState(false)
+  const [nuevoActivo, setNuevoActivo] = useState({
+    codigo_activo: '', nombre: '', marca: '', modelo: '', numero_serie: '', estado: 'disponible', notas: ''
+  })
+  const [isAgregandoActivo, setIsAgregandoActivo] = useState(false)
+
   const loadProductos = async () => {
     try {
       const token = localStorage.getItem('token')
@@ -90,7 +109,17 @@ export default function Productos() {
     }
   }
 
-  useEffect(() => { loadProductos() }, [])
+  const loadTecnicos = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      const { data } = await api.get('/profiles', { token, params: { rol: 'tecnico', activo: true } })
+      setTecnicos(data || [])
+    } catch (err) {
+      console.error('Error cargando técnicos', err)
+    }
+  }
+
+  useEffect(() => { loadProductos(); loadTecnicos(); }, [])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -219,6 +248,36 @@ export default function Productos() {
     }
   }
 
+  // ── Asignar a Técnico ────────────────────────────────────────────────────────
+  const openAsignar = (prod) => {
+    setAsignarProducto(prod)
+    setAsignarForm({ tecnico_id: '', cantidad: '', notas: '' })
+    setShowAsignarModal(true)
+  }
+
+  const handleAsignar = async (e) => {
+    e.preventDefault()
+    if (!asignarForm.tecnico_id || !asignarForm.cantidad || parseFloat(asignarForm.cantidad) <= 0) {
+      return toast.error('Selecciona un técnico y una cantidad válida')
+    }
+    setIsAsignando(true)
+    try {
+      const token = localStorage.getItem('token')
+      await api.post(
+        `/productos-catalogo/${asignarProducto.id}/asignar`,
+        { tecnico_id: asignarForm.tecnico_id, cantidad: parseFloat(asignarForm.cantidad), notas: asignarForm.notas },
+        { token }
+      )
+      toast.success('Dotación asignada correctamente')
+      setShowAsignarModal(false)
+      loadProductos()
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Error al asignar dotación')
+    } finally {
+      setIsAsignando(false)
+    }
+  }
+
   // ── Historial ────────────────────────────────────────────────────────────────
   const openHistorial = async (prod) => {
     setHistorialProducto(prod)
@@ -235,11 +294,70 @@ export default function Productos() {
     }
   }
 
+  // ── Gestión de Activos ────────────────────────────────────────────────────────
+  const openActivos = async (prod) => {
+    setActivosProducto(prod)
+    setShowActivosModal(true)
+    loadActivos(prod.id)
+  }
+
+  const loadActivos = async (productoId) => {
+    setLoadingActivos(true)
+    try {
+      const token = localStorage.getItem('token')
+      const { data } = await api.get(`/productos-catalogo/${productoId}/activos`, { token })
+      setActivosList(data || [])
+    } catch {
+      toast.error('Error cargando los activos fijos')
+    } finally {
+      setLoadingActivos(false)
+    }
+  }
+
+  const handleAddActivo = async (e) => {
+    e.preventDefault()
+    if (!nuevoActivo.codigo_activo.trim()) return toast.error('Ingresa un código o serial de activo')
+    setIsAgregandoActivo(true)
+    try {
+      const token = localStorage.getItem('token')
+      await api.post(
+        `/productos-catalogo/${activosProducto.id}/activos`,
+        nuevoActivo,
+        { token }
+      )
+      toast.success('Activo registrado')
+      setNuevoActivo({
+        codigo_activo: '', nombre: '', marca: '', modelo: '', numero_serie: '', estado: 'disponible', notas: ''
+      })
+      loadActivos(activosProducto.id)
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Error al registrar activo (¿código duplicado?)')
+    } finally {
+      setIsAgregandoActivo(false)
+    }
+  }
+
+  const handleDeleteActivo = async (activoId) => {
+    const isConfirmed = await confirmDelete('¿Eliminar activo?', 'Solo se pueden eliminar activos que no estén prestados.')
+    if (!isConfirmed) return
+    try {
+      const token = localStorage.getItem('token')
+      await api.delete(`/productos-catalogo/activos/${activoId}`, { token })
+      toast.success('Activo eliminado')
+      loadActivos(activosProducto.id)
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Error al eliminar activo')
+    }
+  }
+
   const filtered = productos.filter(p => {
+    const isEquipamiento = p.categoria === 'epp' || p.categoria === 'equipo'
+    const matchTab = activeTab === 'quimicos' ? !isEquipamiento : isEquipamiento
+    
     const matchSearch = p.nombre_comercial.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (p.ingrediente_activo || '').toLowerCase().includes(searchTerm.toLowerCase())
     const matchStock = !filterStockBajo || (parseFloat(p.stock_actual || 0) <= parseFloat(p.stock_minimo || 0) && parseFloat(p.stock_minimo || 0) > 0) || parseFloat(p.stock_actual || 0) === 0
-    return matchSearch && matchStock
+    return matchTab && matchSearch && matchStock
   })
 
   const stockBajoCount = productos.filter(p =>
@@ -286,6 +404,30 @@ export default function Productos() {
 
       {/* Tabla principal */}
       <div className="card">
+        {/* Tabs */}
+        <div className="flex gap-2 mb-6 border-b border-dark-100 pb-4">
+          <button
+            onClick={() => setActiveTab('quimicos')}
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+              activeTab === 'quimicos'
+                ? 'bg-primary-50 text-primary-700'
+                : 'text-dark-500 hover:bg-dark-50'
+            }`}
+          >
+            Productos Químicos
+          </button>
+          <button
+            onClick={() => setActiveTab('equipos_epp')}
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+              activeTab === 'equipos_epp'
+                ? 'bg-emerald-50 text-emerald-700'
+                : 'text-dark-500 hover:bg-dark-50'
+            }`}
+          >
+            Equipos y Dotación (EPP)
+          </button>
+        </div>
+
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
           <div className="relative flex-1">
             <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-dark-400" />
@@ -341,6 +483,24 @@ export default function Productos() {
                   </td>
                   <td className="py-3 px-4 text-right">
                     <div className="flex justify-end gap-1">
+                      {p.categoria === 'equipo' && (
+                        <button
+                          onClick={() => openActivos(p)}
+                          title="Gestionar seriales/activos"
+                          className="p-1.5 text-dark-400 hover:text-orange-600 transition-colors"
+                        >
+                          <Tag className="w-4 h-4" />
+                        </button>
+                      )}
+                      {['epp', 'equipo'].includes(p.categoria) && (
+                        <button
+                          onClick={() => openAsignar(p)}
+                          title="Asignar a técnico"
+                          className="p-1.5 text-dark-400 hover:text-indigo-600 transition-colors"
+                        >
+                          <UserCheck className="w-4 h-4" />
+                        </button>
+                      )}
                       <button
                         onClick={() => openReabastecer(p)}
                         title="Reabastecer stock"
@@ -415,21 +575,23 @@ export default function Productos() {
                   className="input-field" placeholder="Ej: Ficam W" />
               </div>
 
-              {/* Ingrediente activo + tipo */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="label-field">Ingrediente Activo</label>
-                  <input type="text" value={formData.ingrediente_activo}
-                    onChange={e => setFormData({ ...formData, ingrediente_activo: e.target.value })}
-                    className="input-field" placeholder="Ej: Bendiocarb" />
+              {/* Ingrediente activo + tipo (solo para químicos) */}
+              {!['epp', 'equipo'].includes(formData.categoria) && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="label-field">Ingrediente Activo</label>
+                    <input type="text" value={formData.ingrediente_activo}
+                      onChange={e => setFormData({ ...formData, ingrediente_activo: e.target.value })}
+                      className="input-field" placeholder="Ej: Bendiocarb" />
+                  </div>
+                  <div>
+                    <label className="label-field">Tipo de Producto</label>
+                    <input type="text" value={formData.tipo_producto}
+                      onChange={e => setFormData({ ...formData, tipo_producto: e.target.value })}
+                      className="input-field" placeholder="Ej: Insecticida" />
+                  </div>
                 </div>
-                <div>
-                  <label className="label-field">Tipo de Producto</label>
-                  <input type="text" value={formData.tipo_producto}
-                    onChange={e => setFormData({ ...formData, tipo_producto: e.target.value })}
-                    className="input-field" placeholder="Ej: Insecticida" />
-                </div>
-              </div>
+              )}
 
               {/* Categoría + Unidad base */}
               <div className="grid grid-cols-2 gap-4">
@@ -451,13 +613,15 @@ export default function Productos() {
                 </div>
               </div>
 
-              {/* Dosis recomendada */}
-              <div>
-                <label className="label-field">Dosis Recomendada</label>
-                <input type="text" value={formData.dosis_recomendada}
-                  onChange={e => setFormData({ ...formData, dosis_recomendada: e.target.value })}
-                  className="input-field" placeholder="Ej: 15g / Litro de agua" />
-              </div>
+              {/* Dosis recomendada (solo para químicos) */}
+              {!['epp', 'equipo'].includes(formData.categoria) && (
+                <div>
+                  <label className="label-field">Dosis Recomendada</label>
+                  <input type="text" value={formData.dosis_recomendada}
+                    onChange={e => setFormData({ ...formData, dosis_recomendada: e.target.value })}
+                    className="input-field" placeholder="Ej: 15g / Litro de agua" />
+                </div>
+              )}
 
               {/* Stock */}
               {formData.id ? (
@@ -657,6 +821,60 @@ export default function Productos() {
         </div>
       )}
 
+      {/* ── Modal: Asignar a Técnico ── */}
+      {showAsignarModal && asignarProducto && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="flex justify-between items-center p-6 border-b border-dark-100">
+              <div>
+                <h2 className="text-xl font-bold text-dark-900">Asignar Dotación</h2>
+                <p className="text-sm text-dark-500">{asignarProducto.nombre_comercial}</p>
+              </div>
+              <button onClick={() => setShowAsignarModal(false)} className="text-dark-400 hover:text-dark-600">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <form onSubmit={handleAsignar} className="p-6 space-y-4">
+              <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-200">
+                <p className="text-sm text-indigo-800">
+                  <strong>Stock disponible:</strong> {parseFloat(asignarProducto.stock_actual || 0).toLocaleString()} {asignarProducto.unidad_base}
+                </p>
+              </div>
+              <div>
+                <label className="label-field">Técnico *</label>
+                <select required value={asignarForm.tecnico_id}
+                  onChange={e => setAsignarForm({ ...asignarForm, tecnico_id: e.target.value })}
+                  className="input-field">
+                  <option value="">Seleccione un técnico...</option>
+                  {tecnicos.map(t => (
+                    <option key={t.id} value={t.id}>{t.nombre_completo}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="label-field">Cantidad ({asignarProducto.unidad_base}) *</label>
+                <input type="number" min="0.001" step="0.001" required
+                  value={asignarForm.cantidad}
+                  onChange={e => setAsignarForm({ ...asignarForm, cantidad: e.target.value })}
+                  className="input-field" placeholder="Ej: 2" />
+              </div>
+              <div>
+                <label className="label-field">Notas (opcional)</label>
+                <input type="text" value={asignarForm.notas}
+                  onChange={e => setAsignarForm({ ...asignarForm, notas: e.target.value })}
+                  className="input-field" placeholder="Ej: Entrega de guantes nuevos" />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button type="submit" disabled={isAsignando} className="btn-primary flex-1 py-2 flex items-center justify-center gap-2">
+                  {isAsignando ? <Loader2 className="w-5 h-5 animate-spin" /> : <><UserCheck className="w-4 h-4" /> Asignar Dotación</>}
+                </button>
+                <button type="button" onClick={() => setShowAsignarModal(false)} className="btn-secondary py-2">Cancelar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* ── Panel: Historial de Movimientos ── */}
       {showHistorial && historialProducto && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-sm">
@@ -694,6 +912,11 @@ export default function Productos() {
                             {m.tipo === 'entrada' ? '+' : m.tipo === 'salida' ? '-' : '±'}{parseFloat(m.cantidad).toLocaleString()} {historialProducto.unidad_base}
                           </span>
                         </div>
+                        {m.referencia_tipo === 'asignacion_tecnico' && m.tecnico_asignado && (
+                          <p className="text-xs text-indigo-700 mt-0.5 font-medium flex items-center gap-1">
+                            <UserCheck className="w-3 h-3" /> Asignado a: {m.tecnico_asignado}
+                          </p>
+                        )}
                         {m.notas && <p className="text-xs text-dark-500 mt-0.5 truncate">{m.notas}</p>}
                         <div className="flex items-center gap-2 mt-1">
                           {m.usuario_nombre && <span className="text-xs text-dark-400">{m.usuario_nombre}</span>}
@@ -706,6 +929,132 @@ export default function Productos() {
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Gestión de Activos Fijos (Seriales) ── */}
+      {showActivosModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl w-full max-w-2xl shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="flex justify-between items-center p-6 border-b border-dark-100">
+              <div>
+                <h2 className="text-xl font-bold text-dark-900 flex items-center gap-2">
+                  <Tag className="w-5 h-5 text-orange-600" />
+                  Gestión de Activos Fijos
+                </h2>
+                <p className="text-sm text-dark-500 mt-1">{activosProducto?.nombre_comercial}</p>
+              </div>
+              <button onClick={() => setShowActivosModal(false)} className="text-dark-400 hover:text-dark-600">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto flex-1 space-y-6">
+              {/* Formulario Agregar */}
+              <form onSubmit={handleAddActivo} className="bg-dark-50 p-4 rounded-xl border border-dark-200">
+                <h3 className="font-bold text-dark-800 mb-3 text-sm">Registrar Nuevo Activo Físico</h3>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
+                  <div>
+                    <label className="label-field text-xs">Código / Activo Empresa *</label>
+                    <input type="text" required value={nuevoActivo.codigo_activo} onChange={e => setNuevoActivo({...nuevoActivo, codigo_activo: e.target.value})} className="input-field" placeholder="Ej: FUMI-01" />
+                  </div>
+                  <div>
+                    <label className="label-field text-xs">Nombre Específico</label>
+                    <input type="text" value={nuevoActivo.nombre} onChange={e => setNuevoActivo({...nuevoActivo, nombre: e.target.value})} className="input-field" placeholder="Ej: Fumigadora Manual 20L" />
+                  </div>
+                  <div>
+                    <label className="label-field text-xs">Estado Físico</label>
+                    <select value={nuevoActivo.estado} onChange={e => setNuevoActivo({...nuevoActivo, estado: e.target.value})} className="input-field">
+                      <option value="disponible">Activo / Disponible</option>
+                      <option value="reparacion">En Reparación</option>
+                      <option value="baja">Dado de Baja</option>
+                      <option value="perdido">Perdido</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label-field text-xs">Marca</label>
+                    <input type="text" value={nuevoActivo.marca} onChange={e => setNuevoActivo({...nuevoActivo, marca: e.target.value})} className="input-field" placeholder="Ej: Stihl" />
+                  </div>
+                  <div>
+                    <label className="label-field text-xs">Modelo</label>
+                    <input type="text" value={nuevoActivo.modelo} onChange={e => setNuevoActivo({...nuevoActivo, modelo: e.target.value})} className="input-field" placeholder="Ej: SR 450" />
+                  </div>
+                  <div>
+                    <label className="label-field text-xs">Número de Serie</label>
+                    <input type="text" value={nuevoActivo.numero_serie} onChange={e => setNuevoActivo({...nuevoActivo, numero_serie: e.target.value})} className="input-field" placeholder="Serie del fabricante" />
+                  </div>
+                  <div className="sm:col-span-2 lg:col-span-3 flex gap-3">
+                    <div className="flex-1">
+                      <label className="label-field text-xs">Notas (Opcional)</label>
+                      <input type="text" value={nuevoActivo.notas} onChange={e => setNuevoActivo({...nuevoActivo, notas: e.target.value})} className="input-field" placeholder="Observaciones adicionales" />
+                    </div>
+                    <div className="flex items-end">
+                      <button type="submit" disabled={isAgregandoActivo} className="btn-primary whitespace-nowrap h-[42px] px-6">
+                        {isAgregandoActivo ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Plus className="w-4 h-4" /> Registrar</>}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </form>
+
+              {/* Lista */}
+              <div>
+                <h3 className="font-bold text-dark-800 mb-3 text-sm">Activos Registrados ({activosList.length})</h3>
+                {loadingActivos ? (
+                  <div className="py-8 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-orange-600" /></div>
+                ) : activosList.length === 0 ? (
+                  <div className="text-center py-8 bg-white border border-dashed border-dark-200 rounded-xl">
+                    <Tag className="w-8 h-8 text-dark-300 mx-auto mb-2" />
+                    <p className="text-dark-500 font-medium">No hay activos registrados</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-3">
+                    {activosList.map(a => (
+                      <div key={a.id} className="flex items-center justify-between p-3 bg-white border border-dark-100 rounded-xl shadow-sm">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-bold text-dark-900">{a.codigo_activo}</span>
+                            {a.nombre && <span className="text-sm text-dark-700">· {a.nombre}</span>}
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                              a.estado === 'disponible' ? 'bg-green-100 text-green-700' :
+                              a.estado === 'prestado' ? 'bg-blue-100 text-blue-700' :
+                              a.estado === 'reparacion' ? 'bg-amber-100 text-amber-700' :
+                              'bg-red-100 text-red-700'
+                            }`}>
+                              {a.estado === 'disponible' ? 'Activo' : a.estado}
+                            </span>
+                          </div>
+                          
+                          <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-dark-500">
+                            {a.marca && <span><span className="font-medium text-dark-400">Marca:</span> {a.marca}</span>}
+                            {a.modelo && <span><span className="font-medium text-dark-400">Mod:</span> {a.modelo}</span>}
+                            {a.numero_serie && <span><span className="font-medium text-dark-400">S/N:</span> {a.numero_serie}</span>}
+                          </div>
+
+                          {a.tecnico_actual_nombre && (
+                            <p className="text-xs text-blue-600 mt-1.5 font-semibold bg-blue-50 px-2 py-1 rounded inline-block">
+                              En poder de: {a.tecnico_actual_nombre}
+                            </p>
+                          )}
+                          {a.notas && <p className="text-xs text-dark-400 mt-1 italic">"{a.notas}"</p>}
+                        </div>
+                        {a.estado !== 'prestado' && (
+                          <button 
+                            onClick={() => handleDeleteActivo(a.id)}
+                            className="p-1.5 text-dark-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Eliminar activo"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

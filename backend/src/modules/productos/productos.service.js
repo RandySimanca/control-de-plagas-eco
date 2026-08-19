@@ -263,7 +263,8 @@ export async function getMovimientosStock(productoId, limit = 50, offset = 0) {
   if (!prod[0]) throw new AppError('Producto no encontrado', 404);
 
   const { rows } = await pool.query(
-    `SELECT m.*, p.nombre_completo AS usuario_nombre
+    `SELECT m.*, p.nombre_completo AS usuario_nombre,
+            (SELECT nombre_completo FROM profiles WHERE id = m.referencia_id AND m.referencia_tipo = 'asignacion_tecnico') AS tecnico_asignado
      FROM movimientos_stock m
      LEFT JOIN profiles p ON p.id = m.created_by
      WHERE m.producto_id = $1
@@ -272,6 +273,55 @@ export async function getMovimientosStock(productoId, limit = 50, offset = 0) {
     [productoId, limit, offset]
   );
   return rows;
+}
+
+/**
+ * Asignar EPP a un técnico.
+ */
+export async function asignarTecnicoStock(productoId, tecnicoId, cantidad, notas, userId) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const { rows } = await client.query(
+      'SELECT stock_actual, categoria FROM productos_catalogo WHERE id = $1 FOR UPDATE',
+      [productoId]
+    );
+    if (!rows[0]) throw new AppError('Producto no encontrado', 404);
+    if (!['epp', 'equipo'].includes(rows[0].categoria)) {
+      throw new AppError('Solo se pueden asignar productos de categoría EPP o Equipo', 400);
+    }
+    
+    if (parseFloat(rows[0].stock_actual) < cantidad) {
+      throw new AppError('Stock insuficiente', 400);
+    }
+
+    const delta = -parseFloat(cantidad);
+
+    await client.query(
+      'UPDATE productos_catalogo SET stock_actual = stock_actual + $2, updated_at = NOW() WHERE id = $1',
+      [productoId, delta]
+    );
+
+    await client.query(
+      `INSERT INTO movimientos_stock
+         (producto_id, tipo, cantidad, referencia_tipo, referencia_id, notas, created_by)
+       VALUES ($1, 'salida', $2, 'asignacion_tecnico', $3, $4, $5)`,
+      [productoId, Math.abs(delta), tecnicoId, notas || 'Asignación de dotación', userId || null]
+    );
+
+    await client.query('COMMIT');
+
+    const { rows: updated } = await client.query(
+      'SELECT * FROM productos_catalogo WHERE id = $1', [productoId]
+    );
+    return updated[0];
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 // Exportar el helper para uso en operaciones.service.js
@@ -417,5 +467,141 @@ export async function getAuditoriaResumen(filters = {}) {
     tecnicoTop: resTecnico.rows[0] ? { nombre: resTecnico.rows[0].nombre_completo, cantidad: parseInt(resTecnico.rows[0].cantidad) } : null,
     productoTop: resProducto.rows[0] ? { nombre: resProducto.rows[0].nombre, cantidad: parseInt(resProducto.rows[0].cantidad) } : null
   };
+}
+
+// ─── ACTIVOS FIJOS (EQUIPOS) ──────────────────────────────────────────────────
+
+export async function getActivosByProducto(productoId) {
+  const { rows } = await pool.query(`
+    SELECT a.*, p.nombre_completo as tecnico_actual_nombre
+    FROM equipos_activos a
+    LEFT JOIN profiles p ON p.id = a.tecnico_actual_id
+    WHERE a.producto_id = $1
+    ORDER BY a.created_at DESC
+  `, [productoId]);
+  return rows;
+}
+
+export async function getActivosDisponibles() {
+  const { rows } = await pool.query(`
+    SELECT a.*, pc.nombre_comercial, pc.categoria
+    FROM equipos_activos a
+    JOIN productos_catalogo pc ON pc.id = a.producto_id
+    WHERE a.estado = 'disponible'
+    ORDER BY pc.nombre_comercial ASC, a.codigo_activo ASC
+  `);
+  return rows;
+}
+
+export async function createActivo(productoId, data) {
+  const { codigo_activo, nombre, marca, modelo, numero_serie, estado, notas } = data;
+  const { rows } = await pool.query(`
+    INSERT INTO equipos_activos (producto_id, codigo_activo, nombre, marca, modelo, numero_serie, estado, notas)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    RETURNING *
+  `, [
+    productoId, 
+    codigo_activo, 
+    nombre || null, 
+    marca || null, 
+    modelo || null, 
+    numero_serie || null, 
+    estado || 'disponible', 
+    notas || null
+  ]);
+  return rows[0];
+}
+
+export async function deleteActivo(activoId) {
+  // Solo se puede eliminar si está disponible o de baja. Prestado no debería borrarse.
+  const { rows } = await pool.query('SELECT estado FROM equipos_activos WHERE id = $1', [activoId]);
+  if (!rows[0]) throw new AppError('Activo no encontrado', 404);
+  if (rows[0].estado === 'prestado') throw new AppError('No se puede eliminar un activo que está prestado', 400);
+  
+  await pool.query('DELETE FROM equipos_activos WHERE id = $1', [activoId]);
+}
+
+export async function updateActivoEstado(activoId, estado, notas) {
+  const { rows } = await pool.query(`
+    UPDATE equipos_activos 
+    SET estado = $2, notas = COALESCE($3, notas), updated_at = NOW()
+    WHERE id = $1 RETURNING *
+  `, [activoId, estado, notas]);
+  return rows[0];
+}
+
+export async function registrarPrestamoActivos(tecnicoId, activosIds, notas, adminId) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    
+    for (const activoId of activosIds) {
+      const { rows } = await client.query('SELECT estado FROM equipos_activos WHERE id = $1 FOR UPDATE', [activoId]);
+      if (!rows[0] || rows[0].estado !== 'disponible') {
+        throw new AppError('Uno o más activos no están disponibles', 400);
+      }
+      
+      await client.query(`
+        UPDATE equipos_activos 
+        SET estado = 'prestado', tecnico_actual_id = $2, ultima_fecha_prestamo = NOW(), updated_at = NOW()
+        WHERE id = $1
+      `, [activoId, tecnicoId]);
+      
+      await client.query(`
+        INSERT INTO historial_prestamos_equipos (activo_id, tecnico_id, tipo_movimiento, notas, registrado_por)
+        VALUES ($1, $2, 'salida', $3, $4)
+      `, [activoId, tecnicoId, notas || null, adminId || null]);
+    }
+    
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+export async function registrarDevolucionActivos(tecnicoId, activosIds, notas, adminId) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    
+    for (const activoId of activosIds) {
+      const { rows } = await client.query('SELECT estado, tecnico_actual_id FROM equipos_activos WHERE id = $1 FOR UPDATE', [activoId]);
+      if (!rows[0] || rows[0].estado !== 'prestado' || rows[0].tecnico_actual_id !== tecnicoId) {
+        throw new AppError('Uno o más activos no están prestados a este técnico', 400);
+      }
+      
+      await client.query(`
+        UPDATE equipos_activos 
+        SET estado = 'disponible', tecnico_actual_id = NULL, updated_at = NOW()
+        WHERE id = $1
+      `, [activoId]);
+      
+      await client.query(`
+        INSERT INTO historial_prestamos_equipos (activo_id, tecnico_id, tipo_movimiento, notas, registrado_por)
+        VALUES ($1, $2, 'entrada', $3, $4)
+      `, [activoId, tecnicoId, notas || null, adminId || null]);
+    }
+    
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+export async function getActivosPrestadosByTecnico(tecnicoId) {
+  const { rows } = await pool.query(`
+    SELECT a.*, pc.nombre_comercial, pc.categoria
+    FROM equipos_activos a
+    JOIN productos_catalogo pc ON pc.id = a.producto_id
+    WHERE a.tecnico_actual_id = $1 AND a.estado = 'prestado'
+    ORDER BY a.ultima_fecha_prestamo DESC
+  `, [tecnicoId]);
+  return rows;
 }
 

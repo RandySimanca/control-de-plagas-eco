@@ -91,8 +91,8 @@ export async function createOrden(body, user) {
     : null
 
   const { rows } = await pool.query(
-    `INSERT INTO ordenes_servicio (cliente_id, tecnico_id, fecha_programada, tipo_plaga, observaciones, estado, lavado_tanques, lavado_tanques_cantidad, direccion_servicio, sede_id, tipo_visita, orden_visita_origen_id, costo_visita_tecnica)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
+    `INSERT INTO ordenes_servicio (cliente_id, tecnico_id, fecha_programada, tipo_plaga, observaciones, estado, lavado_tanques, lavado_tanques_cantidad, direccion_servicio, sede_id, tipo_visita, orden_visita_origen_id, costo_visita_tecnica, epp_utilizado)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
     [
       body.cliente_id,
       body.tecnico_id || null,
@@ -106,16 +106,18 @@ export async function createOrden(body, user) {
       body.sede_id || null,
       tipoVisita,
       body.orden_visita_origen_id || null,
-      tipoVisita === 'tecnica' ? costoVisita : null
+      tipoVisita === 'tecnica' ? costoVisita : null,
+      body.epp_utilizado ? JSON.stringify(body.epp_utilizado) : '[]'
     ]
   )
   
   const newOrden = rows[0]
 
   if (tipoVisita === 'tecnica') {
+    const especies = body.especies && Array.isArray(body.especies) ? body.especies : [];
     await pool.query(
-      'INSERT INTO relevamientos (orden_id, estado) VALUES ($1, $2)',
-      [newOrden.id, 'borrador']
+      'INSERT INTO relevamientos (orden_id, estado, especies) VALUES ($1, $2, $3)',
+      [newOrden.id, 'borrador', JSON.stringify(especies)]
     )
   }
   
@@ -133,7 +135,7 @@ export async function createOrden(body, user) {
 
 export async function updateOrden(id, body, user) {
   await assertOrdenAccess(id, user)
-  const allowed = ['cliente_id', 'tecnico_id', 'fecha_programada', 'fecha_inicio', 'tipo_plaga', 'tipo_visita', 'observaciones', 'estado', 'recomendaciones', 'areas_intervenidas', 'metodos_aplicacion', 'fecha_completada', 'lavado_tanques', 'lavado_tanques_cantidad', 'direccion_servicio', 'sede_id', 'costo_visita_tecnica']
+  const allowed = ['cliente_id', 'tecnico_id', 'fecha_programada', 'fecha_inicio', 'tipo_plaga', 'tipo_visita', 'observaciones', 'estado', 'recomendaciones', 'areas_intervenidas', 'metodos_aplicacion', 'epp_utilizado', 'fecha_completada', 'lavado_tanques', 'lavado_tanques_cantidad', 'direccion_servicio', 'sede_id', 'costo_visita_tecnica']
   const sets = []
   const vals = []
   for (const key of allowed) {

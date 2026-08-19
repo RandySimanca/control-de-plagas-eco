@@ -94,3 +94,9 @@ export const create = catchAsync(async (req, res) => {
     throw e;
   }
 });
+
+// GET /api/profiles/:id/dotacion - historial de dotación
+export const getDotacion = catchAsync(async (req, res) => {
+  const historial = await profilesService.getDotacionByTecnico(req.params.id);
+  res.json({ success: true, data: historial });
+});

@@ -12,5 +12,6 @@ router.get('/:id', profilesController.getById);
 router.post('/', requireAdmin, profilesController.create);
 router.patch('/:id', requireAdmin, profilesController.update);
 router.delete('/:id', requireAdmin, profilesController.remove);
+router.get('/:id/dotacion', requireAdmin, profilesController.getDotacion);
 
 export default router;

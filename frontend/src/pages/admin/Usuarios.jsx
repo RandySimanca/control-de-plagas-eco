@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import api from '../../lib/api'
 import { useAuth } from '../../contexts/AuthContext'
-import { Plus, Search, Shield, UserCog, Users as UsersIcon, UserCheck, UserX, Save, Loader2, Upload, Trash2 } from 'lucide-react'
+import { Plus, Search, Shield, UserCog, Users as UsersIcon, UserCheck, UserX, Save, Loader2, Upload, Trash2, Package, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { confirmDelete, successAlert } from '../../lib/alerts'
 import Modal from '../../components/ui/Modal'
@@ -33,6 +33,11 @@ export default function Usuarios() {
   const [signatureFile, setSignatureFile] = useState(null)
   const [saving, setSaving] = useState(false)
   const [modalLoading, setModalLoading] = useState(false)
+
+  // -- Modal Dotación --
+  const [showDotacionModal, setShowDotacionModal] = useState(false)
+  const [dotacionHistorial, setDotacionHistorial] = useState([])
+  const [dotacionLoading, setDotacionLoading] = useState(false)
 
   useEffect(() => { 
     load() 
@@ -188,6 +193,21 @@ export default function Usuarios() {
     }
   }
 
+  async function fetchDotacion(id) {
+    setDotacionLoading(true)
+    setShowDotacionModal(true)
+    try {
+      const token = localStorage.getItem('token')
+      const res = await api.get(`/profiles/${id}/dotacion`, { token })
+      setDotacionHistorial(res.data || [])
+    } catch (err) {
+      toast.error('Error al cargar dotación')
+      setShowDotacionModal(false)
+    } finally {
+      setDotacionLoading(false)
+    }
+  }
+
   const filtered = usuarios.filter(u => {
     const nombre = u.nombre_completo?.toLowerCase() || ''
     const email = u.email?.toLowerCase() || ''
@@ -315,6 +335,16 @@ export default function Usuarios() {
                 {saving ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : <><Save className="w-5 h-5" /> {isEdit ? 'Guardar Cambios' : 'Crear Usuario'}</>}
               </button>
 
+              {isEdit && form.rol === 'tecnico' && (
+                <button 
+                  type="button" 
+                  onClick={() => fetchDotacion(editingId)}
+                  className="btn-secondary text-emerald-700 hover:bg-emerald-50 hover:border-emerald-200"
+                >
+                  <Shield className="w-4 h-4" /> Historial Dotación
+                </button>
+              )}
+
               {isEdit && (
                 <button 
                   type="button" 
@@ -412,6 +442,85 @@ export default function Usuarios() {
           {filtered.length === 0 && <p className="text-center text-dark-400 py-8 text-sm">No se encontraron usuarios</p>}
         </div>
       </div>
+
+      {/* ── Modal: Historial de Dotación ── */}
+      {showDotacionModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white w-full sm:rounded-2xl max-w-2xl max-h-[90vh] sm:max-h-[85vh] flex flex-col shadow-2xl animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200">
+            <div className="flex justify-between items-center p-4 sm:p-6 border-b border-dark-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                  <Shield className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-dark-900">Historial de Dotación</h2>
+                  <p className="text-xs text-dark-500">Técnico: {form.nombre_completo}</p>
+                </div>
+              </div>
+              <button onClick={() => setShowDotacionModal(false)} className="p-2 text-dark-400 hover:text-dark-600 bg-dark-50 hover:bg-dark-100 rounded-full transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-4 sm:p-6 overflow-y-auto flex-1 bg-dark-50/30">
+              {dotacionLoading ? (
+                <div className="flex justify-center py-12">
+                  <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
+                </div>
+              ) : dotacionHistorial.length === 0 ? (
+                <div className="text-center py-12 bg-white rounded-xl border border-dashed border-dark-200">
+                  <Package className="w-12 h-12 text-dark-200 mx-auto mb-3" />
+                  <p className="text-dark-500 font-medium">Sin registros</p>
+                  <p className="text-sm text-dark-400 mt-1">Este técnico no tiene historial de dotación.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {dotacionHistorial.map(d => (
+                    <div key={d.id} className="bg-white p-4 rounded-xl shadow-sm border border-dark-100">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <h4 className="font-bold text-dark-900 text-sm flex items-center gap-2">
+                            {d.nombre_comercial}
+                            <span className="text-[10px] font-bold bg-dark-100 text-dark-600 px-2 py-0.5 rounded-full uppercase">
+                              {d.categoria}
+                            </span>
+                          </h4>
+                          <p className="text-xs text-dark-500 mt-1">
+                            {new Date(d.created_at).toLocaleDateString('es-ES', { 
+                              year: 'numeric', month: 'short', day: 'numeric', 
+                              hour: '2-digit', minute: '2-digit' 
+                            })}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <span className="inline-flex items-center gap-1 font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg text-sm border border-emerald-100">
+                            {parseFloat(d.cantidad).toLocaleString()} {d.unidad_base}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {(d.notas || d.asignado_por) && (
+                        <div className="mt-3 pt-3 border-t border-dark-50 flex flex-col gap-1">
+                          {d.notas && (
+                            <p className="text-xs text-dark-600">
+                              <span className="font-semibold text-dark-800">Notas:</span> {d.notas}
+                            </p>
+                          )}
+                          {d.asignado_por && (
+                            <p className="text-[11px] text-dark-400 mt-1">
+                              Asignado por: {d.asignado_por}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }

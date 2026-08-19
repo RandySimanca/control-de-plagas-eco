@@ -93,3 +93,18 @@ export async function upsertProfile(userId, data) {
     return rows[0];
   }
 }
+
+export async function getDotacionByTecnico(tecnicoId) {
+  const { rows } = await pool.query(`
+    SELECT m.id, m.cantidad, m.created_at, m.notas,
+           p.nombre_comercial, p.unidad_base, p.categoria,
+           u.nombre_completo AS asignado_por
+    FROM movimientos_stock m
+    JOIN productos_catalogo p ON p.id = m.producto_id
+    LEFT JOIN profiles u ON u.id = m.created_by
+    WHERE m.referencia_tipo = 'asignacion_tecnico' 
+      AND m.referencia_id = $1
+    ORDER BY m.created_at DESC
+  `, [tecnicoId]);
+  return rows;
+}

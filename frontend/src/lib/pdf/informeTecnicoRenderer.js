@@ -159,9 +159,29 @@ export async function renderInformeTecnico(data) {
     y += 4
   }
 
+  // EPP Utilizados
+  const eppOrden = (() => {
+    const raw = data?.orden?.epp_utilizado
+    if (!raw) return []
+    if (Array.isArray(raw)) return raw
+    try { const p = JSON.parse(raw); return Array.isArray(p) ? p : [] } catch { return [] }
+  })()
+
+  if (eppOrden.length > 0) {
+    checkPage(30)
+    y = drawSectionHeader('7. Elementos de Protección Personal Utilizados', y)
+    doc.setFontSize(10)
+    doc.setFont(undefined, 'normal')
+    const eppNombres = eppOrden.join(', ')
+    const eppParrafo = `Durante la ejecución de la actividad, el técnico utilizó los elementos de protección personal requeridos de acuerdo con las condiciones y características del servicio: ${eppNombres}.`
+    const eppLines = doc.splitTextToSize(eppParrafo, pageWidth - 2 * margin - 6)
+    doc.text(eppLines, col1, y)
+    y += eppLines.length * 5 + 8
+  }
+
   // Firma del técnico
   checkPage(50)
-  y = drawSectionHeader('7. Firma del Técnico', y)
+  y = drawSectionHeader('8. Firma del Técnico', y)
   if (firmaData) {
     try {
       doc.addImage(firmaData, 'PNG', col1, y, 50, 25)

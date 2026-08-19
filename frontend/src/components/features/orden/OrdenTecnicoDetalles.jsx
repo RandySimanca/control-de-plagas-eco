@@ -1,8 +1,9 @@
-import { useState } from 'react'
-import { MapPin, Package, FileText, PenLine, Plus, X, Loader2, Camera, Save } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { MapPin, Package, FileText, PenLine, Plus, X, Loader2, Camera, Save, Shield } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { generateUUID } from '../../../utils/uuid'
 import { parseTipoPlaga } from '../../../utils/tipoPlaga'
+import api from '../../../lib/api'
 
 const OPCIONES_AREAS = [
   "Áreas Administrativas y Oficinas", "Baños y Vestieres", "Bodegas y Almacenamiento",
@@ -79,10 +80,51 @@ export default function OrdenTecnicoDetalles({
   const [recommendationPhotos, setRecommendationPhotos] = useState([])
   const [savingRecomendaciones, setSavingRecomendaciones] = useState(false)
 
+  const [showEppModal, setShowEppModal] = useState(false)
+  // selectedEpp: string[] — lista de nombres de EPP marcados por el técnico
+  const [selectedEpp, setSelectedEpp] = useState([])
+  const [savingEpp, setSavingEpp] = useState(false)
+  // Catálogo de EPP cargado desde configuración (o default si falla)
+  const [eppCatalogo, setEppCatalogo] = useState([
+    'Guantes de nitrilo', 'Guantes de cuero', 'Botas de seguridad', 'Gafas protectoras',
+    'Monogafas splash', 'Respirador con filtro químico', 'Mascarilla N95',
+    'Traje Tyvek impermeable', 'Overol de trabajo', 'Casco de seguridad',
+    'Arnés de seguridad', 'Protección auditiva', 'Careta facial'
+  ])
+
+  useEffect(() => {
+    async function loadEppCatalogo() {
+      try {
+        const token = localStorage.getItem('token')
+        const { data } = await api.get('/configuracion', { token })
+        if (data?.epp_catalogo?.length) setEppCatalogo(data.epp_catalogo)
+      } catch {
+        // usar defaults
+      }
+    }
+    loadEppCatalogo()
+  }, [])
+
   const canEdit = isAssignedTecnico && orden.estado === 'en_progreso'
   const tiposControl = parseTipoPlaga(orden.tipo_plaga)
   const metodosGuardados = parseMetodos(orden.metodos_aplicacion)
   const areasGuardadas = parseAreas(orden.areas_intervenidas)
+
+  // EPP guardados: JSONB en el backend → puede llegar como array o como JSON string
+  function parseEpp(raw) {
+    if (!raw) return []
+    if (Array.isArray(raw)) return raw
+    try { const p = JSON.parse(raw); return Array.isArray(p) ? p : [] } catch { return [] }
+  }
+  const eppGuardados = parseEpp(orden.epp_utilizado)
+
+  function toggleEpp(nombre) {
+    setSelectedEpp(prev =>
+      prev.includes(nombre) ? prev.filter(e => e !== nombre) : [...prev, nombre]
+    )
+  }
+
+  function isEppSelected(nombre) { return selectedEpp.includes(nombre) }
 
   function toggleMetodo(tipo, metodo) {
     const exists = selectedMetodos.some(m => m.tipo === tipo && m.metodo === metodo)
@@ -140,6 +182,25 @@ export default function OrdenTecnicoDetalles({
     }
   }
 
+  async function handleSaveEpp() {
+    setSavingEpp(true)
+    try {
+      // epp_utilizado es JSONB → enviamos el array directamente (el backend acepta arrays vía JSON.stringify en el query)
+      const { queued } = await queueOrExecute(
+        'ordenes_servicio', 'update',
+        { id: orden.id, epp_utilizado: JSON.stringify(selectedEpp) },
+        orden.id
+      )
+      setOrden(prev => ({ ...prev, epp_utilizado: selectedEpp }))
+      setShowEppModal(false)
+      toast.success(queued ? 'EPP guardados offline ⚡' : 'EPP actualizados correctamente')
+    } catch (err) {
+      toast.error('Error al guardar EPP: ' + err.message)
+    } finally {
+      setSavingEpp(false)
+    }
+  }
+
   async function handleSaveRecomendaciones(e) {
     if (e) e.preventDefault()
     setSavingRecomendaciones(true)
@@ -183,6 +244,32 @@ export default function OrdenTecnicoDetalles({
   return (
     <>
 
+
+      {/* EPP Utilizado */}
+      <div className="card mt-6 border-t-4 border-t-emerald-500 shadow-md">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold text-dark-900 flex items-center gap-2">
+            <Shield className="w-5 h-5 text-emerald-600" /> Elementos de Protección Personal (EPP)
+          </h2>
+          {canEdit && (
+            <button onClick={() => {
+              setSelectedEpp(parseEpp(orden.epp_utilizado))
+              setShowEppModal(true)
+            }} className="btn-secondary py-1.5 px-3 text-sm flex items-center gap-2">
+              <Plus className="w-4 h-4" /> Registrar EPP
+            </button>
+          )}
+        </div>
+        {eppGuardados.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {eppGuardados.map((epp, idx) => (
+              <span key={idx} className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-3 py-1 rounded-full text-sm font-medium">{epp}</span>
+            ))}
+          </div>
+        ) : (
+          <span className="text-sm text-dark-400">No se han registrado EPP para este servicio...</span>
+        )}
+      </div>
 
       {/* Métodos */}
       <div className="card mt-6 border-t-4 border-t-indigo-400 shadow-md">
@@ -394,6 +481,42 @@ export default function OrdenTecnicoDetalles({
                 <button type="button" onClick={() => setShowRecomendacionesModal(false)} className="btn-secondary">Cerrar</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal EPP */}
+      {showEppModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="px-6 py-4 border-b border-dark-100 flex items-center justify-between shrink-0">
+              <div>
+                <h3 className="font-bold text-dark-900 flex items-center gap-2"><Shield className="w-5 h-5 text-emerald-600" /> EPP Utilizados en este Servicio</h3>
+                <p className="text-xs text-dark-500 mt-0.5">Marca solo los elementos que efectivamente utilizaste</p>
+              </div>
+              <button onClick={() => setShowEppModal(false)} className="p-2 hover:bg-dark-50 rounded-lg text-dark-400"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-6 overflow-y-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {eppCatalogo.map(epp => (
+                  <label key={epp} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${isEppSelected(epp) ? 'bg-emerald-50 border-emerald-300' : 'bg-white border-dark-200 hover:border-emerald-300'}`}>
+                    <input
+                      type="checkbox"
+                      checked={isEppSelected(epp)}
+                      onChange={() => toggleEpp(epp)}
+                      className="w-4 h-4 rounded border-dark-300 text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <span className="text-sm font-medium text-dark-700">{epp}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="p-6 border-t border-dark-100 flex justify-end gap-3 shrink-0 bg-dark-50">
+              <button onClick={() => setShowEppModal(false)} className="btn-secondary">Cancelar</button>
+              <button disabled={savingEpp} onClick={handleSaveEpp} className="btn-primary min-w-[120px]">
+                {savingEpp ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Guardar EPP'}
+              </button>
+            </div>
           </div>
         </div>
       )}

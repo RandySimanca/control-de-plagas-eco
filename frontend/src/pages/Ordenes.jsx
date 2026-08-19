@@ -25,7 +25,9 @@ const EMPTY_FORM = {
   lavado_tanques: false,
   lavado_tanques_cantidad: 1,
   sede_id: '',
-  direccion_servicio: ''
+  direccion_servicio: '',
+  epp_utilizado: [],
+  especies: []
 }
 
 
@@ -46,7 +48,10 @@ export default function Ordenes() {
   const [clientes, setClientes] = useState([])
   const [tecnicos, setTecnicos] = useState([])
   const [sedesCliente, setSedesCliente] = useState([])
+  const [eppOpciones, setEppOpciones] = useState([])
+  const [especiesOpciones, setEspeciesOpciones] = useState([])
   const [form, setForm] = useState({ ...EMPTY_FORM })
+  const [nuevaEspecie, setNuevaEspecie] = useState('')
   const [saving, setSaving] = useState(false)
   const [submitted, setSubmitted] = useState(false)
 
@@ -83,12 +88,21 @@ export default function Ordenes() {
     if (clientes.length === 0 || tecnicos.length === 0) {
       try {
         const token = localStorage.getItem('token')
-        const [clientesRes, tecnicosRes] = await Promise.all([
+        const [clientesRes, tecnicosRes, eppRes] = await Promise.all([
           api.get('/clientes', { token, params: { activo: true } }),
-          api.get('/profiles', { token, params: { rol: 'tecnico', activo: true } })
+          api.get('/profiles', { token, params: { rol: 'tecnico', activo: true } }),
+          api.get('/productos-catalogo', { token, params: { categoria: 'epp', estado: 'activo' } }).catch(() => ({ data: [] }))
         ])
         setClientes(clientesRes.data || [])
         setTecnicos(tecnicosRes.data || [])
+        
+        // EPP desde catálogo de productos
+        const eppDesdeCatalogo = (eppRes.data || []).map(p => p.nombre_comercial)
+        setEppOpciones(eppDesdeCatalogo)
+        
+        // Especies iniciales predeterminadas como sugerencias
+        const { ESPECIES_DEFAULT } = await import('../utils/tipoVisitaConfig.js')
+        setEspeciesOpciones([...ESPECIES_DEFAULT])
       } catch (err) {
         console.error('Error fetching data for modal:', err)
         toast.error('Error al cargar datos del formulario')
@@ -149,7 +163,9 @@ export default function Ordenes() {
         orden_visita_origen_id: form.orden_visita_origen_id || null,
         costo_visita_tecnica: form.tipo_visita === 'tecnica' && form.visita_tiene_costo && form.costo_visita_tecnica
           ? Number(form.costo_visita_tecnica)
-          : null
+          : null,
+        epp_utilizado: form.epp_utilizado || [],
+        especies: form.especies || []
       }, { token })
 
       // Si viene de una solicitud, actualizar según tipo de orden creada
@@ -359,8 +375,8 @@ export default function Ordenes() {
                     onChange={e => setForm(p => ({
                       ...p,
                       tipo_visita: e.target.value,
-                      tipo_plaga: e.target.value === 'tecnica' ? [] : p.tipo_plaga,
-                      lavado_tanques: e.target.value === 'tecnica' ? false : p.lavado_tanques
+                      lavado_tanques: e.target.value === 'tecnica' ? false : p.lavado_tanques,
+                      especies: e.target.value !== 'tecnica' ? [] : p.especies
                     }))}
                   >
                     {TIPOS_VISITA.map(t => (
@@ -378,8 +394,7 @@ export default function Ordenes() {
                 </div>
               </div>
 
-              {form.tipo_visita !== 'tecnica' && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 <div>
                   <label className="label-field">Tipo de Control</label>
                   <div className="flex flex-wrap gap-2 p-2 border rounded-md">
@@ -432,8 +447,116 @@ export default function Ordenes() {
                     </div>
                   )}
                 </div>
+
+                {/* Selección de EPP */}
+                <div>
+                  <label className="label-field text-emerald-700">Elementos de Protección Personal (EPP) requeridos</label>
+                  <div className="flex flex-wrap gap-2 p-2 border rounded-md min-h-[42px]">
+                    {eppOpciones.length === 0 ? (
+                      <span className="text-sm text-gray-400 italic">No hay EPPs registrados en el catálogo de productos.</span>
+                    ) : (
+                      eppOpciones.map(epp => {
+                        const seleccionado = (form.epp_utilizado || []).includes(epp);
+                        return (
+                          <button
+                            key={epp}
+                            type="button"
+                            onClick={() =>
+                              setForm(p => {
+                                const actuales = p.epp_utilizado || [];
+                                const isSelected = actuales.includes(epp);
+                                const nuevos = isSelected
+                                  ? actuales.filter(t => t !== epp)
+                                  : [...actuales, epp];
+                                return { ...p, epp_utilizado: nuevos };
+                              })
+                            }
+                            className={`px-3 py-1 rounded-full text-xs border transition-colors ${seleccionado
+                              ? 'bg-emerald-600 text-white border-emerald-600'
+                              : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                              }`}
+                          >
+                            {epp}
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+
+                {/* Selección de Especies (Solo si es técnica) */}
+                {form.tipo_visita === 'tecnica' && (
+                  <div>
+                    <label className="label-field text-indigo-700">Especies causantes detectadas (Opcional)</label>
+                    <p className="text-[10px] text-dark-400 mb-2">Las especies que selecciones aquí se cargarán por defecto en el relevamiento.</p>
+                    
+                    <div className="flex gap-2 mb-2">
+                      <input 
+                        type="text" 
+                        value={nuevaEspecie}
+                        onChange={e => setNuevaEspecie(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            if (nuevaEspecie.trim() && !form.especies.includes(nuevaEspecie.trim())) {
+                              setForm(p => ({ ...p, especies: [...(p.especies || []), nuevaEspecie.trim()] }));
+                              if (!especiesOpciones.includes(nuevaEspecie.trim())) {
+                                setEspeciesOpciones(prev => [...prev, nuevaEspecie.trim()]);
+                              }
+                              setNuevaEspecie('');
+                            }
+                          }
+                        }}
+                        placeholder="Escribe una nueva especie y presiona Enter..." 
+                        className="input-field py-1.5 text-sm flex-1"
+                      />
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          if (nuevaEspecie.trim() && !form.especies.includes(nuevaEspecie.trim())) {
+                            setForm(p => ({ ...p, especies: [...(p.especies || []), nuevaEspecie.trim()] }));
+                            if (!especiesOpciones.includes(nuevaEspecie.trim())) {
+                              setEspeciesOpciones(prev => [...prev, nuevaEspecie.trim()]);
+                            }
+                            setNuevaEspecie('');
+                          }
+                        }}
+                        className="px-3 py-1.5 bg-indigo-100 text-indigo-700 rounded-lg text-sm font-semibold hover:bg-indigo-200 transition-colors"
+                      >
+                        Agregar
+                      </button>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 p-2 border rounded-md bg-indigo-50/30">
+                      {especiesOpciones.map(especie => {
+                        const seleccionado = (form.especies || []).includes(especie);
+                        return (
+                          <button
+                            key={especie}
+                            type="button"
+                            onClick={() =>
+                              setForm(p => {
+                                const actuales = p.especies || [];
+                                const isSelected = actuales.includes(especie);
+                                const nuevos = isSelected
+                                  ? actuales.filter(t => t !== especie)
+                                  : [...actuales, especie];
+                                return { ...p, especies: nuevos };
+                              })
+                            }
+                            className={`px-3 py-1 rounded-full text-xs border transition-colors ${seleccionado
+                              ? 'bg-indigo-600 text-white border-indigo-600'
+                              : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                              }`}
+                          >
+                            {especie}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
-              )}
 
               {form.tipo_visita === 'tecnica' && (
                 <div className="space-y-3 p-4 bg-indigo-50 border border-indigo-200 rounded-xl">

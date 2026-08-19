@@ -36,4 +36,33 @@ router.post('/:id/reabastecer', requireAdmin, productosController.reabastecerSto
 // POST /api/productos-catalogo/:id/ajuste - Ajuste manual de stock (corrección física)
 router.post('/:id/ajuste', requireAdmin, productosController.ajusteManualStock);
 
+// POST /api/productos-catalogo/:id/asignar - Asignar dotación a un técnico
+router.post('/:id/asignar', requireAdmin, productosController.asignarTecnicoStock);
+
+// ─── ACTIVOS FIJOS (EQUIPOS) ──────────────────────────────────────────────────
+
+// GET /api/productos-catalogo/activos/disponibles - Listar activos disponibles (técnicos y admin)
+router.get('/activos/disponibles', productosController.getActivosDisponibles);
+
+// GET /api/productos-catalogo/activos/prestados/:tecnico_id - Listar prestados a un técnico
+router.get('/activos/prestados/:tecnico_id', productosController.getActivosPrestados);
+
+// POST /api/productos-catalogo/activos/prestar - Registrar préstamo
+router.post('/activos/prestar', requireAdmin, productosController.prestarActivos);
+
+// POST /api/productos-catalogo/activos/devolver - Registrar devolución
+router.post('/activos/devolver', requireAdmin, productosController.devolverActivos);
+
+// GET /api/productos-catalogo/:id/activos - Listar activos de un producto
+router.get('/:id/activos', requireAdmin, productosController.getActivos);
+
+// POST /api/productos-catalogo/:id/activos - Crear activo
+router.post('/:id/activos', requireAdmin, productosController.createActivo);
+
+// PATCH /api/productos-catalogo/activos/:id/estado - Actualizar estado de activo
+router.patch('/activos/:id/estado', requireAdmin, productosController.updateActivoEstado);
+
+// DELETE /api/productos-catalogo/activos/:id - Eliminar activo
+router.delete('/activos/:id', requireAdmin, productosController.deleteActivo);
+
 export default router;

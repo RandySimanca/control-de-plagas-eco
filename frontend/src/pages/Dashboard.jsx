@@ -14,6 +14,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import HelpButton from '../components/features/HelpButton'
 import { HELP_CONTENT } from '../lib/helpContent'
 import { formatFecha } from '../utils/dateUtils'
+import PrestamoEquipos from '../components/features/PrestamoEquipos'
 
 const CACHE_KEY_DASHBOARD = 'dashboard_data'
 
@@ -30,6 +31,7 @@ export default function Dashboard() {
   const [isOfflineData, setIsOfflineData] = useState(false)
   const [loading, setLoading] = useState(true)
   const [chartData, setChartData] = useState([])
+  const [showPrestamoModal, setShowPrestamoModal] = useState(false)
 
   useEffect(() => {
     loadDashboard()
@@ -318,6 +320,7 @@ export default function Dashboard() {
       {/* Banners Administrativos */}
       {isAdmin && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          {/* ... (omitimos el banner administrativo en la modificación, mantenemos el original o lo dejamos tal cual. Es mejor insertarlo antes de "Actividad y Tabla") ... */}
           <div className="bg-white rounded-[24px] border border-dark-100 shadow-[0_2px_10px_rgba(0,0,0,0.02)] p-8 flex flex-col md:flex-row items-center justify-between group overflow-hidden relative hover:shadow-md transition-shadow">
             <div className="absolute right-0 top-0 w-64 h-64 bg-primary-50/50 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
             <div className="relative z-10 flex-1 pr-6">
@@ -373,6 +376,35 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* Acciones de Técnico */}
+      {!isAdmin && profile?.rol === 'tecnico' && (
+        <div className="bg-white rounded-[24px] border border-dark-100 shadow-[0_2px_10px_rgba(0,0,0,0.02)] p-6 mb-8 flex flex-col md:flex-row items-center justify-between">
+          <div className="flex items-center gap-4 mb-4 md:mb-0">
+            <div className="w-12 h-12 bg-orange-50 text-orange-600 rounded-2xl flex items-center justify-center border border-orange-100">
+              <Shield className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-dark-900">Equipos de Campo</h3>
+              <p className="text-sm text-dark-500">Registra qué equipos te llevas y devuélvelos al terminar tu turno.</p>
+            </div>
+          </div>
+          <button 
+            onClick={() => setShowPrestamoModal(true)}
+            disabled={!isOnline}
+            className="btn-primary bg-orange-600 hover:bg-orange-700 shadow-orange-600/20 whitespace-nowrap"
+            title={!isOnline ? "Necesitas conexión a internet para esto" : ""}
+          >
+            Check-out / Check-in Equipos
+          </button>
+        </div>
+      )}
+
+      <PrestamoEquipos 
+        isOpen={showPrestamoModal} 
+        onClose={() => setShowPrestamoModal(false)} 
+        tecnicoId={profile?.id}
+      />
 
       {/* Actividad y Tabla */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

@@ -58,6 +58,24 @@ export const ajusteManualStock = catchAsync(async (req, res) => {
   res.json({ success: true, data: producto });
 });
 
+export const asignarTecnicoStock = catchAsync(async (req, res) => {
+  const { tecnico_id, cantidad, notas } = req.body;
+  if (!tecnico_id) {
+    return res.status(400).json({ success: false, message: 'tecnico_id es requerido' });
+  }
+  if (!cantidad || parseFloat(cantidad) <= 0) {
+    return res.status(400).json({ success: false, message: 'cantidad debe ser mayor a 0' });
+  }
+  const producto = await productosService.asignarTecnicoStock(
+    req.params.id,
+    tecnico_id,
+    parseFloat(cantidad),
+    notas,
+    req.user.id
+  );
+  res.json({ success: true, data: producto });
+});
+
 // ─── AUDITORIA ────────────────────────────────────────────────────────────────
 
 export const getAuditoria = catchAsync(async (req, res) => {
@@ -68,4 +86,60 @@ export const getAuditoria = catchAsync(async (req, res) => {
 export const getAuditoriaResumen = catchAsync(async (req, res) => {
   const data = await productosService.getAuditoriaResumen(req.query);
   res.json({ success: true, data });
+});
+
+// ─── ACTIVOS FIJOS (EQUIPOS) ──────────────────────────────────────────────────
+
+export const getActivos = catchAsync(async (req, res) => {
+  const activos = await productosService.getActivosByProducto(req.params.id);
+  res.json({ success: true, data: activos });
+});
+
+export const getActivosDisponibles = catchAsync(async (req, res) => {
+  const activos = await productosService.getActivosDisponibles();
+  res.json({ success: true, data: activos });
+});
+
+export const createActivo = catchAsync(async (req, res) => {
+  if (!req.body.codigo_activo) {
+    return res.status(400).json({ success: false, message: 'codigo_activo es requerido' });
+  }
+  const activo = await productosService.createActivo(req.params.id, req.body);
+  res.status(201).json({ success: true, data: activo });
+});
+
+export const deleteActivo = catchAsync(async (req, res) => {
+  await productosService.deleteActivo(req.params.id);
+  res.status(204).end();
+});
+
+export const updateActivoEstado = catchAsync(async (req, res) => {
+  if (!req.body.estado) {
+    return res.status(400).json({ success: false, message: 'estado es requerido' });
+  }
+  const activo = await productosService.updateActivoEstado(req.params.id, req.body.estado, req.body.notas);
+  res.json({ success: true, data: activo });
+});
+
+export const prestarActivos = catchAsync(async (req, res) => {
+  const { tecnico_id, activos_ids, notas } = req.body;
+  if (!tecnico_id || !activos_ids || activos_ids.length === 0) {
+    return res.status(400).json({ success: false, message: 'tecnico_id y activos_ids son requeridos' });
+  }
+  await productosService.registrarPrestamoActivos(tecnico_id, activos_ids, notas, req.user.id);
+  res.json({ success: true, message: 'Préstamo registrado exitosamente' });
+});
+
+export const devolverActivos = catchAsync(async (req, res) => {
+  const { tecnico_id, activos_ids, notas } = req.body;
+  if (!tecnico_id || !activos_ids || activos_ids.length === 0) {
+    return res.status(400).json({ success: false, message: 'tecnico_id y activos_ids son requeridos' });
+  }
+  await productosService.registrarDevolucionActivos(tecnico_id, activos_ids, notas, req.user.id);
+  res.json({ success: true, message: 'Devolución registrada exitosamente' });
+});
+
+export const getActivosPrestados = catchAsync(async (req, res) => {
+  const activos = await productosService.getActivosPrestadosByTecnico(req.params.tecnico_id);
+  res.json({ success: true, data: activos });
 });

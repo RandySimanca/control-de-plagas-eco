@@ -266,9 +266,30 @@ export async function renderCertificado(data) {
     y += 2
   }
 
-  // Sección 7: Fotos
+  // Sección 7: EPP Utilizados
+  const eppParsed = (() => {
+    const raw = orden.epp_utilizado
+    if (!raw) return []
+    if (Array.isArray(raw)) return raw
+    try { const p = JSON.parse(raw); return Array.isArray(p) ? p : [] } catch { return [] }
+  })()
+
+  if (eppParsed.length > 0) {
+    if (y > pageHeight - 40) { doc.addPage(); y = 42 }
+    y = drawSectionHeader('7. Elementos de Protección Personal Utilizados', y)
+
+    // Párrafo descriptivo según requerimiento
+    const eppNombres = eppParsed.join(', ')
+    const eppParrafo = `Durante la ejecución de la actividad, el técnico utilizó los elementos de protección personal requeridos de acuerdo con las condiciones y características del servicio: ${eppNombres}.`
+    doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(50, 50, 50)
+    const eppLines = doc.splitTextToSize(eppParrafo, pageWidth - 2 * margin - 6)
+    doc.text(eppLines, margin + 3, y)
+    y += eppLines.length * 4.5 + 4
+  }
+
+  // Sección 8: Fotos
   if (evidences.length > 0) {
-    doc.addPage(); y = 42; y = drawSectionHeader('7. Resultados y Registro Fotográfico', y)
+    doc.addPage(); y = 42; y = drawSectionHeader('8. Resultados y Registro Fotográfico', y)
 
     // Ordenar fotos de ambiente cronológicamente (más antigua primero)
     const evidencesSorted = [...evidences].sort((a, b) => {

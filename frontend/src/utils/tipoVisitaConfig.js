@@ -12,7 +12,7 @@ export const NIVELES_ACUMULACION = [
   { id: 'alto', label: 'Alto' }
 ]
 
-export const ESPECIES_DEFAULT = ['Palomas', 'Roedores', 'Insectos', 'Aves', 'Murciélagos', 'Otros']
+export const ESPECIES_DEFAULT = ['Palomas', 'Roedores', 'Insectos', 'Aves', 'Murciélagos', 'Abejas', 'Otros']
 
 export function isVisitaTecnica(orden) {
   return orden?.tipo_visita === 'tecnica'

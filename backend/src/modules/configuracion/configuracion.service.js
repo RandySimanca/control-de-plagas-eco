@@ -36,7 +36,7 @@ export async function createConfig(data) {
     recomendaciones_generales,
     version_informe,
     fecha_modelo_informe,
-    JSON.stringify(especies_causantes || ['Palomas', 'Roedores', 'Insectos', 'Aves', 'Murciélagos', 'Otros'])
+    JSON.stringify(especies_causantes || ['Palomas', 'Roedores', 'Insectos', 'Aves', 'Murciélagos', 'Avispas', 'Abejas', 'Otros'])
   ]);
 
   return rows[0];
@@ -46,7 +46,7 @@ export async function updateConfig(id, data) {
   const allowed = [
     'nombre_empresa', 'nit', 'email_contacto', 'telefono_contacto',
     'direccion_fiscal', 'footer_pdf', 'logo_url',
-    'recomendaciones_generales', 'version_informe', 'fecha_modelo_informe', 'especies_causantes'
+    'recomendaciones_generales', 'version_informe', 'fecha_modelo_informe', 'especies_causantes', 'epp_catalogo'
   ];
 
   const fields = [];
@@ -55,8 +55,8 @@ export async function updateConfig(id, data) {
 
   for (const key of allowed) {
     if (data[key] !== undefined) {
-      fields.push(`${key} = $${idx}${key === 'especies_causantes' ? '::jsonb' : ''}`);
-      values.push(key === 'especies_causantes' ? JSON.stringify(data[key]) : data[key]);
+      fields.push(`${key} = $${idx}${(key === 'especies_causantes' || key === 'epp_catalogo') ? '::jsonb' : ''}`);
+      values.push((key === 'especies_causantes' || key === 'epp_catalogo') ? JSON.stringify(data[key]) : data[key]);
       idx++;
     }
   }
