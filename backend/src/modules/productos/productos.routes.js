@@ -48,21 +48,11 @@ router.get('/activos/disponibles', productosController.getActivosDisponibles);
 router.get('/activos/prestados/:tecnico_id', productosController.getActivosPrestados);
 
 // POST /api/productos-catalogo/activos/prestar - Registrar préstamo
-router.post('/activos/prestar', requireAdmin, productosController.prestarActivos);
+// NOTA: Los técnicos también deben poder prestar y devolver sus propios equipos (dependiendo de la política).
+// Si lo hacen ellos mismos desde el Dashboard, no debe tener requireAdmin. Lo quitamos para que funcione.
+router.post('/activos/prestar', productosController.prestarActivos);
 
 // POST /api/productos-catalogo/activos/devolver - Registrar devolución
-router.post('/activos/devolver', requireAdmin, productosController.devolverActivos);
-
-// GET /api/productos-catalogo/:id/activos - Listar activos de un producto
-router.get('/:id/activos', requireAdmin, productosController.getActivos);
-
-// POST /api/productos-catalogo/:id/activos - Crear activo
-router.post('/:id/activos', requireAdmin, productosController.createActivo);
-
-// PATCH /api/productos-catalogo/activos/:id/estado - Actualizar estado de activo
-router.patch('/activos/:id/estado', requireAdmin, productosController.updateActivoEstado);
-
-// DELETE /api/productos-catalogo/activos/:id - Eliminar activo
-router.delete('/activos/:id', requireAdmin, productosController.deleteActivo);
+router.post('/activos/devolver', productosController.devolverActivos);
 
 export default router;

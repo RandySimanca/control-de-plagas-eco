@@ -98,16 +98,48 @@ export async function createProductoCatalogo(body) {
     stock_actual,
     stock_minimo,
     presentacion_compra,
-    factor_conversion
+    factor_conversion,
+    marca,
+    modelo,
+    numero_serie,
+    codigo_activo,
+    estado_fisico
   } = body;
+
+  // Validar unicidad de codigo_activo y numero_serie para equipos
+  if (categoria === 'equipo') {
+    if (codigo_activo) {
+      const { rows: dup } = await pool.query(
+        `SELECT id, nombre_comercial FROM productos_catalogo WHERE categoria = 'equipo' AND codigo_activo = $1 LIMIT 1`,
+        [codigo_activo]
+      );
+      if (dup[0]) throw new AppError(
+        `El código de activo "${codigo_activo}" ya está registrado para el equipo "${dup[0].nombre_comercial}". Cada equipo debe tener un código único.`,
+        409
+      );
+    }
+    if (numero_serie) {
+      const { rows: dup } = await pool.query(
+        `SELECT id, nombre_comercial FROM productos_catalogo WHERE categoria = 'equipo' AND numero_serie = $1 LIMIT 1`,
+        [numero_serie]
+      );
+      if (dup[0]) throw new AppError(
+        `El número de serie "${numero_serie}" ya está registrado para el equipo "${dup[0].nombre_comercial}". Cada equipo debe tener un serial único.`,
+        409
+      );
+    }
+  }
+
+  const realStock = categoria === 'equipo' ? 1 : (stock_actual != null ? parseFloat(stock_actual) : 0);
 
   const { rows } = await pool.query(
     `INSERT INTO productos_catalogo (
        nombre_comercial, ingrediente_activo, dosis_recomendada, tipo_producto,
        ficha_seguridad_url, estado, categoria, unidad_base, stock_actual,
-       stock_minimo, presentacion_compra, factor_conversion
+       stock_minimo, presentacion_compra, factor_conversion,
+       marca, modelo, numero_serie, codigo_activo, estado_fisico
      )
-     VALUES ($1,$2,$3,$4,$5,COALESCE($6,'activo'),$7,$8,COALESCE($9,0),COALESCE($10,0),$11,COALESCE($12,1))
+     VALUES ($1,$2,$3,$4,$5,COALESCE($6,'activo'),$7,$8,$9,COALESCE($10,0),$11,COALESCE($12,1),$13,$14,$15,$16,COALESCE($17,'disponible'))
      RETURNING *`,
     [
       nombre_comercial,
@@ -118,16 +150,21 @@ export async function createProductoCatalogo(body) {
       estado || 'activo',
       categoria || 'otro',
       unidad_base || 'unidad',
-      stock_actual != null ? parseFloat(stock_actual) : 0,
+      realStock,
       stock_minimo != null ? parseFloat(stock_minimo) : 0,
       presentacion_compra || null,
-      factor_conversion != null ? parseFloat(factor_conversion) : 1
+      factor_conversion != null ? parseFloat(factor_conversion) : 1,
+      marca || null,
+      modelo || null,
+      numero_serie || null,
+      codigo_activo || null,
+      estado_fisico || 'disponible'
     ]
   );
 
-  // Si se crea con stock inicial > 0, registrar el movimiento de entrada
+  // Si se crea con stock inicial > 0, registrar el movimiento de entrada (omitimos para equipos porque son únicos y se controlan por estado_prestamo)
   const prod = rows[0];
-  if (parseFloat(prod.stock_actual || 0) > 0) {
+  if (parseFloat(prod.stock_actual || 0) > 0 && prod.categoria !== 'equipo') {
     await pool.query(
       `INSERT INTO movimientos_stock (producto_id, tipo, cantidad, referencia_tipo, notas)
        VALUES ($1, 'entrada', $2, 'ajuste_manual', 'Stock inicial al crear producto')`,
@@ -139,10 +176,38 @@ export async function createProductoCatalogo(body) {
 }
 
 export async function updateProductoCatalogo(id, body) {
+  // Validar unicidad de codigo_activo y numero_serie al editar equipos
+  const currentRow = await pool.query('SELECT categoria FROM productos_catalogo WHERE id = $1', [id]);
+  const esEquipo = currentRow.rows[0]?.categoria === 'equipo' || body.categoria === 'equipo';
+
+  if (esEquipo) {
+    if (body.codigo_activo) {
+      const { rows: dup } = await pool.query(
+        `SELECT id, nombre_comercial FROM productos_catalogo WHERE categoria = 'equipo' AND codigo_activo = $1 AND id != $2 LIMIT 1`,
+        [body.codigo_activo, id]
+      );
+      if (dup[0]) throw new AppError(
+        `El código de activo "${body.codigo_activo}" ya está registrado para el equipo "${dup[0].nombre_comercial}". Usa un código único.`,
+        409
+      );
+    }
+    if (body.numero_serie) {
+      const { rows: dup } = await pool.query(
+        `SELECT id, nombre_comercial FROM productos_catalogo WHERE categoria = 'equipo' AND numero_serie = $1 AND id != $2 LIMIT 1`,
+        [body.numero_serie, id]
+      );
+      if (dup[0]) throw new AppError(
+        `El número de serie "${body.numero_serie}" ya está registrado para el equipo "${dup[0].nombre_comercial}". Cada equipo debe tener un serial único.`,
+        409
+      );
+    }
+  }
+
   const allowed = [
     'nombre_comercial', 'ingrediente_activo', 'dosis_recomendada', 'tipo_producto',
     'ficha_seguridad_url', 'estado', 'categoria', 'unidad_base',
-    'stock_minimo', 'presentacion_compra', 'factor_conversion'
+    'stock_minimo', 'presentacion_compra', 'factor_conversion',
+    'marca', 'modelo', 'numero_serie', 'codigo_activo', 'estado_fisico'
   ];
   const sets = [];
   const vals = [];
@@ -471,63 +536,14 @@ export async function getAuditoriaResumen(filters = {}) {
 
 // ─── ACTIVOS FIJOS (EQUIPOS) ──────────────────────────────────────────────────
 
-export async function getActivosByProducto(productoId) {
-  const { rows } = await pool.query(`
-    SELECT a.*, p.nombre_completo as tecnico_actual_nombre
-    FROM equipos_activos a
-    LEFT JOIN profiles p ON p.id = a.tecnico_actual_id
-    WHERE a.producto_id = $1
-    ORDER BY a.created_at DESC
-  `, [productoId]);
-  return rows;
-}
-
 export async function getActivosDisponibles() {
   const { rows } = await pool.query(`
-    SELECT a.*, pc.nombre_comercial, pc.categoria
-    FROM equipos_activos a
-    JOIN productos_catalogo pc ON pc.id = a.producto_id
-    WHERE a.estado = 'disponible'
-    ORDER BY pc.nombre_comercial ASC, a.codigo_activo ASC
+    SELECT *
+    FROM productos_catalogo
+    WHERE categoria = 'equipo' AND estado_prestamo = 'en_bodega' AND estado_fisico != 'baja' AND estado_fisico != 'perdido'
+    ORDER BY nombre_comercial ASC, codigo_activo ASC
   `);
   return rows;
-}
-
-export async function createActivo(productoId, data) {
-  const { codigo_activo, nombre, marca, modelo, numero_serie, estado, notas } = data;
-  const { rows } = await pool.query(`
-    INSERT INTO equipos_activos (producto_id, codigo_activo, nombre, marca, modelo, numero_serie, estado, notas)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-    RETURNING *
-  `, [
-    productoId, 
-    codigo_activo, 
-    nombre || null, 
-    marca || null, 
-    modelo || null, 
-    numero_serie || null, 
-    estado || 'disponible', 
-    notas || null
-  ]);
-  return rows[0];
-}
-
-export async function deleteActivo(activoId) {
-  // Solo se puede eliminar si está disponible o de baja. Prestado no debería borrarse.
-  const { rows } = await pool.query('SELECT estado FROM equipos_activos WHERE id = $1', [activoId]);
-  if (!rows[0]) throw new AppError('Activo no encontrado', 404);
-  if (rows[0].estado === 'prestado') throw new AppError('No se puede eliminar un activo que está prestado', 400);
-  
-  await pool.query('DELETE FROM equipos_activos WHERE id = $1', [activoId]);
-}
-
-export async function updateActivoEstado(activoId, estado, notas) {
-  const { rows } = await pool.query(`
-    UPDATE equipos_activos 
-    SET estado = $2, notas = COALESCE($3, notas), updated_at = NOW()
-    WHERE id = $1 RETURNING *
-  `, [activoId, estado, notas]);
-  return rows[0];
 }
 
 export async function registrarPrestamoActivos(tecnicoId, activosIds, notas, adminId) {
@@ -536,19 +552,19 @@ export async function registrarPrestamoActivos(tecnicoId, activosIds, notas, adm
     await client.query('BEGIN');
     
     for (const activoId of activosIds) {
-      const { rows } = await client.query('SELECT estado FROM equipos_activos WHERE id = $1 FOR UPDATE', [activoId]);
-      if (!rows[0] || rows[0].estado !== 'disponible') {
-        throw new AppError('Uno o más activos no están disponibles', 400);
+      const { rows } = await client.query('SELECT estado_prestamo FROM productos_catalogo WHERE id = $1 FOR UPDATE', [activoId]);
+      if (!rows[0] || rows[0].estado_prestamo !== 'en_bodega') {
+        throw new AppError('Uno o más equipos no están disponibles en bodega', 400);
       }
       
       await client.query(`
-        UPDATE equipos_activos 
-        SET estado = 'prestado', tecnico_actual_id = $2, ultima_fecha_prestamo = NOW(), updated_at = NOW()
+        UPDATE productos_catalogo 
+        SET estado_prestamo = 'prestado', tecnico_actual_id = $2, ultima_fecha_prestamo = NOW(), updated_at = NOW()
         WHERE id = $1
       `, [activoId, tecnicoId]);
       
       await client.query(`
-        INSERT INTO historial_prestamos_equipos (activo_id, tecnico_id, tipo_movimiento, notas, registrado_por)
+        INSERT INTO historial_prestamos_equipos (producto_id, tecnico_id, tipo_movimiento, notas, registrado_por)
         VALUES ($1, $2, 'salida', $3, $4)
       `, [activoId, tecnicoId, notas || null, adminId || null]);
     }
@@ -568,19 +584,19 @@ export async function registrarDevolucionActivos(tecnicoId, activosIds, notas, a
     await client.query('BEGIN');
     
     for (const activoId of activosIds) {
-      const { rows } = await client.query('SELECT estado, tecnico_actual_id FROM equipos_activos WHERE id = $1 FOR UPDATE', [activoId]);
-      if (!rows[0] || rows[0].estado !== 'prestado' || rows[0].tecnico_actual_id !== tecnicoId) {
-        throw new AppError('Uno o más activos no están prestados a este técnico', 400);
+      const { rows } = await client.query('SELECT estado_prestamo, tecnico_actual_id FROM productos_catalogo WHERE id = $1 FOR UPDATE', [activoId]);
+      if (!rows[0] || rows[0].estado_prestamo !== 'prestado' || rows[0].tecnico_actual_id !== tecnicoId) {
+        throw new AppError('Uno o más equipos no están prestados a este técnico', 400);
       }
       
       await client.query(`
-        UPDATE equipos_activos 
-        SET estado = 'disponible', tecnico_actual_id = NULL, updated_at = NOW()
+        UPDATE productos_catalogo 
+        SET estado_prestamo = 'en_bodega', tecnico_actual_id = NULL, updated_at = NOW()
         WHERE id = $1
       `, [activoId]);
       
       await client.query(`
-        INSERT INTO historial_prestamos_equipos (activo_id, tecnico_id, tipo_movimiento, notas, registrado_por)
+        INSERT INTO historial_prestamos_equipos (producto_id, tecnico_id, tipo_movimiento, notas, registrado_por)
         VALUES ($1, $2, 'entrada', $3, $4)
       `, [activoId, tecnicoId, notas || null, adminId || null]);
     }
@@ -596,11 +612,10 @@ export async function registrarDevolucionActivos(tecnicoId, activosIds, notas, a
 
 export async function getActivosPrestadosByTecnico(tecnicoId) {
   const { rows } = await pool.query(`
-    SELECT a.*, pc.nombre_comercial, pc.categoria
-    FROM equipos_activos a
-    JOIN productos_catalogo pc ON pc.id = a.producto_id
-    WHERE a.tecnico_actual_id = $1 AND a.estado = 'prestado'
-    ORDER BY a.ultima_fecha_prestamo DESC
+    SELECT *
+    FROM productos_catalogo
+    WHERE categoria = 'equipo' AND tecnico_actual_id = $1 AND estado_prestamo = 'prestado'
+    ORDER BY ultima_fecha_prestamo DESC
   `, [tecnicoId]);
   return rows;
 }

@@ -90,35 +90,9 @@ export const getAuditoriaResumen = catchAsync(async (req, res) => {
 
 // ─── ACTIVOS FIJOS (EQUIPOS) ──────────────────────────────────────────────────
 
-export const getActivos = catchAsync(async (req, res) => {
-  const activos = await productosService.getActivosByProducto(req.params.id);
-  res.json({ success: true, data: activos });
-});
-
 export const getActivosDisponibles = catchAsync(async (req, res) => {
   const activos = await productosService.getActivosDisponibles();
   res.json({ success: true, data: activos });
-});
-
-export const createActivo = catchAsync(async (req, res) => {
-  if (!req.body.codigo_activo) {
-    return res.status(400).json({ success: false, message: 'codigo_activo es requerido' });
-  }
-  const activo = await productosService.createActivo(req.params.id, req.body);
-  res.status(201).json({ success: true, data: activo });
-});
-
-export const deleteActivo = catchAsync(async (req, res) => {
-  await productosService.deleteActivo(req.params.id);
-  res.status(204).end();
-});
-
-export const updateActivoEstado = catchAsync(async (req, res) => {
-  if (!req.body.estado) {
-    return res.status(400).json({ success: false, message: 'estado es requerido' });
-  }
-  const activo = await productosService.updateActivoEstado(req.params.id, req.body.estado, req.body.notas);
-  res.json({ success: true, data: activo });
 });
 
 export const prestarActivos = catchAsync(async (req, res) => {
