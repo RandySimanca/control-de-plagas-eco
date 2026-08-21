@@ -9,7 +9,7 @@ export default function PrestamoInsumos({ isOpen, onClose, tecnicoId }) {
   const [misInsumos, setMisInsumos] = useState([])
   const [loading, setLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  
+
   // Para sacar de bodega
   const [selectedProducto, setSelectedProducto] = useState(null)
   const [cantidadSacar, setCantidadSacar] = useState('')
@@ -45,9 +45,9 @@ export default function PrestamoInsumos({ isOpen, onClose, tecnicoId }) {
         setMisInsumos(data?.data || [])
         // Inicializar devoluciones con el sobrante esperado
         const initialDevs = {}
-        ;(data?.data || []).forEach(item => {
-          initialDevs[item.id] = Math.max(0, parseFloat(item.cantidad_sacada) - parseFloat(item.cantidad_usada))
-        })
+          ; (data?.data || []).forEach(item => {
+            initialDevs[item.id] = Math.max(0, parseFloat(item.cantidad_sacada) - parseFloat(item.cantidad_usada))
+          })
         setDevoluciones(initialDevs)
       }
     } catch (err) {
@@ -60,7 +60,7 @@ export default function PrestamoInsumos({ isOpen, onClose, tecnicoId }) {
   const handleSacar = async (e) => {
     e.preventDefault()
     if (!selectedProducto || !cantidadSacar) return toast.error('Selecciona producto y cantidad')
-    
+
     setIsSubmitting(true)
     try {
       const token = localStorage.getItem('token')
@@ -68,7 +68,7 @@ export default function PrestamoInsumos({ isOpen, onClose, tecnicoId }) {
         tecnico_id: tecnicoId,
         items: [{ catalogo_id: selectedProducto.id, cantidad: parseFloat(cantidadSacar), lote }]
       }, { token })
-      
+
       toast.success('Insumo registrado en tu vehículo')
       resetForm()
       // Opcional: recargar datos o mostrar mensaje
@@ -93,7 +93,7 @@ export default function PrestamoInsumos({ isOpen, onClose, tecnicoId }) {
         tecnico_id: tecnicoId,
         items
       }, { token })
-      
+
       toast.success('Sobrantes devueltos a bodega')
       loadData()
     } catch (err) {
@@ -114,7 +114,7 @@ export default function PrestamoInsumos({ isOpen, onClose, tecnicoId }) {
               <Beaker className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-dark-900">Mis Insumos (Check-in / Check-out)</h2>
+              <h2 className="text-lg font-bold text-dark-900">Mis Insumos (Entrada / Salida)</h2>
               <p className="text-xs text-dark-500">Registra qué insumos llevas a campo y devuelve los sobrantes</p>
             </div>
           </div>
@@ -124,13 +124,13 @@ export default function PrestamoInsumos({ isOpen, onClose, tecnicoId }) {
         </div>
 
         <div className="flex border-b border-dark-100">
-          <button 
+          <button
             onClick={() => setActiveTab('sacar')}
             className={`flex-1 py-3 text-sm font-bold flex items-center justify-center gap-2 transition-colors ${activeTab === 'sacar' ? 'text-cyan-600 border-b-2 border-cyan-600 bg-cyan-50/30' : 'text-dark-500 hover:bg-dark-50'}`}
           >
             <ArrowUpFromLine className="w-4 h-4" /> Sacar de Bodega
           </button>
-          <button 
+          <button
             onClick={() => setActiveTab('devolver')}
             className={`flex-1 py-3 text-sm font-bold flex items-center justify-center gap-2 transition-colors ${activeTab === 'devolver' ? 'text-green-600 border-b-2 border-green-600 bg-green-50/30' : 'text-dark-500 hover:bg-dark-50'}`}
           >
@@ -147,7 +147,7 @@ export default function PrestamoInsumos({ isOpen, onClose, tecnicoId }) {
             <form onSubmit={handleSacar} className="space-y-4">
               <div>
                 <label className="label-field">Producto a Sacar</label>
-                <select 
+                <select
                   className="input-field"
                   value={selectedProducto?.id || ''}
                   onChange={e => {
@@ -190,29 +190,27 @@ export default function PrestamoInsumos({ isOpen, onClose, tecnicoId }) {
                   )}
 
                   {/* Stock disponible en bodega */}
-                  <div className={`flex items-center justify-between rounded-xl px-4 py-3 border ${
-                    parseFloat(selectedProducto.stock_actual) === 0
+                  <div className={`flex items-center justify-between rounded-xl px-4 py-3 border ${parseFloat(selectedProducto.stock_actual) === 0
                       ? 'bg-red-50 border-red-200'
                       : parseFloat(selectedProducto.stock_actual) <= parseFloat(selectedProducto.stock_minimo || 0)
-                      ? 'bg-amber-50 border-amber-200'
-                      : 'bg-green-50 border-green-200'
-                  }`}>
+                        ? 'bg-amber-50 border-amber-200'
+                        : 'bg-green-50 border-green-200'
+                    }`}>
                     <div>
                       <p className="text-xs font-bold text-dark-500 uppercase tracking-wider">Stock disponible en bodega</p>
-                      <p className={`text-2xl font-black mt-0.5 ${
-                        parseFloat(selectedProducto.stock_actual) === 0
+                      <p className={`text-2xl font-black mt-0.5 ${parseFloat(selectedProducto.stock_actual) === 0
                           ? 'text-red-600'
                           : parseFloat(selectedProducto.stock_actual) <= parseFloat(selectedProducto.stock_minimo || 0)
-                          ? 'text-amber-600'
-                          : 'text-green-700'
-                      }`}>
+                            ? 'text-amber-600'
+                            : 'text-green-700'
+                        }`}>
                         {parseFloat(parseFloat(selectedProducto.stock_actual).toFixed(3))}
                         <span className="text-sm font-semibold ml-1 text-dark-500">{selectedProducto.unidad_base}</span>
                       </p>
                     </div>
                     <span className="text-3xl">
                       {parseFloat(selectedProducto.stock_actual) === 0 ? '📭' :
-                       parseFloat(selectedProducto.stock_actual) <= parseFloat(selectedProducto.stock_minimo || 0) ? '⚠️' : '✅'}
+                        parseFloat(selectedProducto.stock_actual) <= parseFloat(selectedProducto.stock_minimo || 0) ? '⚠️' : '✅'}
                     </span>
                   </div>
 
@@ -222,8 +220,8 @@ export default function PrestamoInsumos({ isOpen, onClose, tecnicoId }) {
                         <label className="label-field mb-0">Cantidad a sacar ({selectedProducto.unidad_base})</label>
                         <span className="text-xs text-dark-400">Máx: {parseFloat(parseFloat(selectedProducto.stock_actual).toFixed(3))}</span>
                       </div>
-                      <input 
-                        type="number" 
+                      <input
+                        type="number"
                         step="0.01"
                         min="0.01"
                         max={selectedProducto.stock_actual}
@@ -239,8 +237,8 @@ export default function PrestamoInsumos({ isOpen, onClose, tecnicoId }) {
                     </div>
                     <div>
                       <label className="label-field">Lote o Identificador</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         className="input-field"
                         value={lote}
                         onChange={e => setLote(e.target.value)}
@@ -252,8 +250,8 @@ export default function PrestamoInsumos({ isOpen, onClose, tecnicoId }) {
                 </>
               )}
 
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 disabled={isSubmitting || !selectedProducto}
                 className="btn-primary w-full bg-cyan-600 hover:bg-cyan-700 shadow-cyan-600/20 mt-4"
               >
@@ -283,12 +281,12 @@ export default function PrestamoInsumos({ isOpen, onClose, tecnicoId }) {
                             <p>Usado en Órdenes: <span className="font-bold text-dark-700">{item.cantidad_usada} {item.unidad_base}</span></p>
                           </div>
                         </div>
-                        
+
                         <div className="flex items-center gap-3 pt-3 border-t border-dark-100">
                           <label className="text-sm font-medium text-dark-700 flex-1">¿Cuánto devuelves a bodega?</label>
                           <div className="flex items-center gap-2">
-                            <input 
-                              type="number" 
+                            <input
+                              type="number"
                               step="0.01"
                               min="0"
                               max={sobranteCalculado}
@@ -303,8 +301,8 @@ export default function PrestamoInsumos({ isOpen, onClose, tecnicoId }) {
                     )
                   })}
 
-                  <button 
-                    onClick={handleDevolver} 
+                  <button
+                    onClick={handleDevolver}
                     disabled={isSubmitting}
                     className="btn-primary w-full bg-green-600 hover:bg-green-700 shadow-green-600/20 mt-4"
                   >

@@ -131,15 +131,15 @@ export default function Dashboard() {
         const d = new Date(o.fecha_programada || o.created_at);
         return (new Date() - d) < 30 * 24 * 60 * 60 * 1000;
       });
-      
+
       const chartMap = {};
       last30Days.forEach(o => {
-        const dateStr = o.fecha_programada 
+        const dateStr = o.fecha_programada
           ? formatFecha(o.fecha_programada, { month: 'short', day: '2-digit' })
           : formatFecha(o.created_at, { month: 'short', day: '2-digit' });
         chartMap[dateStr] = (chartMap[dateStr] || 0) + 1;
       });
-      
+
       const realChartData = Object.keys(chartMap).map(date => ({
         name: date,
         ordenes: chartMap[date]
@@ -157,7 +157,7 @@ export default function Dashboard() {
         pendientesGrowth
       })
       setRecentOrders(recent)
-      setChartData(realChartData.length > 0 ? realChartData : [{name: 'Sin datos', ordenes: 0}])
+      setChartData(realChartData.length > 0 ? realChartData : [{ name: 'Sin datos', ordenes: 0 }])
     } catch (err) {
       console.error('Error cargando dashboard:', err)
       // Fallback a caché si el fetch falló
@@ -392,13 +392,13 @@ export default function Dashboard() {
                 <p className="text-sm text-dark-500">Registra qué equipos te llevas y devuélvelos.</p>
               </div>
             </div>
-            <button 
+            <button
               onClick={() => setShowPrestamoModal(true)}
               disabled={!isOnline}
               className="btn-primary w-full bg-orange-600 hover:bg-orange-700 shadow-orange-600/20"
               title={!isOnline ? "Necesitas conexión a internet para esto" : ""}
             >
-              Check-out / Check-in Equipos
+              Salida / Entrada Equipos
             </button>
           </div>
 
@@ -412,27 +412,27 @@ export default function Dashboard() {
                 <p className="text-sm text-dark-500">Trampas, venenos, y otros insumos fungibles.</p>
               </div>
             </div>
-            <button 
+            <button
               onClick={() => setShowInsumosModal(true)}
               disabled={!isOnline}
               className="btn-primary w-full bg-cyan-600 hover:bg-cyan-700 shadow-cyan-600/20"
               title={!isOnline ? "Necesitas conexión a internet para esto" : ""}
             >
-              Check-out / Check-in Productos
+              Salida / Entrada Productos
             </button>
           </div>
         </div>
       )}
 
-      <PrestamoEquipos 
-        isOpen={showPrestamoModal} 
-        onClose={() => setShowPrestamoModal(false)} 
+      <PrestamoEquipos
+        isOpen={showPrestamoModal}
+        onClose={() => setShowPrestamoModal(false)}
         tecnicoId={profile?.id}
       />
-      <PrestamoInsumos 
-        isOpen={showInsumosModal} 
-        onClose={() => setShowInsumosModal(false)} 
-        tecnicoId={profile?.id} 
+      <PrestamoInsumos
+        isOpen={showInsumosModal}
+        onClose={() => setShowInsumosModal(false)}
+        tecnicoId={profile?.id}
       />
 
       {/* Actividad y Tabla */}

@@ -381,6 +381,13 @@ export async function asignarTecnicoStock(productoId, tecnicoId, cantidad, notas
       [productoId, Math.abs(delta), tecnicoId, notas || 'Asignación de dotación', userId || null]
     );
 
+    // Guardar en el inventario actual del técnico para que pueda verlo en su panel
+    await client.query(
+      `INSERT INTO tecnicos_inventario (tecnico_id, catalogo_id, cantidad_sacada, cantidad_usada, estado)
+       VALUES ($1, $2, $3, 0, 'en_poder')`,
+      [tecnicoId, productoId, Math.abs(delta)]
+    );
+
     await client.query('COMMIT');
 
     const { rows: updated } = await client.query(
@@ -406,53 +413,103 @@ export async function getAuditoriaProductos(filters = {}) {
 
   if (filters.tecnico_id) {
     params.push(filters.tecnico_id);
-    conditions.push(`o.tecnico_id = $${params.length}`);
+    conditions.push(`tecnico_id = $${params.length}`);
   }
   if (filters.producto_id) {
     params.push(filters.producto_id);
-    conditions.push(`pu.catalogo_id = $${params.length}`);
+    conditions.push(`catalogo_id = $${params.length}`);
   }
   if (filters.cliente_id) {
     params.push(filters.cliente_id);
-    conditions.push(`o.cliente_id = $${params.length}`);
+    conditions.push(`cliente_id = $${params.length}`);
   }
   if (filters.fecha_desde) {
     params.push(filters.fecha_desde);
-    conditions.push(`o.fecha_programada >= $${params.length}`);
+    conditions.push(`fecha_programada >= $${params.length}`);
   }
   if (filters.fecha_hasta) {
     params.push(filters.fecha_hasta);
-    conditions.push(`o.fecha_programada <= $${params.length}`);
+    conditions.push(`fecha_programada <= $${params.length}`);
+  }
+  if (filters.tipo_registro) {
+    params.push(filters.tipo_registro);
+    conditions.push(`tipo_registro = $${params.length}`);
   }
 
   let sql = `
-    SELECT 
-      pu.id,
-      pu.nombre_comercial AS producto_nombre,
-      pu.cantidad_numerica,
-      pu.unidad,
-      pu.cantidad AS cantidad_texto,
-      o.id AS orden_id,
-      o.fecha_programada,
-      o.estado AS orden_estado,
-      c.id AS cliente_id,
-      c.nombre AS cliente_nombre,
-      c.razon_social AS cliente_razon_social,
-      p.id AS tecnico_id,
-      p.nombre_completo AS tecnico_nombre,
-      pc.nombre_comercial AS catalogo_nombre
-    FROM productos_usados pu
-    JOIN ordenes_servicio o ON o.id = pu.orden_id
-    LEFT JOIN clientes c ON c.id = o.cliente_id
-    LEFT JOIN profiles p ON p.id = o.tecnico_id
-    LEFT JOIN productos_catalogo pc ON pc.id = pu.catalogo_id
+    WITH base_data AS (
+      SELECT 
+        pu.id::text,
+        pu.nombre_comercial AS producto_nombre,
+        pu.cantidad_numerica,
+        pu.unidad,
+        pu.cantidad AS cantidad_texto,
+        o.id::text AS orden_id,
+        o.fecha_programada,
+        o.estado AS orden_estado,
+        c.id::text AS cliente_id,
+        c.nombre AS cliente_nombre,
+        c.razon_social AS cliente_razon_social,
+        p.id::text AS tecnico_id,
+        p.nombre_completo AS tecnico_nombre,
+        pc.nombre_comercial AS catalogo_nombre,
+        pc.id::text as catalogo_id,
+        pu.created_at,
+        'aplicacion' AS tipo_registro,
+        NULL AS marca,
+        NULL AS modelo,
+        NULL AS codigo_activo,
+        NULL AS lote,
+        NULL AS fecha_vencimiento,
+        NULL AS ficha_seguridad_url,
+        NULL AS notas
+      FROM productos_usados pu
+      JOIN ordenes_servicio o ON o.id = pu.orden_id
+      LEFT JOIN clientes c ON c.id = o.cliente_id
+      LEFT JOIN profiles p ON p.id = o.tecnico_id
+      LEFT JOIN productos_catalogo pc ON pc.id = pu.catalogo_id
+      
+      UNION ALL
+      
+      SELECT 
+        ms.id::text,
+        pc.nombre_comercial AS producto_nombre,
+        ms.cantidad AS cantidad_numerica,
+        pc.unidad_base AS unidad,
+        ms.cantidad::text AS cantidad_texto,
+        'EPP-' || ms.id AS orden_id,
+        ms.created_at AS fecha_programada,
+        'entregado' AS orden_estado,
+        NULL AS cliente_id,
+        'Uso Interno' AS cliente_nombre,
+        'Asignación EPP' AS cliente_razon_social,
+        p.id::text AS tecnico_id,
+        p.nombre_completo AS tecnico_nombre,
+        pc.nombre_comercial AS catalogo_nombre,
+        pc.id::text as catalogo_id,
+        ms.created_at,
+        'epp' AS tipo_registro,
+        pc.marca,
+        pc.modelo,
+        pc.codigo_activo,
+        pc.lote,
+        pc.fecha_vencimiento,
+        pc.ficha_seguridad_url,
+        ms.notas
+      FROM movimientos_stock ms
+      JOIN productos_catalogo pc ON pc.id = ms.producto_id
+      JOIN profiles p ON p.id = ms.referencia_id
+      WHERE ms.referencia_tipo = 'asignacion_tecnico'
+        AND pc.categoria = 'epp'
+    )
+    SELECT * FROM base_data
   `;
 
   if (conditions.length > 0) {
     sql += ' WHERE ' + conditions.join(' AND ');
   }
 
-  sql += ' ORDER BY o.fecha_programada DESC, pu.created_at DESC';
+  sql += ' ORDER BY fecha_programada DESC, created_at DESC';
 
   const { rows } = await pool.query(sql, params);
   return rows;
@@ -464,63 +521,103 @@ export async function getAuditoriaResumen(filters = {}) {
 
   if (filters.tecnico_id) {
     params.push(filters.tecnico_id);
-    conditions.push(`o.tecnico_id = $${params.length}`);
+    conditions.push(`tecnico_id = $${params.length}`);
   }
   if (filters.producto_id) {
     params.push(filters.producto_id);
-    conditions.push(`pu.catalogo_id = $${params.length}`);
+    conditions.push(`catalogo_id = $${params.length}`);
   }
   if (filters.cliente_id) {
     params.push(filters.cliente_id);
-    conditions.push(`o.cliente_id = $${params.length}`);
+    conditions.push(`cliente_id = $${params.length}`);
   }
   if (filters.fecha_desde) {
     params.push(filters.fecha_desde);
-    conditions.push(`o.fecha_programada >= $${params.length}`);
+    conditions.push(`fecha_programada >= $${params.length}`);
   }
   if (filters.fecha_hasta) {
     params.push(filters.fecha_hasta);
-    conditions.push(`o.fecha_programada <= $${params.length}`);
+    conditions.push(`fecha_programada <= $${params.length}`);
+  }
+  if (filters.tipo_registro) {
+    params.push(filters.tipo_registro);
+    conditions.push(`tipo_registro = $${params.length}`);
   }
 
   const whereClause = conditions.length > 0 ? ' WHERE ' + conditions.join(' AND ') : '';
 
+  const cte = `
+    WITH base_data AS (
+      SELECT 
+        pu.id::text,
+        o.id::text AS orden_id,
+        o.fecha_programada,
+        c.id::text AS cliente_id,
+        p.id::text AS tecnico_id,
+        p.nombre_completo AS tecnico_nombre,
+        pc.id::text as catalogo_id,
+        COALESCE(pc.nombre_comercial, pu.nombre_comercial, pu.ingrediente_activo) as nombre_producto,
+        'aplicacion' as tipo_registro
+      FROM productos_usados pu
+      JOIN ordenes_servicio o ON o.id = pu.orden_id
+      LEFT JOIN clientes c ON c.id = o.cliente_id
+      LEFT JOIN profiles p ON p.id = o.tecnico_id
+      LEFT JOIN productos_catalogo pc ON pc.id = pu.catalogo_id
+      
+      UNION ALL
+      
+      SELECT 
+        ms.id::text,
+        'EPP-' || ms.id AS orden_id,
+        ms.created_at AS fecha_programada,
+        NULL AS cliente_id,
+        p.id::text AS tecnico_id,
+        p.nombre_completo AS tecnico_nombre,
+        pc.id::text as catalogo_id,
+        pc.nombre_comercial as nombre_producto,
+        'epp' as tipo_registro
+      FROM movimientos_stock ms
+      JOIN productos_catalogo pc ON pc.id = ms.producto_id
+      JOIN profiles p ON p.id = ms.referencia_id
+      WHERE ms.referencia_tipo = 'asignacion_tecnico'
+        AND pc.categoria = 'epp'
+    )
+  `;
+
   // 1. Total de registros de productos usados
   let sqlTotal = `
+    ${cte}
     SELECT COUNT(*) as total
-    FROM productos_usados pu
-    JOIN ordenes_servicio o ON o.id = pu.orden_id
+    FROM base_data
     ${whereClause}
   `;
   
   // 2. Total de órdenes distintas
   let sqlOrdenes = `
-    SELECT COUNT(DISTINCT o.id) as total
-    FROM productos_usados pu
-    JOIN ordenes_servicio o ON o.id = pu.orden_id
+    ${cte}
+    SELECT COUNT(DISTINCT orden_id) as total
+    FROM base_data
     ${whereClause}
   `;
 
   // 3. Técnico con mayor consumo (por cantidad de registros)
   let sqlTecnico = `
-    SELECT p.nombre_completo, COUNT(pu.id) as cantidad
-    FROM productos_usados pu
-    JOIN ordenes_servicio o ON o.id = pu.orden_id
-    JOIN profiles p ON p.id = o.tecnico_id
+    ${cte}
+    SELECT tecnico_nombre as nombre_completo, COUNT(id) as cantidad
+    FROM base_data
     ${whereClause}
-    GROUP BY p.id, p.nombre_completo
+    GROUP BY tecnico_id, tecnico_nombre
     ORDER BY cantidad DESC
     LIMIT 1
   `;
 
   // 4. Producto más usado
   let sqlProducto = `
-    SELECT COALESCE(pc.nombre_comercial, pu.nombre_comercial, pu.ingrediente_activo) as nombre, COUNT(pu.id) as cantidad
-    FROM productos_usados pu
-    JOIN ordenes_servicio o ON o.id = pu.orden_id
-    LEFT JOIN productos_catalogo pc ON pc.id = pu.catalogo_id
+    ${cte}
+    SELECT nombre_producto as nombre, COUNT(id) as cantidad
+    FROM base_data
     ${whereClause}
-    GROUP BY nombre
+    GROUP BY nombre_producto
     ORDER BY cantidad DESC
     LIMIT 1
   `;

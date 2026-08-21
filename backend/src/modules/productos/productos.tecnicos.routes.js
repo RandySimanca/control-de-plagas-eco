@@ -6,7 +6,10 @@ const router = Router()
 
 router.use(authenticate)
 
-// Obtener el inventario actual del técnico logueado (o de un ID específico si es admin)
+// Obtener solo los EPP asignados al técnico logueado (o de un ID específico si es admin)
+router.get('/epp/:tecnico_id?', productosTecnicosController.getEppTecnico)
+
+// Obtener el inventario completo del técnico logueado (o de un ID específico si es admin)
 router.get('/:tecnico_id?', productosTecnicosController.getInventarioTecnico)
 
 // El técnico saca productos de bodega (Check-out)

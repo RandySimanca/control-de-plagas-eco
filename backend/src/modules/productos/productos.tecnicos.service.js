@@ -68,6 +68,46 @@ export async function checkOutProductos(tecnicoId, items, userId) {
   }
 }
 
+export async function getEppTecnico(tecnicoId) {
+  const sql = `
+    SELECT 
+      ti.id,
+      ti.tecnico_id,
+      ti.catalogo_id,
+      ti.cantidad_sacada,
+      ti.cantidad_usada,
+      ti.estado,
+      ti.created_at,
+      ti.updated_at,
+      pc.nombre_comercial,
+      pc.unidad_base,
+      pc.categoria,
+      pc.marca,
+      pc.modelo,
+      pc.codigo_activo,
+      pc.lote,
+      pc.fecha_vencimiento,
+      pc.ficha_seguridad_url,
+      (
+        SELECT ms.notas 
+        FROM movimientos_stock ms 
+        WHERE ms.referencia_id = ti.tecnico_id 
+          AND ms.referencia_tipo = 'asignacion_tecnico'
+          AND ms.producto_id = ti.catalogo_id
+        ORDER BY ms.created_at DESC 
+        LIMIT 1
+      ) as notas
+    FROM tecnicos_inventario ti
+    JOIN productos_catalogo pc ON pc.id = ti.catalogo_id
+    WHERE ti.tecnico_id = $1
+      AND ti.estado = 'en_poder'
+      AND pc.categoria = 'epp'
+    ORDER BY pc.nombre_comercial ASC
+  `
+  const { rows } = await pool.query(sql, [tecnicoId])
+  return rows
+}
+
 export async function checkInProductos(tecnicoId, items, userId) {
   // items: [{ id (de tecnicos_inventario), cantidad_devuelta }]
   const client = await pool.connect()

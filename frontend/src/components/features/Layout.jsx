@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import {
   LayoutDashboard, Users, ClipboardList, FileCheck, UserCog,
   Menu, X, LogOut, Shield, Bug, Download, ClipboardCheck, Package,
-  WifiOff, RefreshCw, Key, Search, Bell, ChevronDown, CheckCircle2, Clock, AlertCircle, ArrowLeft, FileSearch
+  WifiOff, RefreshCw, Key, Search, Bell, ChevronDown, CheckCircle2, Clock, AlertCircle, ArrowLeft, FileSearch, ShieldCheck
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useInstallPrompt } from '../../hooks/useInstallPrompt'
@@ -173,6 +173,10 @@ export default function Layout() {
     if (item.to === '/clientes' && profile?.rol === 'tecnico') return false
     return true
   })
+
+  if (profile?.rol === 'tecnico') {
+    navItems.push({ to: '/mis-epp', icon: ShieldCheck, label: 'Mis EPP' })
+  }
 
   if (isAdmin) {
     navItems.push({ to: '/admin/usuarios', icon: UserCog, label: 'Usuarios' })

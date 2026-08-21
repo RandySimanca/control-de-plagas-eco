@@ -20,3 +20,9 @@ export const checkInProductos = catchAsync(async (req, res) => {
   await productosTecnicosService.checkInProductos(tecnicoId, req.body.items, req.user.id)
   res.json({ success: true, message: 'Sobrantes devueltos correctamente' })
 })
+
+export const getEppTecnico = catchAsync(async (req, res) => {
+  const tecnicoId = req.params.tecnico_id || req.user.id
+  const data = await productosTecnicosService.getEppTecnico(tecnicoId)
+  res.json({ success: true, data })
+})

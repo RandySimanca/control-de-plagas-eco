@@ -24,6 +24,7 @@ import Solicitudes from './pages/admin/Solicitudes'
 import Auditoria from './pages/admin/Auditoria'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
+import MisEPPPage from './pages/MisEPPPage'
 
 export default function AppRoutes() {
   const { user, profile } = useAuth()
@@ -70,6 +71,13 @@ export default function AppRoutes() {
         <Route path="ordenes" element={<Ordenes />} />
         <Route path="ordenes/:id" element={<OrdenDetalle />} />
         <Route path="certificados" element={<Certificados />} />
+
+        {/* Rutas de Técnico */}
+        <Route path="mis-epp" element={
+          <ProtectedRoute allowedRoles={['tecnico']}>
+            <MisEPPPage />
+          </ProtectedRoute>
+        } />
 
         {/* Admin */}
         <Route path="admin/usuarios" element={
