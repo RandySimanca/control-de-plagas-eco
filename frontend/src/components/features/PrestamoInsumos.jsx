@@ -150,46 +150,73 @@ export default function PrestamoInsumos({ isOpen, onClose, tecnicoId }) {
                 <select 
                   className="input-field"
                   value={selectedProducto?.id || ''}
-                  onChange={e => setSelectedProducto(catalogo.find(p => p.id === e.target.value))}
+                  onChange={e => {
+                    const prod = catalogo.find(p => p.id === e.target.value)
+                    setSelectedProducto(prod)
+                    setLote(prod?.lote || '') // autocompletar lote del catálogo
+                  }}
                   required
                 >
                   <option value="">Seleccione un producto...</option>
                   {catalogo.map(p => (
                     <option key={p.id} value={p.id}>
                       {p.nombre_comercial} ({parseFloat(p.stock_actual)} {p.unidad_base} disp.)
+                      {p.lote ? ` · Lote: ${p.lote}` : ''}
                     </option>
                   ))}
                 </select>
               </div>
 
               {selectedProducto && (
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="label-field">Cantidad ({selectedProducto.unidad_base})</label>
-                    <input 
-                      type="number" 
-                      step="0.01"
-                      min="0.01"
-                      max={selectedProducto.stock_actual}
-                      className="input-field"
-                      value={cantidadSacar}
-                      onChange={e => setCantidadSacar(e.target.value)}
-                      required
-                      placeholder="Ej: 10"
-                    />
+                <>
+                  {/* Info de trazabilidad del producto seleccionado */}
+                  {(selectedProducto.lote || selectedProducto.fecha_vencimiento) && (
+                    <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 text-xs">
+                      <span className="text-lg leading-none">🏷️</span>
+                      <div className="space-y-0.5">
+                        {selectedProducto.lote && (
+                          <p className="font-bold text-amber-800">Lote: <span className="font-semibold">{selectedProducto.lote}</span></p>
+                        )}
+                        {selectedProducto.fecha_vencimiento && (
+                          <p className="text-amber-700">
+                            Vence: <span className="font-semibold">{new Date(selectedProducto.fecha_vencimiento).toLocaleDateString('es-CO')}</span>
+                            {new Date(selectedProducto.fecha_vencimiento) < new Date() && (
+                              <span className="ml-1 text-red-600 font-bold">⚠️ VENCIDO</span>
+                            )}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="label-field">Cantidad ({selectedProducto.unidad_base})</label>
+                      <input 
+                        type="number" 
+                        step="0.01"
+                        min="0.01"
+                        max={selectedProducto.stock_actual}
+                        className="input-field"
+                        value={cantidadSacar}
+                        onChange={e => setCantidadSacar(e.target.value)}
+                        required
+                        placeholder="Ej: 10"
+                      />
+                    </div>
+                    <div>
+                      <label className="label-field">Lote o Identificador</label>
+                      <input 
+                        type="text" 
+                        className="input-field"
+                        value={lote}
+                        onChange={e => setLote(e.target.value)}
+                        placeholder="Ej: Lote A-123 o Botella 1"
+                      />
+                      <p className="text-[10px] text-dark-400 mt-1">Autocompletado desde el catálogo. Puedes modificarlo.</p>
+                    </div>
                   </div>
-                  <div>
-                    <label className="label-field">Lote o Identificador (Opcional)</label>
-                    <input 
-                      type="text" 
-                      className="input-field"
-                      value={lote}
-                      onChange={e => setLote(e.target.value)}
-                      placeholder="Ej: Lote A-123 o Botella 1"
-                    />
-                    <p className="text-[10px] text-dark-400 mt-1">Útil para químicos en botella.</p>
-                  </div>
-                </div>
+                </>
               )}
 
               <button 
