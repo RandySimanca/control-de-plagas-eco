@@ -65,7 +65,8 @@ export default function Productos() {
     presentacion_compra: '',
     factor_conversion: '1',
     lote: '',
-    fecha_vencimiento: ''
+    fecha_vencimiento: '',
+    sin_vencimiento: false
   })
 
   // Modal: Reabastecer
@@ -121,11 +122,13 @@ export default function Productos() {
     setIsSaving(true)
     const token = localStorage.getItem('token')
     try {
+      const { sin_vencimiento, ...rest } = formData
       const payload = {
-        ...formData,
+        ...rest,
         stock_actual: formData.stock_actual !== '' ? parseFloat(formData.stock_actual) : 0,
         stock_minimo: formData.stock_minimo !== '' ? parseFloat(formData.stock_minimo) : 0,
-        factor_conversion: formData.factor_conversion !== '' ? parseFloat(formData.factor_conversion) : 1
+        factor_conversion: formData.factor_conversion !== '' ? parseFloat(formData.factor_conversion) : 1,
+        fecha_vencimiento: sin_vencimiento ? null : (formData.fecha_vencimiento || null)
       }
       if (formData.id) {
         await api.put(`/productos-catalogo/${formData.id}`, payload, { token })
@@ -169,12 +172,13 @@ export default function Productos() {
         estado: prod.estado || 'activo',
         categoria: prod.categoria || 'otro',
         unidad_base: prod.unidad_base || 'unidad',
-        stock_actual: prod.stock_actual ?? '',
-        stock_minimo: prod.stock_minimo ?? '',
+        stock_actual: prod.stock_actual != null ? parseFloat(parseFloat(prod.stock_actual).toFixed(3)) : '',
+        stock_minimo: prod.stock_minimo != null ? parseFloat(parseFloat(prod.stock_minimo).toFixed(3)) : '',
         presentacion_compra: prod.presentacion_compra || '',
-        factor_conversion: prod.factor_conversion ?? '1',
+        factor_conversion: prod.factor_conversion != null ? parseFloat(parseFloat(prod.factor_conversion).toFixed(3)) : '1',
         lote: prod.lote || '',
         fecha_vencimiento: prod.fecha_vencimiento ? prod.fecha_vencimiento.split('T')[0] : '',
+        sin_vencimiento: !prod.fecha_vencimiento,
         marca: prod.marca || '',
         modelo: prod.modelo || '',
         numero_serie: prod.numero_serie || '',
@@ -187,7 +191,7 @@ export default function Productos() {
         tipo_producto: '', estado: 'activo', categoria: defaultCategoria, unidad_base: (defaultCategoria === 'equipo' || defaultCategoria === 'epp') ? 'unidad' : 'l',
         stock_actual: '', stock_minimo: '', presentacion_compra: '', factor_conversion: '1',
         marca: '', modelo: '', numero_serie: '', codigo_activo: '', estado_fisico: 'disponible',
-        lote: '', fecha_vencimiento: ''
+        lote: '', fecha_vencimiento: '', sin_vencimiento: false
       })
     }
     setShowModal(true)
@@ -748,34 +752,51 @@ export default function Productos() {
                 </select>
               </div>
 
-              {/* Trazabilidad: Lote y Vencimiento (solo para químicos, trampas, cebaderos) */}
+              {/* Trazabilidad: Lote y Vencimiento (solo para no-equipos y no-EPP) */}
               {!['equipo', 'epp'].includes(formData.categoria) && (
                 <div className="p-4 bg-amber-50/60 rounded-xl border border-amber-200 space-y-3">
                   <p className="text-xs font-bold text-amber-700 uppercase tracking-wider flex items-center gap-1.5">
                     🏷️ Trazabilidad del Producto
                   </p>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="label-field">No. Lote / Código de Lote</label>
-                      <input
-                        type="text"
-                        value={formData.lote}
-                        onChange={e => setFormData({ ...formData, lote: e.target.value })}
-                        className="input-field"
-                        placeholder="Ej: LOT-2025-001"
-                      />
-                      <p className="text-xs text-dark-400 mt-1">Identifica el lote de fabricación o importación</p>
+                  <div>
+                    <label className="label-field">No. Lote / Código de Lote</label>
+                    <input
+                      type="text"
+                      value={formData.lote}
+                      onChange={e => setFormData({ ...formData, lote: e.target.value })}
+                      className="input-field"
+                      placeholder="Ej: LOT-2025-001"
+                    />
+                    <p className="text-xs text-dark-400 mt-1">Identifica el lote de fabricación o importación</p>
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="label-field mb-0">Fecha de Vencimiento</label>
+                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={formData.sin_vencimiento}
+                          onChange={e => setFormData({ 
+                            ...formData, 
+                            sin_vencimiento: e.target.checked,
+                            fecha_vencimiento: e.target.checked ? '' : formData.fecha_vencimiento
+                          })}
+                          className="w-4 h-4 rounded accent-amber-600"
+                        />
+                        <span className="text-xs text-dark-500 font-medium">No vence / No aplica</span>
+                      </label>
                     </div>
-                    <div>
-                      <label className="label-field">Fecha de Vencimiento</label>
-                      <input
-                        type="date"
-                        value={formData.fecha_vencimiento}
-                        onChange={e => setFormData({ ...formData, fecha_vencimiento: e.target.value })}
-                        className="input-field"
-                      />
-                      <p className="text-xs text-dark-400 mt-1">Fecha de expiración del producto</p>
-                    </div>
+                    <input
+                      type="date"
+                      value={formData.fecha_vencimiento}
+                      onChange={e => setFormData({ ...formData, fecha_vencimiento: e.target.value })}
+                      className={`input-field ${formData.sin_vencimiento ? 'opacity-40 cursor-not-allowed bg-dark-50' : ''}`}
+                      required={!formData.sin_vencimiento}
+                      disabled={formData.sin_vencimiento}
+                    />
+                    {!formData.sin_vencimiento && !formData.fecha_vencimiento && (
+                      <p className="text-xs text-amber-600 mt-1 font-medium">⚠️ Ingresa la fecha de vencimiento o marca "No vence"</p>
+                    )}
                   </div>
                 </div>
               )}
