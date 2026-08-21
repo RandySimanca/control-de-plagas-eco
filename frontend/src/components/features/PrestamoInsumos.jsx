@@ -189,9 +189,39 @@ export default function PrestamoInsumos({ isOpen, onClose, tecnicoId }) {
                     </div>
                   )}
 
+                  {/* Stock disponible en bodega */}
+                  <div className={`flex items-center justify-between rounded-xl px-4 py-3 border ${
+                    parseFloat(selectedProducto.stock_actual) === 0
+                      ? 'bg-red-50 border-red-200'
+                      : parseFloat(selectedProducto.stock_actual) <= parseFloat(selectedProducto.stock_minimo || 0)
+                      ? 'bg-amber-50 border-amber-200'
+                      : 'bg-green-50 border-green-200'
+                  }`}>
+                    <div>
+                      <p className="text-xs font-bold text-dark-500 uppercase tracking-wider">Stock disponible en bodega</p>
+                      <p className={`text-2xl font-black mt-0.5 ${
+                        parseFloat(selectedProducto.stock_actual) === 0
+                          ? 'text-red-600'
+                          : parseFloat(selectedProducto.stock_actual) <= parseFloat(selectedProducto.stock_minimo || 0)
+                          ? 'text-amber-600'
+                          : 'text-green-700'
+                      }`}>
+                        {parseFloat(parseFloat(selectedProducto.stock_actual).toFixed(3))}
+                        <span className="text-sm font-semibold ml-1 text-dark-500">{selectedProducto.unidad_base}</span>
+                      </p>
+                    </div>
+                    <span className="text-3xl">
+                      {parseFloat(selectedProducto.stock_actual) === 0 ? '📭' :
+                       parseFloat(selectedProducto.stock_actual) <= parseFloat(selectedProducto.stock_minimo || 0) ? '⚠️' : '✅'}
+                    </span>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="label-field">Cantidad ({selectedProducto.unidad_base})</label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="label-field mb-0">Cantidad a sacar ({selectedProducto.unidad_base})</label>
+                        <span className="text-xs text-dark-400">Máx: {parseFloat(parseFloat(selectedProducto.stock_actual).toFixed(3))}</span>
+                      </div>
                       <input 
                         type="number" 
                         step="0.01"
@@ -203,6 +233,9 @@ export default function PrestamoInsumos({ isOpen, onClose, tecnicoId }) {
                         required
                         placeholder="Ej: 10"
                       />
+                      {cantidadSacar && parseFloat(cantidadSacar) > parseFloat(selectedProducto.stock_actual) && (
+                        <p className="text-xs text-red-600 font-medium mt-1">⚠️ Supera el stock disponible</p>
+                      )}
                     </div>
                     <div>
                       <label className="label-field">Lote o Identificador</label>
