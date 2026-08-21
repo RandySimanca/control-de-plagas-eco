@@ -127,9 +127,9 @@ export default function Ordenes() {
       try {
         const token = localStorage.getItem('token');
         const { data } = await api.get(`/clientes/${form.cliente_id}/sedes`, { token });
-        setSedesCliente(data.data || []);
+        setSedesCliente(data || []);
         // Si hay sedes, pero no hay seleccionada, o la actual no pertenece, resetear
-        const exists = (data.data || []).find(s => s.id === form.sede_id);
+        const exists = (data || []).find(s => s.id === form.sede_id);
         if (!exists) setForm(p => ({ ...p, sede_id: '' }));
       } catch (err) {
         console.error('Error cargando sedes', err);

@@ -70,7 +70,7 @@ export default function ClienteDetalle() {
     try {
       const token = localStorage.getItem('token')
       const { data } = await api.post(`/clientes/${id}/sedes`, nuevaSede, { token })
-      setSedes(prev => [...prev, data.data])
+      setSedes(prev => [...prev, data])
       setShowSedeForm(false)
       setNuevaSede({ nombre: '', direccion: '', municipio: '' })
       toast.success('Sede creada correctamente')

@@ -16,13 +16,14 @@ export default function OrdenProductos({
   queueOrExecute,
   ordenTipoPlaga,
   servicioFiltro,
-  isOnline
+  isOnline,
+  ordenTecnicoId // ID del técnico asignado a la orden
 }) {
   const [showAddModal, setShowAddModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [editingId, setEditingId] = useState(null)
-  const [catalogo, setCatalogo] = useState([])
+  const [catalogo, setCatalogo] = useState([]) // Ahora representará el inventario del técnico
 
   const [formData, setFormData] = useState({
     nombre_comercial: '',
@@ -34,18 +35,22 @@ export default function OrdenProductos({
     tipo_producto: servicioFiltro || '',
     es_manual: false,
     catalogo_id: null,
+    tecnico_inventario_id: null, // Nuevo campo
+    lote: '',
     _stock_disponible: null,
     _unidad_base: ''
   })
 
   useEffect(() => {
     async function loadCatalogo() {
+      if (!ordenTecnicoId) return // Si no hay técnico asignado, no podemos cargar inventario
       try {
         if (isOnline) {
           const token = localStorage.getItem('token')
-          const { data } = await api.get('/productos-catalogo', { token })
-          setCatalogo(data?.filter(p => p.estado === 'activo') || [])
+          const { data } = await api.get(`/productos-tecnicos/${ordenTecnicoId}`, { token })
+          setCatalogo(data?.data || [])
         } else {
+          // Fallback offline (se podría guardar el inventario del técnico en IndexedDB si quisiéramos offline total para esto)
           const cached = await db.cache_listas.get('productos_catalogo')
           if (cached && cached.data) {
             setCatalogo(cached.data.filter(p => p.estado === 'activo'))
@@ -56,7 +61,7 @@ export default function OrdenProductos({
       }
     }
     loadCatalogo()
-  }, [isOnline])
+  }, [isOnline, ordenTecnicoId])
 
   const tiposControl = parseTipoPlaga(ordenTipoPlaga);
 
@@ -73,6 +78,8 @@ export default function OrdenProductos({
       tipo_producto: servicioFiltro || (tiposControl.length === 1 ? tiposControl[0] : ''),
       es_manual: false,
       catalogo_id: null,
+      tecnico_inventario_id: null,
+      lote: '',
       _stock_disponible: null,
       _unidad_base: ''
     })
@@ -85,7 +92,7 @@ export default function OrdenProductos({
       setFormData({
         ...formData,
         nombre_comercial: '', ingrediente_activo: '', dosis: '',
-        es_manual: true, catalogo_id: null, _stock_disponible: null, _unidad_base: '',
+        es_manual: true, catalogo_id: null, tecnico_inventario_id: null, lote: '', _stock_disponible: null, _unidad_base: '',
         cantidad_numerica: '', unidad: ''
       })
     } else {
@@ -98,9 +105,11 @@ export default function OrdenProductos({
           dosis: prod.dosis_recomendada || '',
           es_manual: false,
           tipo_producto: formData.tipo_producto || prod.tipo_producto || '',
-          catalogo_id: prod.id,
+          catalogo_id: prod.catalogo_id,
+          tecnico_inventario_id: prod.id, // The ID from tecnicos_inventario
+          lote: prod.lote || '',
           unidad: prod.unidad_base || 'unidad',
-          _stock_disponible: parseFloat(prod.stock_actual || 0),
+          _stock_disponible: Math.max(0, parseFloat(prod.cantidad_sacada) - parseFloat(prod.cantidad_usada)),
           _unidad_base: prod.unidad_base || 'unidad'
         })
       }
@@ -126,7 +135,9 @@ export default function OrdenProductos({
           cantidad: cantidadTexto,
           cantidad_numerica: formData.cantidad_numerica ? parseFloat(formData.cantidad_numerica) : null,
           unidad: formData.unidad || null,
-          catalogo_id: formData.catalogo_id || null
+          catalogo_id: formData.catalogo_id || null,
+          tecnico_inventario_id: formData.tecnico_inventario_id || null,
+          lote: formData.lote || null
         }
         delete payload.es_manual; delete payload._stock_disponible; delete payload._unidad_base
         const { queued } = await queueOrExecute('productos_usados', 'update', payload, ordenId)
@@ -141,7 +152,9 @@ export default function OrdenProductos({
           cantidad: cantidadTexto,
           cantidad_numerica: formData.cantidad_numerica ? parseFloat(formData.cantidad_numerica) : null,
           unidad: formData.unidad || null,
-          catalogo_id: formData.catalogo_id || null
+          catalogo_id: formData.catalogo_id || null,
+          tecnico_inventario_id: formData.tecnico_inventario_id || null,
+          lote: formData.lote || null
         }
         delete payload.es_manual; delete payload._stock_disponible; delete payload._unidad_base
         const { data, queued } = await queueOrExecute('productos_usados', 'insert', payload, ordenId)
@@ -172,9 +185,11 @@ export default function OrdenProductos({
   }
 
   function openEdit(prod) {
-    const match = prod.catalogo_id
-      ? catalogo.find(c => c.id === prod.catalogo_id)
-      : catalogo.find(c => c.nombre_comercial === (prod.nombre_comercial || prod.nombre_producto))
+    const match = prod.tecnico_inventario_id
+      ? catalogo.find(c => c.id === prod.tecnico_inventario_id)
+      : (prod.catalogo_id 
+          ? catalogo.find(c => c.catalogo_id === prod.catalogo_id) 
+          : catalogo.find(c => c.nombre_comercial === (prod.nombre_comercial || prod.nombre_producto)))
 
     setFormData({
       nombre_comercial: prod.nombre_comercial || prod.nombre_producto || '',
@@ -185,8 +200,10 @@ export default function OrdenProductos({
       unidad: prod.unidad || match?.unidad_base || '',
       tipo_producto: prod.tipo_producto || '',
       es_manual: !match,
-      catalogo_id: prod.catalogo_id || match?.id || null,
-      _stock_disponible: match ? parseFloat(match.stock_actual || 0) : null,
+      catalogo_id: prod.catalogo_id || match?.catalogo_id || null,
+      tecnico_inventario_id: prod.tecnico_inventario_id || match?.id || null,
+      lote: prod.lote || match?.lote || '',
+      _stock_disponible: match ? Math.max(0, parseFloat(match.cantidad_sacada) - parseFloat(match.cantidad_usada)) : null,
       _unidad_base: match?.unidad_base || ''
     })
     setEditingId(prod.id)
@@ -231,6 +248,9 @@ export default function OrdenProductos({
                     <span className="text-sm font-bold text-dark-900 block">
                       {p.nombre_comercial || p.nombre_producto || 'Sin nombre'}
                     </span>
+                    {p.lote && (
+                      <span className="text-xs text-dark-500 block mt-0.5 font-medium">Lote/Identificador: {p.lote}</span>
+                    )}
                   </div>
                   <div className="flex flex-col items-end gap-2">
                     <span className="text-sm font-medium text-dark-800 bg-white px-2 py-1 rounded-lg border border-dark-200">
@@ -323,9 +343,11 @@ export default function OrdenProductos({
                   onChange={handleProductSelect}
                   required
                 >
-                  <option value="" disabled>Seleccione un producto...</option>
+                  <option value="" disabled>Seleccione un producto de su inventario...</option>
                   {catalogo.map(c => (
-                    <option key={c.id} value={c.id}>{c.nombre_comercial} {c.tipo_producto ? `(${c.tipo_producto})` : ''}</option>
+                    <option key={c.id} value={c.id}>
+                      {c.nombre_comercial} {c.lote ? `(Lote: ${c.lote})` : ''} - Disp: {parseFloat((Math.max(0, parseFloat(c.cantidad_sacada) - parseFloat(c.cantidad_usada))).toFixed(3))} {c.unidad_base}
+                    </option>
                   ))}
                   <option value="manual">-- Otro (Ingreso Manual) --</option>
                 </select>

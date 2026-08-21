@@ -261,6 +261,7 @@ export default function OrdenServicioModal({
                       ordenTipoPlaga={orden.tipo_plaga}
                       servicioFiltro={servicioNombre}
                       isOnline={isOnline}
+                      ordenTecnicoId={orden.tecnico_id}
                     />
                   )}
 

@@ -22,8 +22,8 @@ router.delete('/:id/estaciones/:estacion_id', requireAdmin, clientesController.d
 
 // Sedes
 router.get('/:id/sedes', clientesController.listSedes)
-router.post('/:id/sedes', requireAdmin, clientesController.createSede)
+router.post('/:id/sedes', clientesController.createSede)
 router.put('/:id/sedes/:sede_id', requireAdmin, clientesController.updateSede)
-router.delete('/:id/sedes/:sede_id', requireAdmin, clientesController.deleteSede)
+router.delete('/:id/sedes/:sede_id', clientesController.deleteSede)
 
 export default router

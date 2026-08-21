@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
-import { ArrowLeft, Send, Droplets } from 'lucide-react'
+import { ArrowLeft, Send, Droplets, MapPin } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../../lib/api'
 import HelpButton from '../../components/features/HelpButton'
@@ -14,8 +14,24 @@ export default function PortalSolicitudForm() {
     tipo_servicio: ['Desinsectación'],
     descripcion: '',
     direccion: profile?.direccion || '',
-    fecha_preferida: ''
+    fecha_preferida: '',
+    sede_id: ''
   })
+  const [sedes, setSedes] = useState([])
+
+  useEffect(() => {
+    async function loadSedes() {
+      if (!profile?.cliente_id) return
+      try {
+        const token = localStorage.getItem('token')
+        const { data } = await api.get(`/clientes/${profile.cliente_id}/sedes`, { token })
+        setSedes(data || [])
+      } catch (err) {
+        console.error('Error cargando sedes:', err)
+      }
+    }
+    loadSedes()
+  }, [profile])
   const [otroServicio, setOtroServicio] = useState('')
   const [cantidadTanques, setCantidadTanques] = useState('')
   const [tipoTanque, setTipoTanque] = useState('Elevado')
@@ -49,7 +65,8 @@ async function handleSubmit(e) {
           descripcion: formData.descripcion + infotanques,
           direccion: formData.direccion,
           fecha_preferida: formData.fecha_preferida || null,
-          estado: 'pendiente'
+          estado: 'pendiente',
+          sede_id: formData.sede_id || null
         }, { token })
 
         toast.success('Solicitud enviada correctamente')
@@ -192,6 +209,32 @@ async function handleSubmit(e) {
                   onChange={(e) => setOtroServicio(e.target.value)}
                   required={formData.tipo_servicio.includes('Otro')}
                 />
+              </div>
+            )}
+
+            {sedes.length > 0 && (
+              <div className="animate-in fade-in duration-300">
+                <label className="label-field flex items-center gap-1.5">
+                  <MapPin className="w-4 h-4 text-primary-500" /> Sede o Locación
+                </label>
+                <select
+                  className="input-field"
+                  value={formData.sede_id}
+                  onChange={e => {
+                    const sede = sedes.find(s => s.id === e.target.value)
+                    setFormData(prev => ({
+                      ...prev,
+                      sede_id: e.target.value,
+                      direccion: sede ? (sede.direccion || prev.direccion) : prev.direccion
+                    }))
+                  }}
+                >
+                  <option value="">Sin sede específica...</option>
+                  {sedes.map(s => (
+                    <option key={s.id} value={s.id}>{s.nombre}{s.direccion ? ` — ${s.direccion}` : ''}</option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-dark-400 mt-1">Si tu solicitud es para una sede específica, selícónala aquí.</p>
               </div>
             )}
 

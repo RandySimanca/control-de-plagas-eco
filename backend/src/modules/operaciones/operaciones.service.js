@@ -435,6 +435,8 @@ export async function createProducto(body, user) {
   await assertOrdenAccess(body.orden_id, user)
 
   const catalogoId = body.catalogo_id || null
+  const tecnicoInventarioId = body.tecnico_inventario_id || null
+  const lote = body.lote || null
   const cantidadNumerica = body.cantidad_numerica != null ? parseFloat(body.cantidad_numerica) : null
   const unidad = body.unidad || null
 
@@ -445,8 +447,8 @@ export async function createProducto(body, user) {
     const { rows } = await client.query(
       `INSERT INTO productos_usados
          (id, orden_id, ingrediente_activo, cantidad, tipo_producto, dosis, nombre_comercial,
-          catalogo_id, cantidad_numerica, unidad)
-       VALUES (COALESCE($1, gen_random_uuid()), $2, $3, $4, $5, $6, $7, $8, $9, $10)
+          catalogo_id, cantidad_numerica, unidad, tecnico_inventario_id, lote)
+       VALUES (COALESCE($1, gen_random_uuid()), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
        RETURNING *`,
       [
         body.id || null,
@@ -458,23 +460,32 @@ export async function createProducto(body, user) {
         body.nombre_comercial || null,
         catalogoId,
         cantidadNumerica,
-        unidad
+        unidad,
+        tecnicoInventarioId,
+        lote
       ]
     )
 
-    // Descontar del stock si el producto proviene del catálogo y tiene cantidad numérica
-    if (catalogoId && cantidadNumerica > 0) {
-      await _ajustarStock(
-        catalogoId,
-        -cantidadNumerica,
-        'salida',
-        body.orden_id,
-        'orden_servicio',
-        null,
-        `Usado en orden ${body.orden_id}`,
-        user.id,
-        client
-      )
+    // Descontar del inventario del técnico o del stock global
+    if (cantidadNumerica > 0) {
+      if (tecnicoInventarioId) {
+        await client.query(
+          `UPDATE tecnicos_inventario SET cantidad_usada = cantidad_usada + $1, updated_at = NOW() WHERE id = $2`,
+          [cantidadNumerica, tecnicoInventarioId]
+        )
+      } else if (catalogoId) {
+        await _ajustarStock(
+          catalogoId,
+          -cantidadNumerica,
+          'salida',
+          body.orden_id,
+          'orden_servicio',
+          null,
+          `Usado en orden ${body.orden_id}`,
+          user.id,
+          client
+        )
+      }
     }
 
     await client.query('COMMIT')
@@ -488,7 +499,7 @@ export async function createProducto(body, user) {
 }
 export async function updateProducto(id, body, user) {
   const { rows: prodRows } = await pool.query(
-    'SELECT orden_id, catalogo_id, cantidad_numerica FROM productos_usados WHERE id = $1', [id]
+    'SELECT orden_id, catalogo_id, cantidad_numerica, tecnico_inventario_id FROM productos_usados WHERE id = $1', [id]
   )
   if (!prodRows[0]) throw new AppError('Producto no encontrado', 404)
   await assertOrdenAccess(prodRows[0].orden_id, user)
@@ -514,22 +525,30 @@ export async function updateProducto(id, body, user) {
 
     // Ajustar la diferencia en stock si cambió la cantidad_numerica
     const catalogoId = prodRows[0].catalogo_id
+    const tecnicoInventarioId = prodRows[0].tecnico_inventario_id
     const cantAnterior = parseFloat(prodRows[0].cantidad_numerica || 0)
     const cantNueva = body.cantidad_numerica != null ? parseFloat(body.cantidad_numerica) : cantAnterior
     const diferencia = cantNueva - cantAnterior
 
-    if (catalogoId && diferencia !== 0) {
-      await _ajustarStock(
-        catalogoId,
-        -diferencia, // Negativo = más consumo, Positivo = menos consumo
-        diferencia > 0 ? 'salida' : 'ajuste_manual',
-        prodRows[0].orden_id,
-        'orden_servicio',
-        null,
-        `Edición de producto en orden ${prodRows[0].orden_id}`,
-        user.id,
-        client
-      )
+    if (diferencia !== 0) {
+      if (tecnicoInventarioId) {
+        await client.query(
+          `UPDATE tecnicos_inventario SET cantidad_usada = cantidad_usada + $1, updated_at = NOW() WHERE id = $2`,
+          [diferencia, tecnicoInventarioId]
+        )
+      } else if (catalogoId) {
+        await _ajustarStock(
+          catalogoId,
+          -diferencia, // Negativo = más consumo, Positivo = menos consumo
+          diferencia > 0 ? 'salida' : 'ajuste_manual',
+          prodRows[0].orden_id,
+          'orden_servicio',
+          null,
+          `Edición de producto en orden ${prodRows[0].orden_id}`,
+          user.id,
+          client
+        )
+      }
     }
 
     await client.query('COMMIT')
@@ -543,7 +562,7 @@ export async function updateProducto(id, body, user) {
 }
 export async function deleteProducto(id, user) {
   const { rows } = await pool.query(
-    'SELECT orden_id, catalogo_id, cantidad_numerica FROM productos_usados WHERE id = $1', [id]
+    'SELECT orden_id, catalogo_id, cantidad_numerica, tecnico_inventario_id FROM productos_usados WHERE id = $1', [id]
   )
   if (!rows[0]) return // Ya no existe
   await assertOrdenAccess(rows[0].orden_id, user)
@@ -553,21 +572,30 @@ export async function deleteProducto(id, user) {
     await client.query('BEGIN')
     await client.query('DELETE FROM productos_usados WHERE id = $1', [id])
 
-    // Devolver la cantidad al stock si el producto proviene del catálogo
+    // Devolver la cantidad al stock si el producto proviene del catálogo o del técnico
     const catalogoId = rows[0].catalogo_id
+    const tecnicoInventarioId = rows[0].tecnico_inventario_id
     const cantidadNumerica = parseFloat(rows[0].cantidad_numerica || 0)
-    if (catalogoId && cantidadNumerica > 0) {
-      await _ajustarStock(
-        catalogoId,
-        cantidadNumerica, // Positivo = devolución al stock
-        'ajuste_manual',
-        rows[0].orden_id,
-        'orden_servicio',
-        null,
-        `Producto eliminado de orden ${rows[0].orden_id} — stock restaurado`,
-        user.id,
-        client
-      )
+    
+    if (cantidadNumerica > 0) {
+      if (tecnicoInventarioId) {
+        await client.query(
+          `UPDATE tecnicos_inventario SET cantidad_usada = cantidad_usada - $1, updated_at = NOW() WHERE id = $2`,
+          [cantidadNumerica, tecnicoInventarioId]
+        )
+      } else if (catalogoId) {
+        await _ajustarStock(
+          catalogoId,
+          cantidadNumerica, // Positivo = devolución al stock
+          'ajuste_manual',
+          rows[0].orden_id,
+          'orden_servicio',
+          null,
+          `Producto eliminado de orden ${rows[0].orden_id} — stock restaurado`,
+          user.id,
+          client
+        )
+      }
     }
 
     await client.query('COMMIT')
@@ -616,9 +644,9 @@ export async function createSolicitud(body, user) {
   const clienteId = body.cliente_id || profile?.cliente_id
   if (!clienteId) throw new AppError('cliente_id es obligatorio', 400)
   const { rows } = await pool.query(
-    `INSERT INTO solicitudes_servicio (cliente_id, tipo_servicio, descripcion, direccion, fecha_preferida, estado)
-     VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
-    [clienteId, body.tipo_servicio, body.descripcion, body.direccion || null, body.fecha_preferida || null, body.estado || 'pendiente']
+    `INSERT INTO solicitudes_servicio (cliente_id, tipo_servicio, descripcion, direccion, fecha_preferida, estado, sede_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+    [clienteId, body.tipo_servicio, body.descripcion, body.direccion || null, body.fecha_preferida || null, body.estado || 'pendiente', body.sede_id || null]
   )
   return rows[0]
 }

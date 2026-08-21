@@ -5,7 +5,7 @@ import { abrirInformeTecnico } from '../../lib/generarInformeTecnico'
 import { useNavigate, Link, useLocation } from 'react-router-dom'
 import {
   Bug, LogOut, ClipboardList, FileCheck, Calendar, Download,
-  CheckCircle2, Clock, Play, ChevronRight, FileText, PlusCircle, Bell, Trash2, Shield, Send, X, Loader2, Key, Droplets, Search
+  CheckCircle2, Clock, Play, ChevronRight, FileText, PlusCircle, Bell, Trash2, Shield, Send, X, Loader2, Key, Droplets, Search, MapPin, Map, Plus, Save
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useInstallPrompt } from '../../hooks/useInstallPrompt'
@@ -30,6 +30,7 @@ export default function PortalCliente() {
   const [informesTecnicos, setInformesTecnicos] = useState([])
   const [documentos, setDocumentos] = useState([])
   const [solicitudes, setSolicitudes] = useState([])
+  const [sedes, setSedes] = useState([])
   const [tab, setTab] = useState(() => {
     if (profile?.activo === false) return 'solicitudes'
     return location.state?.tab || 'historial'
@@ -44,24 +45,31 @@ export default function PortalCliente() {
     tipo_servicio: ['Desinsectación'],
     descripcion: '',
     direccion: profile?.direccion || '',
-    fecha_preferida: ''
+    fecha_preferida: '',
+    sede_id: ''
   })
   const [otroServicio, setOtroServicio] = useState('')
   const [cantidadTanques, setCantidadTanques] = useState('')
   const [tipoTanque, setTipoTanque] = useState('Elevado')
   const [materialTanque, setMaterialTanque] = useState('Polietileno')
 
+  // -- Sedes State --
+  const [showSedeForm, setShowSedeForm] = useState(false)
+  const [nuevaSede, setNuevaSede] = useState({ nombre: '', direccion: '', municipio: '' })
+  const [savingSede, setSavingSede] = useState(false)
+
 useEffect(() => {
     async function load() {
       if (!profile?.cliente_id) { setLoading(false); return }
       try {
         const token = localStorage.getItem('token')
-        const [ordenesRes, certRes, informesRes, docsRes, solRes] = await Promise.all([
+        const [ordenesRes, certRes, informesRes, docsRes, solRes, sedesRes] = await Promise.all([
           api.get('/ordenes-servicio', { token }),
           api.get('/certificados', { token }),
           api.get('/informes-tecnicos', { token }),
           api.get('/documentos-legales', { token }),
-          api.get('/solicitudes-servicio', { token })
+          api.get('/solicitudes-servicio', { token }),
+          api.get(`/clientes/${profile.cliente_id}/sedes`, { token })
         ])
 
         setOrdenes(ordenesRes.data || [])
@@ -69,6 +77,7 @@ useEffect(() => {
         setInformesTecnicos(informesRes.data || [])
         setDocumentos(docsRes.data || [])
         setSolicitudes(solRes.data || [])
+        setSedes(sedesRes.data || [])
       } catch (err) {
         console.error('Error:', err)
       } finally {
@@ -260,7 +269,8 @@ useEffect(() => {
         descripcion: form.descripcion + infotanques,
         direccion: form.direccion,
         fecha_preferida: form.fecha_preferida || null,
-        estado: 'pendiente'
+        estado: 'pendiente',
+        sede_id: form.sede_id || null
       }, { token })
       
       const newSolicitud = response?.data || response
@@ -271,7 +281,7 @@ useEffect(() => {
       toast.success('Solicitud enviada correctamente')
       setShowModal(false)
       setSolicitudes(prev => [newSolicitud, ...prev]) // Add directly to UI
-      setForm({ tipo_servicio: ['Desinsectación'], descripcion: '', direccion: profile?.direccion || '', fecha_preferida: '' })
+      setForm({ tipo_servicio: ['Desinsectación'], descripcion: '', direccion: profile?.direccion || '', fecha_preferida: '', sede_id: '' })
       setOtroServicio('')
       setCantidadTanques('')
       setTipoTanque('Elevado')
@@ -443,6 +453,32 @@ useEffect(() => {
                 </div>
               )}
 
+              {sedes.length > 0 && (
+                <div className="space-y-1.5 animate-in fade-in duration-300">
+                  <label className="text-sm font-semibold text-dark-700 flex items-center gap-1.5">
+                    <MapPin className="w-4 h-4 text-primary-500" /> Sede o Locación
+                  </label>
+                  <select
+                    className="w-full bg-white border border-dark-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 rounded-xl px-4 py-3 text-sm transition-all shadow-sm"
+                    value={form.sede_id}
+                    onChange={e => {
+                      const sede = sedes.find(s => s.id === e.target.value)
+                      setForm(prev => ({
+                        ...prev,
+                        sede_id: e.target.value,
+                        direccion: sede ? (sede.direccion || prev.direccion) : prev.direccion
+                      }))
+                    }}
+                  >
+                    <option value="">Sin sede específica...</option>
+                    {sedes.map(s => (
+                      <option key={s.id} value={s.id}>{s.nombre}{s.direccion ? ` — ${s.direccion}` : ''}</option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] text-dark-400">Si tu solicitud es para una sede específica, selícónala aquí.</p>
+                </div>
+              )}
+
               <div className="space-y-1.5">
                 <label className="text-sm font-semibold text-dark-700">Dirección del Servicio</label>
                 <input 
@@ -595,6 +631,12 @@ useEffect(() => {
               >
                 <FileText className="w-4 h-4" /> Documentos
               </button>
+              <button 
+                onClick={() => setTab('sedes')} 
+                className={`flex-1 flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-bold transition-all duration-200 whitespace-nowrap ${tab === 'sedes' ? 'bg-dark-900 text-white shadow-md' : 'text-dark-500 hover:text-dark-900 hover:bg-dark-50'}`}
+              >
+                <Map className="w-4 h-4" /> Mis Sedes {sedes.length > 0 && `(${sedes.length})`}
+              </button>
             </>
           )}
           <button 
@@ -622,7 +664,8 @@ useEffect(() => {
                 {tab === 'certificados' && <FileCheck className="w-5 h-5 text-primary-600" />}
                 {tab === 'documentos' && <FileText className="w-5 h-5 text-primary-600" />}
                 {tab === 'solicitudes' && <PlusCircle className="w-5 h-5 text-primary-600" />}
-                Mis {tab}
+                {tab === 'sedes' && <Map className="w-5 h-5 text-primary-600" />}
+                {tab === 'sedes' ? 'Mis Sedes y Locaciones' : `Mis ${tab}`}
               </h2>
               {tab === 'solicitudes' && (
                 <button 
@@ -630,6 +673,14 @@ useEffect(() => {
                   className="group relative inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-white transition-all duration-300 ease-in-out bg-dark-900 border border-transparent rounded-full shadow-md hover:bg-dark-800 hover:shadow-lg hover:shadow-dark-900/20 hover:-translate-y-0.5"
                 >
                   <PlusCircle className="w-4 h-4 transition-transform group-hover:rotate-90" /> Nueva Solicitud
+                </button>
+              )}
+              {tab === 'sedes' && !showSedeForm && (
+                <button 
+                  onClick={() => setShowSedeForm(true)} 
+                  className="group relative inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-white transition-all duration-300 ease-in-out bg-dark-900 border border-transparent rounded-full shadow-md hover:bg-dark-800 hover:shadow-lg hover:shadow-dark-900/20 hover:-translate-y-0.5"
+                >
+                  <Plus className="w-4 h-4 transition-transform group-hover:rotate-90" /> Agregar Sede
                 </button>
               )}
             </div>
@@ -652,6 +703,9 @@ useEffect(() => {
                     else if (o.estado === 'completada') badgeStyles += 'bg-green-50 text-green-700 ring-green-600/20'
                     else badgeStyles += 'bg-dark-50 text-dark-700 ring-dark-500/20'
 
+                    // Find sede name if applicable
+                    const sedeOrden = o.sede_id ? sedes.find(s => s.id === o.sede_id) : null
+
                     return (
                       <Link 
                         to={`/portal/ordenes/${o.id}`} 
@@ -667,6 +721,11 @@ useEffect(() => {
                             <div>
                               <p className="text-xs font-bold text-dark-400 uppercase tracking-wider mb-1">Visita Programada</p>
                               <p className="text-base font-bold text-dark-900 group-hover:text-primary-700 transition-colors">{formatFecha(o.fecha_programada)}</p>
+                              {sedeOrden && (
+                                <p className="text-xs text-primary-600 font-semibold mt-0.5 flex items-center gap-1">
+                                  <MapPin className="w-3 h-3" /> {sedeOrden.nombre}
+                                </p>
+                              )}
                             </div>
                           </div>
                           <span className={badgeStyles}>{config.label}</span>
@@ -825,6 +884,11 @@ useEffect(() => {
                                 </span>
                               </div>
                               <p className="text-sm text-dark-600 leading-relaxed max-w-3xl">{sol.descripcion}</p>
+                              {sol.sede_id && sedes.find(s => s.id === sol.sede_id) && (
+                                <p className="text-xs text-primary-600 font-semibold mt-1.5 flex items-center gap-1">
+                                  <MapPin className="w-3 h-3" /> Sede: {sedes.find(s => s.id === sol.sede_id)?.nombre}
+                                </p>
+                              )}
                               <p className="text-xs font-semibold text-dark-400 mt-3 flex items-center gap-1.5">
                                 <Calendar className="w-3.5 h-3.5" /> Enviada el {sol.created_at && !isNaN(new Date(sol.created_at)) ? new Date(sol.created_at).toLocaleDateString() : new Date().toLocaleDateString()}
                               </p>
@@ -1036,6 +1100,140 @@ useEffect(() => {
                 )}
               </div>
             )}
+            {/* TAB CONTENT: SEDES */}
+            {tab === 'sedes' && (
+              <div className="space-y-4">
+                {/* Add Sede Form */}
+                {showSedeForm && (
+                  <form
+                    onSubmit={async e => {
+                      e.preventDefault()
+                      if (!nuevaSede.nombre.trim()) return toast.error('El nombre es obligatorio')
+                      setSavingSede(true)
+                      try {
+                        const token = localStorage.getItem('token')
+                        const { data } = await api.post(`/clientes/${profile.cliente_id}/sedes`, nuevaSede, { token })
+                        setSedes(prev => [...prev, data])
+                        setShowSedeForm(false)
+                        setNuevaSede({ nombre: '', direccion: '', municipio: '' })
+                        toast.success('Sede creada correctamente')
+                      } catch (err) {
+                        toast.error('Error al crear sede: ' + err.message)
+                      } finally {
+                        setSavingSede(false)
+                      }
+                    }}
+                    className="bg-primary-50/50 border border-primary-100 rounded-2xl p-5 space-y-3 animate-in fade-in slide-in-from-top-2 duration-300"
+                  >
+                    <h3 className="text-sm font-bold text-primary-800 flex items-center gap-2"><MapPin className="w-4 h-4" /> Nueva Sede</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="text-xs font-semibold text-dark-700 block mb-1">Nombre *</label>
+                        <input
+                          type="text"
+                          className="w-full bg-white border border-dark-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 rounded-xl px-3 py-2 text-sm transition-all"
+                          placeholder="Ej: Sede Norte"
+                          required
+                          value={nuevaSede.nombre}
+                          onChange={e => setNuevaSede(p => ({ ...p, nombre: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-dark-700 block mb-1">Dirección</label>
+                        <input
+                          type="text"
+                          className="w-full bg-white border border-dark-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 rounded-xl px-3 py-2 text-sm transition-all"
+                          placeholder="Dirección física"
+                          value={nuevaSede.direccion}
+                          onChange={e => setNuevaSede(p => ({ ...p, direccion: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-dark-700 block mb-1">Municipio</label>
+                        <input
+                          type="text"
+                          className="w-full bg-white border border-dark-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 rounded-xl px-3 py-2 text-sm transition-all"
+                          placeholder="Ej: Bogotá"
+                          value={nuevaSede.municipio}
+                          onChange={e => setNuevaSede(p => ({ ...p, municipio: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        type="submit"
+                        disabled={savingSede}
+                        className="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold text-white bg-primary-600 hover:bg-primary-700 rounded-xl transition-all shadow-sm disabled:opacity-60"
+                      >
+                        {savingSede ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                        Guardar Sede
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setShowSedeForm(false); setNuevaSede({ nombre: '', direccion: '', municipio: '' }) }}
+                        className="px-4 py-2 text-sm font-bold text-dark-600 bg-white border border-dark-200 hover:bg-dark-50 rounded-xl transition-all"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {sedes.length === 0 && !showSedeForm ? (
+                  <div className="p-12 text-center bg-white rounded-3xl border border-dark-100 shadow-sm">
+                    <Map className="w-12 h-12 text-dark-200 mx-auto mb-3" />
+                    <p className="text-dark-700 font-semibold mb-1">Sin sedes registradas</p>
+                    <p className="text-dark-400 text-sm mb-5">Agrega tus sedes o locaciones para asociarlas a tus solicitudes de servicio.</p>
+                    <button
+                      onClick={() => setShowSedeForm(true)}
+                      className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-dark-900 rounded-full shadow-md hover:bg-dark-800 transition-all"
+                    >
+                      <Plus className="w-4 h-4" /> Agregar Primera Sede
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {sedes.map(sede => (
+                      <div
+                        key={sede.id}
+                        className="group bg-white rounded-2xl p-4 border border-dark-100/80 shadow-sm hover:shadow-lg hover:border-primary-200 hover:-translate-y-0.5 transition-all duration-300 flex items-start justify-between gap-3"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-primary-50 border border-primary-100 flex items-center justify-center shrink-0 group-hover:bg-primary-100 transition-colors">
+                            <MapPin className="w-5 h-5 text-primary-600" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-dark-900">{sede.nombre}</p>
+                            {(sede.direccion || sede.municipio) && (
+                              <p className="text-xs text-dark-500 mt-0.5">
+                                {sede.direccion}{sede.direccion && sede.municipio ? ' — ' : ''}{sede.municipio}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          onClick={async () => {
+                            const ok = await confirmDelete('\u00bfEliminar esta sede?', 'Esta acción no se puede deshacer.')
+                            if (!ok) return
+                            try {
+                              const token = localStorage.getItem('token')
+                              await api.delete(`/clientes/${profile.cliente_id}/sedes/${sede.id}`, { token })
+                              setSedes(prev => prev.filter(s => s.id !== sede.id))
+                              toast.success('Sede eliminada')
+                            } catch { toast.error('Error al eliminar sede') }
+                          }}
+                          className="p-2 text-dark-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all opacity-0 group-hover:opacity-100"
+                          title="Eliminar sede"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
           </div>
         )}
       </main>

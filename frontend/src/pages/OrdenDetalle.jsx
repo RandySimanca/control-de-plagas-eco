@@ -248,6 +248,7 @@ export default function OrdenDetalle() {
               queueOrExecute={queueOrExecute}
               ordenTipoPlaga={orden.tipo_plaga}
               isOnline={isOnline}
+              ordenTecnicoId={orden.tecnico_id}
             />
 
             {/* 3. Estaciones */}

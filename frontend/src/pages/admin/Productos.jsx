@@ -20,6 +20,9 @@ const CATEGORIAS = [
   { value: 'otro', label: 'Otro' }
 ]
 
+// Formatea un número sin separadores de miles y sin decimales innecesarios
+const fmtNum = (n) => parseFloat(parseFloat(n || 0).toFixed(3))
+
 const UNIDADES = [
   { value: 'ml', label: 'Mililitros (ml)' },
   { value: 'l', label: 'Litros (L)' },
@@ -60,7 +63,9 @@ export default function Productos() {
     stock_actual: '',
     stock_minimo: '',
     presentacion_compra: '',
-    factor_conversion: '1'
+    factor_conversion: '1',
+    lote: '',
+    fecha_vencimiento: ''
   })
 
   // Modal: Reabastecer
@@ -168,6 +173,8 @@ export default function Productos() {
         stock_minimo: prod.stock_minimo ?? '',
         presentacion_compra: prod.presentacion_compra || '',
         factor_conversion: prod.factor_conversion ?? '1',
+        lote: prod.lote || '',
+        fecha_vencimiento: prod.fecha_vencimiento ? prod.fecha_vencimiento.split('T')[0] : '',
         marca: prod.marca || '',
         modelo: prod.modelo || '',
         numero_serie: prod.numero_serie || '',
@@ -179,7 +186,8 @@ export default function Productos() {
         id: null, nombre_comercial: '', ingrediente_activo: '', dosis_recomendada: '',
         tipo_producto: '', estado: 'activo', categoria: defaultCategoria, unidad_base: (defaultCategoria === 'equipo' || defaultCategoria === 'epp') ? 'unidad' : 'l',
         stock_actual: '', stock_minimo: '', presentacion_compra: '', factor_conversion: '1',
-        marca: '', modelo: '', numero_serie: '', codigo_activo: '', estado_fisico: 'disponible'
+        marca: '', modelo: '', numero_serie: '', codigo_activo: '', estado_fisico: 'disponible',
+        lote: '', fecha_vencimiento: ''
       })
     }
     setShowModal(true)
@@ -437,6 +445,16 @@ export default function Productos() {
                   <td className="py-3 px-4">
                     <div className="font-bold text-dark-900">{p.nombre_comercial}</div>
                     {p.ingrediente_activo && <div className="text-xs text-dark-400">{p.ingrediente_activo}</div>}
+                    {p.lote && (
+                      <div className="text-xs text-amber-700 font-semibold mt-0.5">
+                        🏷️ Lote: {p.lote}
+                        {p.fecha_vencimiento && (
+                          <span className="ml-2 text-dark-400 font-normal">
+                            · Vence: {new Date(p.fecha_vencimiento).toLocaleDateString('es-CO')}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </td>
                   {activeTab === 'equipos' ? (
                     <>
@@ -478,13 +496,13 @@ export default function Productos() {
                       <td className="py-3 px-4">
                         <div className="flex flex-col gap-1">
                           <span className="font-bold text-dark-900">
-                            {parseFloat(p.stock_actual || 0).toLocaleString()} {p.unidad_base}
+                            {fmtNum(p.stock_actual)} {p.unidad_base}
                           </span>
                           <StockBadge stock={p.stock_actual} minimo={p.stock_minimo} />
                         </div>
                       </td>
                       <td className="py-3 px-4 text-sm text-dark-500">
-                        {p.stock_minimo ? `${parseFloat(p.stock_minimo).toLocaleString()} ${p.unidad_base}` : '—'}
+                        {p.stock_minimo ? `${fmtNum(p.stock_minimo)} ${p.unidad_base}` : '—'}
                       </td>
                       <td className="py-3 px-4">
                         <span className={`text-xs px-2 py-1 rounded-full font-bold ${p.estado === 'activo' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
@@ -660,7 +678,7 @@ export default function Productos() {
                     <div>
                       <label className="label-field">Stock Actual ({formData.unidad_base})</label>
                       <div className="input-field bg-dark-50 text-dark-500 cursor-default flex items-center justify-between">
-                        <span className="font-bold">{parseFloat(formData.stock_actual || 0).toLocaleString()}</span>
+                        <span className="font-bold">{fmtNum(formData.stock_actual)}</span>
                         <span className="text-xs text-dark-400">Usa "Ajuste Manual" para modificar</span>
                       </div>
                     </div>
@@ -714,7 +732,7 @@ export default function Productos() {
                 </div>
                 {formData.presentacion_compra && formData.factor_conversion && (
                   <p className="text-xs text-dark-500">
-                    💡 1 {formData.presentacion_compra} = <strong>{parseFloat(formData.factor_conversion).toLocaleString()} {formData.unidad_base}</strong>
+                    💡 1 {formData.presentacion_compra} = <strong>{fmtNum(formData.factor_conversion)} {formData.unidad_base}</strong>
                   </p>
                 )}
               </div>
@@ -729,6 +747,38 @@ export default function Productos() {
                   <option value="inactivo">Inactivo</option>
                 </select>
               </div>
+
+              {/* Trazabilidad: Lote y Vencimiento (solo para químicos, trampas, cebaderos) */}
+              {!['equipo', 'epp'].includes(formData.categoria) && (
+                <div className="p-4 bg-amber-50/60 rounded-xl border border-amber-200 space-y-3">
+                  <p className="text-xs font-bold text-amber-700 uppercase tracking-wider flex items-center gap-1.5">
+                    🏷️ Trazabilidad del Producto
+                  </p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="label-field">No. Lote / Código de Lote</label>
+                      <input
+                        type="text"
+                        value={formData.lote}
+                        onChange={e => setFormData({ ...formData, lote: e.target.value })}
+                        className="input-field"
+                        placeholder="Ej: LOT-2025-001"
+                      />
+                      <p className="text-xs text-dark-400 mt-1">Identifica el lote de fabricación o importación</p>
+                    </div>
+                    <div>
+                      <label className="label-field">Fecha de Vencimiento</label>
+                      <input
+                        type="date"
+                        value={formData.fecha_vencimiento}
+                        onChange={e => setFormData({ ...formData, fecha_vencimiento: e.target.value })}
+                        className="input-field"
+                      />
+                      <p className="text-xs text-dark-400 mt-1">Fecha de expiración del producto</p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Campos específicos para Equipo */}
               {formData.categoria === 'equipo' && (
@@ -806,12 +856,12 @@ export default function Productos() {
             <form onSubmit={handleReabastecer} className="p-6 space-y-4">
               <div className="p-4 bg-green-50 rounded-xl border border-green-200">
                 <p className="text-sm text-green-800">
-                  <strong>Stock actual:</strong> {parseFloat(reabProducto.stock_actual || 0).toLocaleString()} {reabProducto.unidad_base}
+                  <strong>Stock actual:</strong> {fmtNum(reabProducto.stock_actual)} {reabProducto.unidad_base}
                 </p>
                 {reabProducto.presentacion_compra && (
                   <p className="text-sm text-green-700 mt-1">
                     <strong>Presentación:</strong> {reabProducto.presentacion_compra}
-                    {' '}({parseFloat(reabProducto.factor_conversion || 1).toLocaleString()} {reabProducto.unidad_base} c/u)
+                    {' '}({fmtNum(reabProducto.factor_conversion || 1)} {reabProducto.unidad_base} c/u)
                   </p>
                 )}
               </div>
@@ -826,7 +876,7 @@ export default function Productos() {
                 {reabForm.cantidad_presentaciones && parseFloat(reabForm.cantidad_presentaciones) > 0 && (
                   <p className="text-xs text-green-700 mt-1 font-medium">
                     ➕ Se agregarán <strong>
-                      {(parseFloat(reabForm.cantidad_presentaciones) * parseFloat(reabProducto.factor_conversion || 1)).toLocaleString()} {reabProducto.unidad_base}
+                      {fmtNum(parseFloat(reabForm.cantidad_presentaciones) * parseFloat(reabProducto.factor_conversion || 1))} {reabProducto.unidad_base}
                     </strong> al stock
                   </p>
                 )}
@@ -864,7 +914,7 @@ export default function Productos() {
             <form onSubmit={handleAjuste} className="p-6 space-y-4">
               <div className="p-4 bg-blue-50 rounded-xl border border-blue-200">
                 <p className="text-sm text-blue-800">
-                  <strong>Stock actual:</strong> {parseFloat(ajusteProducto.stock_actual || 0).toLocaleString()} {ajusteProducto.unidad_base}
+                  <strong>Stock actual:</strong> {fmtNum(ajusteProducto.stock_actual)} {ajusteProducto.unidad_base}
                 </p>
                 <p className="text-xs text-blue-600 mt-1">Usa esta opción para corregir el stock tras un inventario físico.</p>
               </div>
@@ -877,8 +927,8 @@ export default function Productos() {
                 {ajusteForm.nuevo_stock !== '' && (
                   <p className={`text-xs mt-1 font-medium ${parseFloat(ajusteForm.nuevo_stock) >= parseFloat(ajusteProducto.stock_actual || 0) ? 'text-green-700' : 'text-red-600'}`}>
                     {parseFloat(ajusteForm.nuevo_stock) >= parseFloat(ajusteProducto.stock_actual || 0)
-                      ? `➕ +${(parseFloat(ajusteForm.nuevo_stock) - parseFloat(ajusteProducto.stock_actual || 0)).toLocaleString()} ${ajusteProducto.unidad_base}`
-                      : `➖ -${(parseFloat(ajusteProducto.stock_actual || 0) - parseFloat(ajusteForm.nuevo_stock)).toLocaleString()} ${ajusteProducto.unidad_base}`
+                      ? `➕ +${fmtNum(parseFloat(ajusteForm.nuevo_stock) - parseFloat(ajusteProducto.stock_actual || 0))} ${ajusteProducto.unidad_base}`
+                      : `➖ -${fmtNum(parseFloat(ajusteProducto.stock_actual || 0) - parseFloat(ajusteForm.nuevo_stock))} ${ajusteProducto.unidad_base}`
                     }
                   </p>
                 )}
@@ -942,7 +992,7 @@ export default function Productos() {
               ) : (
                 <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-200">
                   <p className="text-sm text-indigo-800">
-                    <strong>Stock disponible:</strong> {parseFloat(asignarProducto.stock_actual || 0).toLocaleString()} {asignarProducto.unidad_base}
+                    <strong>Stock disponible:</strong> {fmtNum(asignarProducto.stock_actual)} {asignarProducto.unidad_base}
                   </p>
                 </div>
               )}
@@ -991,7 +1041,7 @@ export default function Productos() {
             <div className="flex justify-between items-center p-6 border-b border-dark-100 flex-shrink-0">
               <div>
                 <h2 className="text-xl font-bold text-dark-900">Historial de Movimientos</h2>
-                <p className="text-sm text-dark-500">{historialProducto.nombre_comercial} · Stock: <strong>{parseFloat(historialProducto.stock_actual || 0).toLocaleString()} {historialProducto.unidad_base}</strong></p>
+                <p className="text-sm text-dark-500">{historialProducto.nombre_comercial} · Stock: <strong>{fmtNum(historialProducto.stock_actual)} {historialProducto.unidad_base}</strong></p>
               </div>
               <button onClick={() => setShowHistorial(false)} className="text-dark-400 hover:text-dark-600">
                 <X className="w-6 h-6" />
@@ -1018,7 +1068,7 @@ export default function Productos() {
                             {m.tipo === 'entrada' ? 'Entrada' : m.tipo === 'salida' ? 'Salida' : 'Ajuste'}
                           </span>
                           <span className={`text-sm font-bold ${m.tipo === 'entrada' ? 'text-green-700' : m.tipo === 'salida' ? 'text-red-600' : 'text-blue-700'}`}>
-                            {m.tipo === 'entrada' ? '+' : m.tipo === 'salida' ? '-' : '±'}{parseFloat(m.cantidad).toLocaleString()} {historialProducto.unidad_base}
+                            {m.tipo === 'entrada' ? '+' : m.tipo === 'salida' ? '-' : '±'}{fmtNum(m.cantidad)} {historialProducto.unidad_base}
                           </span>
                         </div>
                         {m.referencia_tipo === 'asignacion_tecnico' && m.tecnico_asignado && (

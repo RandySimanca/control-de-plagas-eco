@@ -103,7 +103,9 @@ export async function createProductoCatalogo(body) {
     modelo,
     numero_serie,
     codigo_activo,
-    estado_fisico
+    estado_fisico,
+    lote,
+    fecha_vencimiento
   } = body;
 
   // Validar unicidad de codigo_activo y numero_serie para equipos
@@ -137,9 +139,10 @@ export async function createProductoCatalogo(body) {
        nombre_comercial, ingrediente_activo, dosis_recomendada, tipo_producto,
        ficha_seguridad_url, estado, categoria, unidad_base, stock_actual,
        stock_minimo, presentacion_compra, factor_conversion,
-       marca, modelo, numero_serie, codigo_activo, estado_fisico
+       marca, modelo, numero_serie, codigo_activo, estado_fisico,
+       lote, fecha_vencimiento
      )
-     VALUES ($1,$2,$3,$4,$5,COALESCE($6,'activo'),$7,$8,$9,COALESCE($10,0),$11,COALESCE($12,1),$13,$14,$15,$16,COALESCE($17,'disponible'))
+     VALUES ($1,$2,$3,$4,$5,COALESCE($6,'activo'),$7,$8,$9,COALESCE($10,0),$11,COALESCE($12,1),$13,$14,$15,$16,COALESCE($17,'disponible'),$18,$19)
      RETURNING *`,
     [
       nombre_comercial,
@@ -158,7 +161,9 @@ export async function createProductoCatalogo(body) {
       modelo || null,
       numero_serie || null,
       codigo_activo || null,
-      estado_fisico || 'disponible'
+      estado_fisico || 'disponible',
+      lote || null,
+      fecha_vencimiento || null
     ]
   );
 
@@ -207,7 +212,8 @@ export async function updateProductoCatalogo(id, body) {
     'nombre_comercial', 'ingrediente_activo', 'dosis_recomendada', 'tipo_producto',
     'ficha_seguridad_url', 'estado', 'categoria', 'unidad_base',
     'stock_minimo', 'presentacion_compra', 'factor_conversion',
-    'marca', 'modelo', 'numero_serie', 'codigo_activo', 'estado_fisico'
+    'marca', 'modelo', 'numero_serie', 'codigo_activo', 'estado_fisico',
+    'lote', 'fecha_vencimiento'
   ];
   const sets = [];
   const vals = [];

@@ -15,6 +15,7 @@ import HelpButton from '../components/features/HelpButton'
 import { HELP_CONTENT } from '../lib/helpContent'
 import { formatFecha } from '../utils/dateUtils'
 import PrestamoEquipos from '../components/features/PrestamoEquipos'
+import PrestamoInsumos from '../components/features/PrestamoInsumos'
 
 const CACHE_KEY_DASHBOARD = 'dashboard_data'
 
@@ -32,6 +33,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [chartData, setChartData] = useState([])
   const [showPrestamoModal, setShowPrestamoModal] = useState(false)
+  const [showInsumosModal, setShowInsumosModal] = useState(false)
 
   useEffect(() => {
     loadDashboard()
@@ -379,24 +381,46 @@ export default function Dashboard() {
 
       {/* Acciones de Técnico */}
       {!isAdmin && profile?.rol === 'tecnico' && (
-        <div className="bg-white rounded-[24px] border border-dark-100 shadow-[0_2px_10px_rgba(0,0,0,0.02)] p-6 mb-8 flex flex-col md:flex-row items-center justify-between">
-          <div className="flex items-center gap-4 mb-4 md:mb-0">
-            <div className="w-12 h-12 bg-orange-50 text-orange-600 rounded-2xl flex items-center justify-center border border-orange-100">
-              <Shield className="w-6 h-6" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <div className="bg-white rounded-[24px] border border-dark-100 shadow-[0_2px_10px_rgba(0,0,0,0.02)] p-6 flex flex-col items-start justify-between">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-12 h-12 bg-orange-50 text-orange-600 rounded-2xl flex items-center justify-center border border-orange-100">
+                <Shield className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-dark-900">Equipos de Campo</h3>
+                <p className="text-sm text-dark-500">Registra qué equipos te llevas y devuélvelos.</p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-lg font-bold text-dark-900">Equipos de Campo</h3>
-              <p className="text-sm text-dark-500">Registra qué equipos te llevas y devuélvelos al terminar tu turno.</p>
-            </div>
+            <button 
+              onClick={() => setShowPrestamoModal(true)}
+              disabled={!isOnline}
+              className="btn-primary w-full bg-orange-600 hover:bg-orange-700 shadow-orange-600/20"
+              title={!isOnline ? "Necesitas conexión a internet para esto" : ""}
+            >
+              Check-out / Check-in Equipos
+            </button>
           </div>
-          <button 
-            onClick={() => setShowPrestamoModal(true)}
-            disabled={!isOnline}
-            className="btn-primary bg-orange-600 hover:bg-orange-700 shadow-orange-600/20 whitespace-nowrap"
-            title={!isOnline ? "Necesitas conexión a internet para esto" : ""}
-          >
-            Check-out / Check-in Equipos
-          </button>
+
+          <div className="bg-white rounded-[24px] border border-dark-100 shadow-[0_2px_10px_rgba(0,0,0,0.02)] p-6 flex flex-col items-start justify-between">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-12 h-12 bg-cyan-50 text-cyan-600 rounded-2xl flex items-center justify-center border border-cyan-100">
+                <FileText className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-dark-900">Productos e Insumos</h3>
+                <p className="text-sm text-dark-500">Trampas, venenos, y otros insumos fungibles.</p>
+              </div>
+            </div>
+            <button 
+              onClick={() => setShowInsumosModal(true)}
+              disabled={!isOnline}
+              className="btn-primary w-full bg-cyan-600 hover:bg-cyan-700 shadow-cyan-600/20"
+              title={!isOnline ? "Necesitas conexión a internet para esto" : ""}
+            >
+              Check-out / Check-in Productos
+            </button>
+          </div>
         </div>
       )}
 
@@ -404,6 +428,11 @@ export default function Dashboard() {
         isOpen={showPrestamoModal} 
         onClose={() => setShowPrestamoModal(false)} 
         tecnicoId={profile?.id}
+      />
+      <PrestamoInsumos 
+        isOpen={showInsumosModal} 
+        onClose={() => setShowInsumosModal(false)} 
+        tecnicoId={profile?.id} 
       />
 
       {/* Actividad y Tabla */}
