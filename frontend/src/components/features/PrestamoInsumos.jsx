@@ -3,7 +3,7 @@ import { Beaker, ArrowDownToLine, ArrowUpFromLine, X, Loader2, Check } from 'luc
 import toast from 'react-hot-toast'
 import api from '../../lib/api'
 
-export default function PrestamoInsumos({ isOpen, onClose, tecnicoId }) {
+export default function PrestamoInsumos({ isOpen, onClose, tecnicoId, hasPendingOrders = true }) {
   const [activeTab, setActiveTab] = useState('sacar') // 'sacar' | 'devolver'
   const [catalogo, setCatalogo] = useState([])
   const [misInsumos, setMisInsumos] = useState([])
@@ -36,18 +36,26 @@ export default function PrestamoInsumos({ isOpen, onClose, tecnicoId }) {
     setLoading(true)
     try {
       const token = localStorage.getItem('token')
-      if (activeTab === 'sacar') {
-        const { data } = await api.get('/productos-catalogo', { token })
-        // Filtramos solo insumos fungibles (excluimos equipos y activos fijos si los hay, aunque equipos ya están separados en EPP/Activos)
-        setCatalogo(data?.filter(p => p.estado === 'activo' && p.categoria !== 'equipo' && p.categoria !== 'epp') || [])
-      } else {
-        const { data } = await api.get(`/productos-tecnicos/${tecnicoId}`, { token })
-        setMisInsumos(data?.data || [])
-        // Inicializar devoluciones con el sobrante esperado
+      const [catRes, invRes] = await Promise.all([
+        api.get('/productos-catalogo', { token }),
+        api.get(`/productos-tecnicos/${tecnicoId}`, { token })
+      ])
+
+      // Actualizar catálogo
+      setCatalogo(catRes.data?.filter(p => p.estado === 'activo' && p.categoria !== 'equipo' && p.categoria !== 'epp') || [])
+      
+      console.log("DEBUG loadData invRes.data:", invRes.data);
+      console.log("DEBUG tecnicoId:", tecnicoId);
+
+      // Actualizar inventario
+      const inventario = invRes.data || []
+      setMisInsumos(inventario)
+      
+      if (activeTab === 'devolver') {
         const initialDevs = {}
-          ; (data?.data || []).forEach(item => {
-            initialDevs[item.id] = Math.max(0, parseFloat(item.cantidad_sacada) - parseFloat(item.cantidad_usada))
-          })
+        inventario.forEach(item => {
+          initialDevs[item.id] = Math.max(0, parseFloat(item.cantidad_sacada) - parseFloat(item.cantidad_usada))
+        })
         setDevoluciones(initialDevs)
       }
     } catch (err) {
@@ -71,7 +79,8 @@ export default function PrestamoInsumos({ isOpen, onClose, tecnicoId }) {
 
       toast.success('Insumo registrado en tu vehículo')
       resetForm()
-      // Opcional: recargar datos o mostrar mensaje
+      loadData()
+
     } catch (err) {
       toast.error(err.response?.data?.message || 'Error al procesar la salida')
     } finally {
@@ -144,6 +153,13 @@ export default function PrestamoInsumos({ isOpen, onClose, tecnicoId }) {
               <Loader2 className="w-8 h-8 animate-spin text-cyan-600" />
             </div>
           ) : activeTab === 'sacar' ? (
+            !hasPendingOrders ? (
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <span className="text-5xl mb-4">🚫</span>
+                <h3 className="text-base font-bold text-dark-800 mb-2">Sin órdenes activas</h3>
+                <p className="text-sm text-dark-500 max-w-xs">No puedes sacar productos de bodega porque no tienes órdenes de trabajo programadas o en progreso en este momento.</p>
+              </div>
+            ) : (
             <form onSubmit={handleSacar} className="space-y-4">
               <div>
                 <label className="label-field">Producto a Sacar</label>
@@ -257,7 +273,31 @@ export default function PrestamoInsumos({ isOpen, onClose, tecnicoId }) {
               >
                 {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Confirmar Salida de Bodega'}
               </button>
+
+              {/* Lista de lo que ya está en el vehículo (para confirmación visual) */}
+              {misInsumos.length > 0 && (
+                <div className="mt-8 pt-6 border-t border-dark-100">
+                  <h3 className="text-sm font-bold text-dark-900 mb-3 flex items-center gap-2">
+                    <Check className="w-4 h-4 text-green-500" />
+                    Insumos actualmente en tu vehículo
+                  </h3>
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {misInsumos.map(item => (
+                      <div key={item.id} className="flex justify-between items-center bg-white p-3 rounded-lg border border-dark-100 shadow-xs text-sm">
+                        <div>
+                          <p className="font-bold text-dark-900">{item.nombre_comercial}</p>
+                          {item.lote && <p className="text-xs text-dark-500">Lote: {item.lote}</p>}
+                        </div>
+                        <div className="text-right">
+                          <p className="font-black text-cyan-700">{item.cantidad_sacada} {item.unidad_base}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </form>
+            )
           ) : (
             <div className="space-y-4">
               {misInsumos.length === 0 ? (

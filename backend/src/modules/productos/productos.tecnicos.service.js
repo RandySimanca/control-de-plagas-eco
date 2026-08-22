@@ -45,9 +45,12 @@ export async function checkOutProductos(tecnicoId, items, userId) {
       // Guardar lote explícitamente en el movimiento recién creado
       await client.query(
         `UPDATE movimientos_stock SET lote = $1 
-         WHERE referencia_id = $2 AND referencia_tipo = 'asignacion_tecnico' 
-         AND producto_id = $3 AND lote IS NULL 
-         ORDER BY created_at DESC LIMIT 1`,
+         WHERE id IN (
+           SELECT id FROM movimientos_stock 
+           WHERE referencia_id = $2 AND referencia_tipo = 'asignacion_tecnico' 
+           AND producto_id = $3 AND lote IS NULL 
+           ORDER BY created_at DESC LIMIT 1
+         )`,
         [lote || null, tecnicoId, catalogo_id]
       )
 

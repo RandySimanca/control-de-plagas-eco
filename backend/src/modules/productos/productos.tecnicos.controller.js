@@ -3,7 +3,7 @@ import * as productosTecnicosService from './productos.tecnicos.service.js'
 
 export const getInventarioTecnico = catchAsync(async (req, res) => {
   // Si no envían ID, tomar el del usuario logueado (si es técnico)
-  const tecnicoId = req.params.tecnico_id || req.user.id // Asumiendo que user.id es el tecnico_id, o deberíamos buscarlo en perfiles
+  const tecnicoId = (req.params.tecnico_id && req.params.tecnico_id !== 'undefined') ? req.params.tecnico_id : req.user.id
   
   const data = await productosTecnicosService.getInventarioTecnico(tecnicoId)
   res.json({ success: true, data })
@@ -22,7 +22,7 @@ export const checkInProductos = catchAsync(async (req, res) => {
 })
 
 export const getEppTecnico = catchAsync(async (req, res) => {
-  const tecnicoId = req.params.tecnico_id || req.user.id
+  const tecnicoId = (req.params.tecnico_id && req.params.tecnico_id !== 'undefined') ? req.params.tecnico_id : req.user.id
   const data = await productosTecnicosService.getEppTecnico(tecnicoId)
   res.json({ success: true, data })
 })

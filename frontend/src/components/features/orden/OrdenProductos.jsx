@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
-import { Package, Plus, Trash2, Edit, X, Loader2 } from 'lucide-react'
+import { Package, Loader2, Save, Trash2, Edit, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { generateUUID } from '../../../utils/uuid'
-import { confirmDelete, successAlert } from '../../../lib/alerts'
+import { confirmDelete } from '../../../lib/alerts'
 import { parseTipoPlaga } from '../../../utils/tipoPlaga'
 import db from '../../../lib/db'
 import api from '../../../lib/api'
@@ -17,153 +17,113 @@ export default function OrdenProductos({
   ordenTipoPlaga,
   servicioFiltro,
   isOnline,
-  ordenTecnicoId // ID del técnico asignado a la orden
+  ordenTecnicoId
 }) {
-  const [showAddModal, setShowAddModal] = useState(false)
-  const [showEditModal, setShowEditModal] = useState(false)
+  const [catalogo, setCatalogo] = useState([])
+  const [loadingCatalogo, setLoadingCatalogo] = useState(true)
+  const [cantidades, setCantidades] = useState({}) // { tecnico_inventario_id: string }
   const [isSaving, setIsSaving] = useState(false)
-  const [editingId, setEditingId] = useState(null)
-  const [catalogo, setCatalogo] = useState([]) // Ahora representará el inventario del técnico
 
-  const [formData, setFormData] = useState({
-    nombre_comercial: '',
-    ingrediente_activo: '',
-    dosis: '',
-    cantidad: '',
-    cantidad_numerica: '',
-    unidad: '',
-    tipo_producto: servicioFiltro || '',
-    es_manual: false,
-    catalogo_id: null,
-    tecnico_inventario_id: null, // Nuevo campo
-    lote: '',
-    _stock_disponible: null,
-    _unidad_base: ''
-  })
-
+  // Cargar inventario del técnico
   useEffect(() => {
     async function loadCatalogo() {
-      if (!ordenTecnicoId) return // Si no hay técnico asignado, no podemos cargar inventario
+      if (!ordenTecnicoId) { setLoadingCatalogo(false); return }
+      setLoadingCatalogo(true)
       try {
         if (isOnline) {
           const token = localStorage.getItem('token')
           const { data } = await api.get(`/productos-tecnicos/${ordenTecnicoId}`, { token })
-          setCatalogo(data?.data || [])
+          setCatalogo(data || [])
         } else {
-          // Fallback offline (se podría guardar el inventario del técnico en IndexedDB si quisiéramos offline total para esto)
           const cached = await db.cache_listas.get('productos_catalogo')
-          if (cached && cached.data) {
-            setCatalogo(cached.data.filter(p => p.estado === 'activo'))
-          }
+          if (cached?.data) setCatalogo(cached.data.filter(p => p.estado === 'activo'))
         }
       } catch (err) {
         console.error('Error cargando catálogo', err)
+      } finally {
+        setLoadingCatalogo(false)
       }
     }
     loadCatalogo()
   }, [isOnline, ordenTecnicoId])
 
-  const tiposControl = parseTipoPlaga(ordenTipoPlaga);
+  // Pre-llenar cantidades desde productos ya guardados en la orden
+  useEffect(() => {
+    const initial = {}
+    productos.forEach(p => {
+      if (p.tecnico_inventario_id && p.cantidad_numerica != null) {
+        initial[p.tecnico_inventario_id] = String(p.cantidad_numerica)
+      }
+    })
+    setCantidades(initial)
+  }, [productos])
 
+  const tiposControl = parseTipoPlaga(ordenTipoPlaga)
   const canEdit = isAssignedTecnico && ordenEstado === 'en_progreso'
 
-  function resetForm() {
-    setFormData({
-      nombre_comercial: '',
-      ingrediente_activo: '',
-      dosis: '',
-      cantidad: '',
-      cantidad_numerica: '',
-      unidad: '',
-      tipo_producto: servicioFiltro || (tiposControl.length === 1 ? tiposControl[0] : ''),
-      es_manual: false,
-      catalogo_id: null,
-      tecnico_inventario_id: null,
-      lote: '',
-      _stock_disponible: null,
-      _unidad_base: ''
-    })
-    setEditingId(null)
-  }
+  // Productos visibles según el servicio activo (para la vista de solo lectura)
+  const productosMostrar = servicioFiltro
+    ? productos.filter(p => p.tipo_producto?.toLowerCase() === servicioFiltro?.toLowerCase())
+    : productos
 
-  function handleProductSelect(e) {
-    const val = e.target.value
-    if (val === 'manual') {
-      setFormData({
-        ...formData,
-        nombre_comercial: '', ingrediente_activo: '', dosis: '',
-        es_manual: true, catalogo_id: null, tecnico_inventario_id: null, lote: '', _stock_disponible: null, _unidad_base: '',
-        cantidad_numerica: '', unidad: ''
-      })
-    } else {
-      const prod = catalogo.find(p => p.id === val)
-      if (prod) {
-        setFormData({
-          ...formData,
-          nombre_comercial: prod.nombre_comercial,
-          ingrediente_activo: prod.ingrediente_activo || '',
-          dosis: prod.dosis_recomendada || '',
-          es_manual: false,
-          tipo_producto: formData.tipo_producto || prod.tipo_producto || '',
-          catalogo_id: prod.catalogo_id,
-          tecnico_inventario_id: prod.id, // The ID from tecnicos_inventario
-          lote: prod.lote || '',
-          unidad: prod.unidad_base || 'unidad',
-          _stock_disponible: Math.max(0, parseFloat(prod.cantidad_sacada) - parseFloat(prod.cantidad_usada)),
-          _unidad_base: prod.unidad_base || 'unidad'
-        })
-      }
-    }
-  }
+  // Catálogo filtrado: solo items con stock disponible
+  const catalogoDisponible = catalogo.filter(c => {
+    const stockDisp = Math.max(0, parseFloat(c.cantidad_sacada || 0) - parseFloat(c.cantidad_usada || 0))
+    return stockDisp > 0
+  })
 
-  async function handleSave(e) {
-    e.preventDefault()
-    if (!formData.nombre_comercial.trim()) return
-
-    const tipoFinal = servicioFiltro || formData.tipo_producto
-    // Construir cantidad en texto para retrocompatibilidad
-    const cantidadTexto = formData.cantidad_numerica
-      ? `${formData.cantidad_numerica} ${formData.unidad || ''}`.trim()
-      : formData.cantidad || 'N/A'
-
+  async function handleSave() {
     setIsSaving(true)
     try {
-      if (editingId) {
-        const payload = {
-          ...formData, tipo_producto: tipoFinal, id: editingId,
-          nombre_producto: formData.nombre_comercial,
-          cantidad: cantidadTexto,
-          cantidad_numerica: formData.cantidad_numerica ? parseFloat(formData.cantidad_numerica) : null,
-          unidad: formData.unidad || null,
-          catalogo_id: formData.catalogo_id || null,
-          tecnico_inventario_id: formData.tecnico_inventario_id || null,
-          lote: formData.lote || null
+      const updatedProductos = [...productos]
+
+      for (const item of catalogoDisponible) {
+        const cantidadStr = cantidades[item.id]
+        const cantidad = parseFloat(cantidadStr || 0)
+        const existing = updatedProductos.find(p => p.tecnico_inventario_id === item.id)
+
+        if (cantidad > 0) {
+          const cantidadTexto = `${cantidad} ${item.unidad_base || ''}`.trim()
+          if (existing) {
+            const payload = {
+              ...existing,
+              cantidad: cantidadTexto,
+              cantidad_numerica: cantidad,
+              tipo_producto: servicioFiltro || existing.tipo_producto || '',
+            }
+            await queueOrExecute('productos_usados', 'update', payload, ordenId)
+            const idx = updatedProductos.findIndex(p => p.id === existing.id)
+            if (idx >= 0) updatedProductos[idx] = { ...updatedProductos[idx], ...payload }
+          } else {
+            const payload = {
+              id: generateUUID(),
+              orden_id: ordenId,
+              created_at: new Date().toISOString(),
+              nombre_producto: item.nombre_comercial,
+              nombre_comercial: item.nombre_comercial,
+              ingrediente_activo: item.ingrediente_activo || '',
+              dosis: item.dosis_recomendada || '',
+              cantidad: cantidadTexto,
+              cantidad_numerica: cantidad,
+              unidad: item.unidad_base || null,
+              catalogo_id: item.catalogo_id,
+              tecnico_inventario_id: item.id,
+              lote: item.lote || null,
+              tipo_producto: servicioFiltro || tiposControl[0] || '',
+            }
+            const { data } = await queueOrExecute('productos_usados', 'insert', payload, ordenId)
+            updatedProductos.unshift(data?.[0] || payload)
+          }
+        } else if (cantidad === 0 && existing) {
+          // Si el técnico pone 0 y ya existía, se elimina el registro
+          await queueOrExecute('productos_usados', 'delete', { id: existing.id }, ordenId)
+          const idx = updatedProductos.findIndex(p => p.id === existing.id)
+          if (idx >= 0) updatedProductos.splice(idx, 1)
         }
-        delete payload.es_manual; delete payload._stock_disponible; delete payload._unidad_base
-        const { queued } = await queueOrExecute('productos_usados', 'update', payload, ordenId)
-        setProductos(productos.map(p => p.id === editingId ? { ...p, ...payload } : p))
-        toast.success(queued ? 'Actualizado offline ⚡' : 'Producto actualizado')
-        setShowEditModal(false)
-      } else {
-        const payload = {
-          ...formData, tipo_producto: tipoFinal,
-          id: generateUUID(), orden_id: ordenId, created_at: new Date().toISOString(),
-          nombre_producto: formData.nombre_comercial,
-          cantidad: cantidadTexto,
-          cantidad_numerica: formData.cantidad_numerica ? parseFloat(formData.cantidad_numerica) : null,
-          unidad: formData.unidad || null,
-          catalogo_id: formData.catalogo_id || null,
-          tecnico_inventario_id: formData.tecnico_inventario_id || null,
-          lote: formData.lote || null
-        }
-        delete payload.es_manual; delete payload._stock_disponible; delete payload._unidad_base
-        const { data, queued } = await queueOrExecute('productos_usados', 'insert', payload, ordenId)
-        const savedData = data?.[0] || payload
-        setProductos([savedData, ...productos])
-        toast.success(queued ? 'Guardado offline ⚡' : 'Producto registrado')
-        setShowAddModal(false)
       }
-      resetForm()
+
+      setProductos(updatedProductos)
+      toast.success('Registro de uso guardado correctamente')
     } catch (err) {
       toast.error('Error: ' + err.message)
     } finally {
@@ -171,64 +131,27 @@ export default function OrdenProductos({
     }
   }
 
-  async function handleDelete(id) {
-    const isConfirmed = await confirmDelete('¿Estás seguro?', 'Se borrará este producto de la lista.')
-    if (!isConfirmed) return
+  async function handleDeleteManual(id) {
+    const confirmed = await confirmDelete('¿Eliminar producto?', 'Se borrará este registro de uso.')
+    if (!confirmed) return
     try {
-      const { queued } = await queueOrExecute('productos_usados', 'delete', { id }, ordenId)
+      await queueOrExecute('productos_usados', 'delete', { id }, ordenId)
       setProductos(productos.filter(p => p.id !== id))
-      if (!queued) await successAlert('¡Eliminado!', 'Producto eliminado')
-      else toast.success('Eliminación guardada offline ⚡')
+      toast.success('Eliminado')
     } catch (err) {
       toast.error('Error al eliminar: ' + err.message)
     }
   }
 
-  function openEdit(prod) {
-    const match = prod.tecnico_inventario_id
-      ? catalogo.find(c => c.id === prod.tecnico_inventario_id)
-      : (prod.catalogo_id 
-          ? catalogo.find(c => c.catalogo_id === prod.catalogo_id) 
-          : catalogo.find(c => c.nombre_comercial === (prod.nombre_comercial || prod.nombre_producto)))
-
-    setFormData({
-      nombre_comercial: prod.nombre_comercial || prod.nombre_producto || '',
-      ingrediente_activo: prod.ingrediente_activo || '',
-      dosis: prod.dosis || '',
-      cantidad: prod.cantidad || '',
-      cantidad_numerica: prod.cantidad_numerica ?? '',
-      unidad: prod.unidad || match?.unidad_base || '',
-      tipo_producto: prod.tipo_producto || '',
-      es_manual: !match,
-      catalogo_id: prod.catalogo_id || match?.catalogo_id || null,
-      tecnico_inventario_id: prod.tecnico_inventario_id || match?.id || null,
-      lote: prod.lote || match?.lote || '',
-      _stock_disponible: match ? Math.max(0, parseFloat(match.cantidad_sacada) - parseFloat(match.cantidad_usada)) : null,
-      _unidad_base: match?.unidad_base || ''
-    })
-    setEditingId(prod.id)
-    setShowEditModal(true)
-  }
-
-  const productosMostrar = servicioFiltro
-    ? productos.filter(p => p.tipo_producto?.toLowerCase() === servicioFiltro?.toLowerCase())
-    : productos
-
-  return (
-    <>
+  // ── Vista de solo lectura (admin o estado no editable) ──────────────────────
+  if (!canEdit) {
+    return (
       <div className="card">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center mb-4">
           <h2 className="text-lg font-bold text-dark-900 flex items-center gap-2">
-            <Package className="w-5 h-5 text-primary-600" /> Productos Utilizados {servicioFiltro ? `(${servicioFiltro})` : ''}
+            <Package className="w-5 h-5 text-primary-600" />
+            Productos Utilizados {servicioFiltro ? `(${servicioFiltro})` : ''}
           </h2>
-          {canEdit && (
-            <button 
-              onClick={() => { resetForm(); setShowAddModal(true) }} 
-              className="btn-secondary text-sm py-1.5"
-            >
-              <Plus className="w-4 h-4" /> Agregar Producto
-            </button>
-          )}
         </div>
 
         {productosMostrar.length === 0 ? (
@@ -240,43 +163,20 @@ export default function OrdenProductos({
           <div className="space-y-3">
             {productosMostrar.map((p, i) => (
               <div key={p.id || i} className="bg-dark-50 p-3 rounded-xl border border-dark-100">
-                <div className="flex justify-between items-start mb-2">
+                <div className="flex justify-between items-start">
                   <div>
                     <span className="text-xs font-bold text-primary-600 uppercase tracking-wider block mb-0.5">
-                      {p.tipo_producto || 'Producto Utilizado'}
+                      {p.tipo_producto || 'Producto'}
                     </span>
                     <span className="text-sm font-bold text-dark-900 block">
-                      {p.nombre_comercial || p.nombre_producto || 'Sin nombre'}
+                      {p.nombre_comercial || p.nombre_producto}
                     </span>
-                    {p.lote && (
-                      <span className="text-xs text-dark-500 block mt-0.5 font-medium">Lote/Identificador: {p.lote}</span>
-                    )}
+                    {p.lote && <span className="text-xs text-dark-500">Lote: {p.lote}</span>}
                   </div>
-                  <div className="flex flex-col items-end gap-2">
-                    <span className="text-sm font-medium text-dark-800 bg-white px-2 py-1 rounded-lg border border-dark-200">
-                      Cant: {p.cantidad || 'N/A'}
-                    </span>
-                    {canEdit && (
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={() => openEdit(p)}
-                          className="p-1 text-dark-400 hover:text-primary-600 transition-colors"
-                          title="Editar"
-                        >
-                          <Edit className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(p.id)}
-                          className="p-1 text-dark-400 hover:text-red-500 transition-colors"
-                          title="Eliminar"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                  <span className="text-sm font-medium text-dark-800 bg-white px-2 py-1 rounded-lg border border-dark-200">
+                    {p.cantidad || 'N/A'}
+                  </span>
                 </div>
-                
                 <div className="grid grid-cols-2 gap-2 mt-2">
                   {p.ingrediente_activo && (
                     <div className="text-xs text-dark-500 bg-white p-1.5 rounded border border-dark-100">
@@ -296,168 +196,154 @@ export default function OrdenProductos({
           </div>
         )}
       </div>
+    )
+  }
 
-      {/* Modal: Add/Edit Product */}
-      {(showAddModal || showEditModal) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div className="px-6 py-4 border-b border-dark-100 flex items-center justify-between">
-              <h3 className="font-bold text-dark-900">
-                {editingId ? 'Editar Producto' : 'Agregar Producto'}
-              </h3>
-              <button 
-                onClick={() => editingId ? setShowEditModal(false) : setShowAddModal(false)} 
-                className="p-2 hover:bg-dark-50 rounded-lg text-dark-400"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <form onSubmit={handleSave} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
-              {servicioFiltro ? (
-                <div className="bg-indigo-50/80 p-3 rounded-xl border border-indigo-200/60 mb-2">
-                  <span className="text-xs text-indigo-700 font-bold block uppercase tracking-wider">Control Específico:</span>
-                  <span className="text-sm font-black text-indigo-900">{servicioFiltro}</span>
-                </div>
-              ) : tiposControl.length > 0 && (
-                <div>
-                  <label className="label-field">Tipo de Control Asociado</label>
-                  <select
-                    className="input-field"
-                    value={formData.tipo_producto}
-                    onChange={e => setFormData({ ...formData, tipo_producto: e.target.value })}
-                  >
-                    <option value="">Seleccione a qué control aplica...</option>
-                    {tiposControl.map(tc => (
-                      <option key={tc} value={tc}>{tc}</option>
-                    ))}
-                    <option value="Otro">Otro</option>
-                  </select>
-                </div>
-              )}
+  // ── Vista editable del técnico (inline) ──────────────────────────────────────
+  return (
+    <div className="card">
+      <div className="flex items-center mb-1">
+        <h2 className="text-lg font-bold text-dark-900 flex items-center gap-2">
+          <Package className="w-5 h-5 text-primary-600" />
+          Productos & Dosis {servicioFiltro ? `(${servicioFiltro})` : ''}
+        </h2>
+      </div>
+      <p className="text-xs text-dark-400 mb-4">
+        Ingresa cuánto usaste de cada insumo. Lo que no uses se registrará como devolución.
+      </p>
 
-              <div>
-                <label className="label-field">Producto del Catálogo *</label>
-                <select
-                  className="input-field font-semibold text-primary-700"
-                  value={formData.es_manual ? 'manual' : (catalogo.find(c => c.nombre_comercial === formData.nombre_comercial)?.id || '')}
-                  onChange={handleProductSelect}
-                  required
+      {loadingCatalogo ? (
+        <div className="flex justify-center py-8">
+          <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
+        </div>
+      ) : catalogoDisponible.length === 0 ? (
+        <div className="text-center py-8 bg-dark-50 rounded-xl border border-dashed border-dark-200">
+          <Package className="w-8 h-8 text-dark-200 mx-auto mb-2" />
+          <p className="text-sm font-medium text-dark-500">No hay insumos en tu vehículo</p>
+          <p className="text-xs text-dark-400 mt-1">Registra salida de bodega desde el panel principal</p>
+        </div>
+      ) : (
+        <>
+          <div className="space-y-3 mb-4">
+            {catalogoDisponible.map(item => {
+              const stockDisp = Math.max(0, parseFloat(item.cantidad_sacada || 0) - parseFloat(item.cantidad_usada || 0))
+              const cantidadUsada = parseFloat(cantidades[item.id] || 0)
+              const devolucion = Math.max(0, stockDisp - cantidadUsada)
+              const yaRegistrado = productos.some(p => p.tecnico_inventario_id === item.id)
+              const excede = cantidadUsada > stockDisp
+
+              return (
+                <div
+                  key={item.id}
+                  className={`rounded-xl border p-4 transition-all ${
+                    excede
+                      ? 'bg-red-50 border-red-300'
+                      : yaRegistrado && cantidadUsada > 0
+                      ? 'bg-green-50 border-green-200'
+                      : 'bg-white border-dark-200'
+                  }`}
                 >
-                  <option value="" disabled>Seleccione un producto de su inventario...</option>
-                  {catalogo.map(c => (
-                    <option key={c.id} value={c.id}>
-                      {c.nombre_comercial} {c.lote ? `(Lote: ${c.lote})` : ''} - Disp: {parseFloat((Math.max(0, parseFloat(c.cantidad_sacada) - parseFloat(c.cantidad_usada))).toFixed(3))} {c.unidad_base}
-                    </option>
-                  ))}
-                  <option value="manual">-- Otro (Ingreso Manual) --</option>
-                </select>
-              </div>
+                  {/* Encabezado del producto */}
+                  <div className="flex justify-between items-start mb-3">
+                    <div className="flex-1 min-w-0 mr-2">
+                      <p className="font-bold text-dark-900 text-sm truncate">{item.nombre_comercial}</p>
+                      <div className="flex gap-3 text-xs text-dark-500 mt-0.5 flex-wrap">
+                        {item.lote && <span>Lote: <span className="font-medium text-dark-700">{item.lote}</span></span>}
+                        {item.ingrediente_activo && <span>{item.ingrediente_activo}</span>}
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-[10px] text-dark-400 uppercase tracking-wider">Disponible</p>
+                      <p className="text-sm font-black text-dark-800">
+                        {stockDisp.toLocaleString(undefined, { maximumFractionDigits: 3 })}
+                        <span className="text-xs font-normal text-dark-500 ml-1">{item.unidad_base}</span>
+                      </p>
+                    </div>
+                  </div>
 
-              {formData.es_manual && (
-                <div>
-                  <label className="label-field">Nombre Comercial (Manual) *</label>
-                  <input
-                    type="text"
-                    className="input-field"
-                    value={formData.nombre_comercial}
-                    onChange={e => setFormData({ ...formData, nombre_comercial: e.target.value })}
-                    placeholder="Ej: K-Othrine WG 250"
-                    required={formData.es_manual}
-                  />
-                </div>
-              )}
-              
-              <div>
-                <label className="label-field">Ingrediente Activo</label>
-                <input
-                  type="text"
-                  className={`input-field ${!formData.es_manual ? 'bg-dark-50/50' : ''}`}
-                  value={formData.ingrediente_activo}
-                  onChange={e => setFormData({ ...formData, ingrediente_activo: e.target.value })}
-                  placeholder="Ej: Deltametrina"
-                  readOnly={!formData.es_manual}
-                />
-              </div>
-              <div>
-                <label className="label-field">Dosis a Usar</label>
-                <input
-                  type="text"
-                  className={`input-field ${!formData.es_manual ? 'bg-dark-50/50' : ''}`}
-                  value={formData.dosis}
-                  onChange={e => setFormData({ ...formData, dosis: e.target.value })}
-                  placeholder="Ej: 5g / Litro"
-                />
-              </div>
+                  {/* Inputs */}
+                  <div className="flex items-end gap-3">
+                    {/* Cantidad usada */}
+                    <div className="flex-1">
+                      <label className="text-xs font-medium text-dark-600 mb-1 block">¿Cuánto usaste?</label>
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.001"
+                          className={`input-field flex-1 text-center font-bold text-base ${excede ? 'border-red-400 bg-red-50' : ''}`}
+                          value={cantidades[item.id] ?? ''}
+                          onChange={e => setCantidades(prev => ({ ...prev, [item.id]: e.target.value }))}
+                          placeholder="0"
+                        />
+                        <span className="text-xs text-dark-500 w-10 text-center shrink-0">{item.unidad_base}</span>
+                      </div>
+                      {excede && (
+                        <p className="text-[10px] text-red-600 mt-1">⚠️ Supera el disponible. Se guardará igual.</p>
+                      )}
+                    </div>
 
-              {/* Cantidad numérica + unidad (si proviene del catálogo) */}
-              {!formData.es_manual && formData.catalogo_id ? (
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="label-field mb-0">Cantidad Usada *</label>
-                    {formData._stock_disponible !== null && (
-                      <span className={`text-xs font-bold ${
-                        formData._stock_disponible === 0 ? 'text-red-600'
-                        : parseFloat(formData.cantidad_numerica || 0) > formData._stock_disponible ? 'text-amber-600'
-                        : 'text-green-700'
-                      }`}>
-                        Disponible: {formData._stock_disponible.toLocaleString()} {formData._unidad_base}
-                      </span>
+                    {/* Se devolverán */}
+                    {cantidadUsada > 0 && !excede && (
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-right shrink-0 min-w-[90px]">
+                        <p className="text-[10px] text-blue-500 font-medium uppercase tracking-wider">Se devuelven</p>
+                        <p className="text-sm font-black text-blue-700">
+                          {devolucion.toLocaleString(undefined, { maximumFractionDigits: 3 })}
+                          <span className="text-[10px] font-normal ml-1">{item.unidad_base}</span>
+                        </p>
+                      </div>
+                    )}
+                    {cantidadUsada > 0 && excede && (
+                      <div className="bg-orange-50 border border-orange-200 rounded-lg px-3 py-2 text-right shrink-0 min-w-[90px]">
+                        <p className="text-[10px] text-orange-500 font-medium uppercase tracking-wider">Se devuelven</p>
+                        <p className="text-sm font-black text-orange-700">0
+                          <span className="text-[10px] font-normal ml-1">{item.unidad_base}</span>
+                        </p>
+                      </div>
                     )}
                   </div>
-                  <div className="flex gap-2">
-                    <input
-                      type="number" min="0.001" step="0.001" required
-                      className="input-field flex-1"
-                      value={formData.cantidad_numerica}
-                      onChange={e => setFormData({ ...formData, cantidad_numerica: e.target.value })}
-                      placeholder="Ej: 250"
-                    />
-                    <span className="input-field w-20 bg-dark-50 text-center font-bold text-dark-700 cursor-default">
-                      {formData._unidad_base || formData.unidad || '—'}
-                    </span>
-                  </div>
-                  {/* Advertencia de stock insuficiente */}
-                  {formData._stock_disponible !== null &&
-                   parseFloat(formData.cantidad_numerica || 0) > formData._stock_disponible &&
-                   formData._stock_disponible >= 0 && (
-                    <div className="flex items-center gap-2 mt-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5">
-                      <span>⚠️</span>
-                      <span>
-                        La cantidad ingresada supera el stock disponible.
-                        Se registrará de todas formas, pero el inventario quedará en cero.
-                      </span>
-                    </div>
-                  )}
                 </div>
-              ) : (
-                <div>
-                  <label className="label-field">Cantidad Usada</label>
-                  <input
-                    type="text"
-                    className="input-field"
-                    value={formData.cantidad}
-                    onChange={e => setFormData({ ...formData, cantidad: e.target.value })}
-                    placeholder="Ej: 2 Litros"
-                  />
-                </div>
-              )}
-              
-              <div className="flex gap-3 pt-4">
-                <button type="submit" disabled={isSaving} className="btn-primary flex-1">
-                  {isSaving ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Guardar Producto'}
-                </button>
-                <button 
-                  type="button" 
-                  onClick={() => editingId ? setShowEditModal(false) : setShowAddModal(false)} 
-                  className="btn-secondary"
-                >
-                  Cancelar
-                </button>
-              </div>
-            </form>
+              )
+            })}
           </div>
-        </div>
+
+          {/* Productos manuales (ingresados sin inventario del técnico) */}
+          {productosMostrar.filter(p => !p.tecnico_inventario_id).length > 0 && (
+            <div className="mb-4">
+              <p className="text-xs font-bold text-dark-500 uppercase tracking-wider mb-2">Registros manuales</p>
+              <div className="space-y-2">
+                {productosMostrar.filter(p => !p.tecnico_inventario_id).map((p, i) => (
+                  <div key={p.id || i} className="bg-dark-50 p-3 rounded-xl border border-dark-100 flex justify-between items-center">
+                    <div>
+                      <p className="text-sm font-bold text-dark-900">{p.nombre_comercial || p.nombre_producto}</p>
+                      {p.lote && <p className="text-xs text-dark-500">Lote: {p.lote}</p>}
+                      <p className="text-xs text-dark-600 mt-0.5">Cant: {p.cantidad}</p>
+                    </div>
+                    <button
+                      onClick={() => handleDeleteManual(p.id)}
+                      className="p-1.5 text-dark-400 hover:text-red-500 transition-colors"
+                      title="Eliminar"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <button
+            onClick={handleSave}
+            disabled={isSaving}
+            className="btn-primary w-full flex items-center justify-center gap-2"
+          >
+            {isSaving
+              ? <Loader2 className="w-5 h-5 animate-spin" />
+              : <><Save className="w-4 h-4" /> Guardar Registro de Uso</>
+            }
+          </button>
+        </>
       )}
-    </>
+    </div>
   )
 }

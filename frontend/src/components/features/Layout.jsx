@@ -47,6 +47,7 @@ export default function Layout() {
 
   const searchRef = useRef(null)
   const notifRef = useRef(null)
+  const notifMobileRef = useRef(null)
   const profileRef = useRef(null)
   const profileMobileRef = useRef(null)
 
@@ -56,7 +57,10 @@ export default function Layout() {
       if (searchRef.current && !searchRef.current.contains(event.target)) {
         setSearchOpen(false)
       }
-      if (notifRef.current && !notifRef.current.contains(event.target)) {
+      const clickedInsideNotif =
+        (notifRef.current && notifRef.current.contains(event.target)) ||
+        (notifMobileRef.current && notifMobileRef.current.contains(event.target))
+      if (!clickedInsideNotif) {
         setNotificationsOpen(false)
       }
       const clickedInsideProfile =
@@ -800,7 +804,7 @@ export default function Layout() {
                   </button>
 
                   {/* Notificaciones Móvil */}
-                  <div className="relative">
+                  <div className="relative" ref={notifMobileRef}>
                     <button 
                       onClick={() => { setNotificationsOpen(!notificationsOpen); setProfileMenuOpen(false); }}
                       className="relative p-1.5 rounded-xl text-white hover:bg-white/10 active:bg-white/20 transition-colors"
@@ -839,7 +843,7 @@ export default function Layout() {
                   </div>
 
                   {/* Menú de perfil móvil */}
-                  <div className="relative">
+                  <div className="relative" ref={profileMobileRef}>
                     <button
                       onClick={() => { setProfileMenuOpen(!profileMenuOpen); setNotificationsOpen(false); }}
                       className="flex items-center gap-1 p-1.5 rounded-xl text-white hover:bg-white/10 active:bg-white/20 transition-colors"

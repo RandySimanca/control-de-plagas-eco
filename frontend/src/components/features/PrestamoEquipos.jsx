@@ -3,7 +3,7 @@ import { Package, PackageCheck, PackageMinus, X, Loader2, CheckSquare, Square } 
 import toast from 'react-hot-toast'
 import api from '../../lib/api'
 
-export default function PrestamoEquipos({ isOpen, onClose, tecnicoId }) {
+export default function PrestamoEquipos({ isOpen, onClose, tecnicoId, hasPendingOrders = true }) {
   const [activeTab, setActiveTab] = useState('sacar') // 'sacar' | 'devolver'
   const [activosDisponibles, setActivosDisponibles] = useState([])
   const [misActivos, setMisActivos] = useState([])
@@ -50,7 +50,7 @@ export default function PrestamoEquipos({ isOpen, onClose, tecnicoId }) {
       const token = localStorage.getItem('token')
       const url = activeTab === 'sacar' ? '/productos-catalogo/activos/prestar' : '/productos-catalogo/activos/devolver'
       await api.post(url, { tecnico_id: tecnicoId, activos_ids: selectedIds }, { token })
-      
+
       toast.success(activeTab === 'sacar' ? 'Equipos registrados para salida' : 'Equipos devueltos con éxito')
       setSelectedIds([])
       loadData()
@@ -75,7 +75,7 @@ export default function PrestamoEquipos({ isOpen, onClose, tecnicoId }) {
               <Package className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-dark-900">Mis Equipos (Check-in / Check-out)</h2>
+              <h2 className="text-lg font-bold text-dark-900">Mis Equipos (Entrada / Salida)</h2>
               <p className="text-xs text-dark-500">Registra qué llevas a campo y qué devuelves</p>
             </div>
           </div>
@@ -85,13 +85,13 @@ export default function PrestamoEquipos({ isOpen, onClose, tecnicoId }) {
         </div>
 
         <div className="flex border-b border-dark-100">
-          <button 
+          <button
             onClick={() => { setActiveTab('sacar'); setSelectedIds([]); }}
             className={`flex-1 py-3 text-sm font-bold flex items-center justify-center gap-2 transition-colors ${activeTab === 'sacar' ? 'text-orange-600 border-b-2 border-orange-600 bg-orange-50/30' : 'text-dark-500 hover:bg-dark-50'}`}
           >
             <PackageMinus className="w-4 h-4" /> Sacar de Bodega
           </button>
-          <button 
+          <button
             onClick={() => { setActiveTab('devolver'); setSelectedIds([]); }}
             className={`flex-1 py-3 text-sm font-bold flex items-center justify-center gap-2 transition-colors ${activeTab === 'devolver' ? 'text-green-600 border-b-2 border-green-600 bg-green-50/30' : 'text-dark-500 hover:bg-dark-50'}`}
           >
@@ -108,17 +108,25 @@ export default function PrestamoEquipos({ isOpen, onClose, tecnicoId }) {
               <Loader2 className="w-8 h-8 animate-spin text-orange-600" />
             </div>
           ) : listToShow.length === 0 ? (
+            activeTab === 'sacar' && !hasPendingOrders ? (
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <span className="text-5xl mb-4">🚫</span>
+                <h3 className="text-base font-bold text-dark-800 mb-2">Sin órdenes activas</h3>
+                <p className="text-sm text-dark-500 max-w-xs">No puedes sacar equipos porque no tienes órdenes de trabajo programadas o en progreso en este momento.</p>
+              </div>
+            ) : (
             <div className="text-center py-12 bg-white rounded-xl border border-dashed border-dark-200">
               <Package className="w-12 h-12 text-dark-200 mx-auto mb-3" />
               <p className="text-dark-500 font-medium">{emptyMessage}</p>
             </div>
+            )
           ) : (
             <div className="space-y-3">
               {listToShow.map(a => {
                 const isSelected = selectedIds.includes(a.id)
                 return (
-                  <div 
-                    key={a.id} 
+                  <div
+                    key={a.id}
                     onClick={() => toggleSelect(a.id)}
                     className={`flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition-all ${isSelected ? 'bg-orange-50/50 border-orange-300 shadow-sm' : 'bg-white border-dark-200 hover:border-orange-200'}`}
                   >
@@ -132,7 +140,7 @@ export default function PrestamoEquipos({ isOpen, onClose, tecnicoId }) {
                       <p className="text-xs text-dark-500 mt-0.5">
                         Código / Activo Empresa: <span className="font-bold text-dark-700">{a.codigo_activo}</span>
                       </p>
-                      
+
                       <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-[11px] text-dark-500">
                         {a.marca && <span><span className="font-medium text-dark-400">Marca:</span> {a.marca}</span>}
                         {a.modelo && <span><span className="font-medium text-dark-400">Mod:</span> {a.modelo}</span>}
@@ -149,14 +157,13 @@ export default function PrestamoEquipos({ isOpen, onClose, tecnicoId }) {
         </div>
 
         <div className="p-4 sm:p-6 border-t border-dark-100 bg-white">
-          <button 
-            onClick={handleSubmit} 
+          <button
+            onClick={handleSubmit}
             disabled={isSubmitting || selectedIds.length === 0}
-            className={`w-full py-3 rounded-xl font-bold text-white flex items-center justify-center gap-2 transition-all ${
-              selectedIds.length === 0 ? 'bg-dark-200 text-dark-400 cursor-not-allowed' :
-              activeTab === 'sacar' ? 'bg-orange-600 hover:bg-orange-700 shadow-md shadow-orange-600/20' : 
-              'bg-green-600 hover:bg-green-700 shadow-md shadow-green-600/20'
-            }`}
+            className={`w-full py-3 rounded-xl font-bold text-white flex items-center justify-center gap-2 transition-all ${selectedIds.length === 0 ? 'bg-dark-200 text-dark-400 cursor-not-allowed' :
+                activeTab === 'sacar' ? 'bg-orange-600 hover:bg-orange-700 shadow-md shadow-orange-600/20' :
+                  'bg-green-600 hover:bg-green-700 shadow-md shadow-green-600/20'
+              }`}
           >
             {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : (
               activeTab === 'sacar' ? 'Confirmar Salida de Equipos' : 'Confirmar Devolución'

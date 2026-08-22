@@ -392,11 +392,17 @@ export default function Dashboard() {
                 <p className="text-sm text-dark-500">Registra qué equipos te llevas y devuélvelos.</p>
               </div>
             </div>
+            {!loading && stats.pendientes === 0 && (
+              <div className="w-full mb-3 flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+                <span className="text-amber-500 text-base leading-none mt-0.5">⚠️</span>
+                <p className="text-xs text-amber-700 font-medium">No tienes órdenes activas. Solo puedes sacar equipos cuando tengas órdenes programadas o en progreso.</p>
+              </div>
+            )}
             <button
               onClick={() => setShowPrestamoModal(true)}
-              disabled={!isOnline}
-              className="btn-primary w-full bg-orange-600 hover:bg-orange-700 shadow-orange-600/20"
-              title={!isOnline ? "Necesitas conexión a internet para esto" : ""}
+              disabled={!isOnline || stats.pendientes === 0}
+              className="btn-primary w-full bg-orange-600 hover:bg-orange-700 shadow-orange-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
+              title={!isOnline ? "Necesitas conexión a internet para esto" : stats.pendientes === 0 ? "No tienes órdenes activas" : ""}
             >
               Salida / Entrada Equipos
             </button>
@@ -412,11 +418,17 @@ export default function Dashboard() {
                 <p className="text-sm text-dark-500">Trampas, venenos, y otros insumos fungibles.</p>
               </div>
             </div>
+            {!loading && stats.pendientes === 0 && (
+              <div className="w-full mb-3 flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+                <span className="text-amber-500 text-base leading-none mt-0.5">⚠️</span>
+                <p className="text-xs text-amber-700 font-medium">No tienes órdenes activas. Solo puedes sacar productos cuando tengas órdenes programadas o en progreso.</p>
+              </div>
+            )}
             <button
               onClick={() => setShowInsumosModal(true)}
-              disabled={!isOnline}
-              className="btn-primary w-full bg-cyan-600 hover:bg-cyan-700 shadow-cyan-600/20"
-              title={!isOnline ? "Necesitas conexión a internet para esto" : ""}
+              disabled={!isOnline || stats.pendientes === 0}
+              className="btn-primary w-full bg-cyan-600 hover:bg-cyan-700 shadow-cyan-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
+              title={!isOnline ? "Necesitas conexión a internet para esto" : stats.pendientes === 0 ? "No tienes órdenes activas" : ""}
             >
               Salida / Entrada Productos
             </button>
@@ -428,11 +440,13 @@ export default function Dashboard() {
         isOpen={showPrestamoModal}
         onClose={() => setShowPrestamoModal(false)}
         tecnicoId={profile?.id}
+        hasPendingOrders={stats.pendientes > 0}
       />
       <PrestamoInsumos
         isOpen={showInsumosModal}
         onClose={() => setShowInsumosModal(false)}
         tecnicoId={profile?.id}
+        hasPendingOrders={stats.pendientes > 0}
       />
 
       {/* Actividad y Tabla */}
