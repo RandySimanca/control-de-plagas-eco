@@ -304,8 +304,16 @@ export async function updateActividad(id, body, user) {
   return rows[0]
 }
 export async function deleteActividad(id, user) {
+  // Primero verificamos que exista y obtenemos la orden_id
   const { rows } = await pool.query('SELECT orden_id FROM actividades_servicio WHERE id = $1', [id])
-  if (rows[0]) await assertOrdenAccess(rows[0].orden_id, user)
+  if (!rows[0]) throw new AppError('Actividad no encontrada', 404)
+  await assertOrdenAccess(rows[0].orden_id, user)
+
+  // Eliminar las fotos asociadas a esta actividad (identificadas por el storage_path)
+  const pathPrefix = `actividades/${id}/%`
+  await pool.query('DELETE FROM fotos_servicio WHERE storage_path LIKE $1', [pathPrefix])
+
+  // Luego eliminamos la actividad
   await pool.query('DELETE FROM actividades_servicio WHERE id = $1', [id])
 }
 

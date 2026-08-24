@@ -47,8 +47,8 @@ export default function PrestamoInsumos({ isOpen, onClose, tecnicoId, hasPending
       console.log("DEBUG loadData invRes.data:", invRes.data);
       console.log("DEBUG tecnicoId:", tecnicoId);
 
-      // Actualizar inventario
-      const inventario = invRes.data || []
+      // Actualizar inventario (filtrando EPP y Equipos)
+      const inventario = (invRes.data || []).filter(item => item.categoria !== 'epp' && item.categoria !== 'equipo')
       setMisInsumos(inventario)
       
       if (activeTab === 'devolver') {

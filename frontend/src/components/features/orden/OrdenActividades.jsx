@@ -127,8 +127,11 @@ const OrdenActividades = forwardRef(function OrdenActividades({
     try {
       const { queued } = await queueOrExecute('actividades_servicio', 'delete', { id: actId }, ordenId)
       setActividades(actividades.filter(a => a.id !== actId))
+      setFotos(fotos.filter(f => !f.storage_path || !f.storage_path.includes(`actividades/${actId}/`)))
+      
       if (!queued) await successAlert('¡Eliminada!', 'Nota eliminada')
       else toast.success('Eliminación guardada offline ⚡')
+
     } catch (err) {
       toast.error('Error al eliminar nota: ' + err.message)
     }

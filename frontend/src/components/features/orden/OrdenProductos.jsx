@@ -66,8 +66,9 @@ export default function OrdenProductos({
     ? productos.filter(p => p.tipo_producto?.toLowerCase() === servicioFiltro?.toLowerCase())
     : productos
 
-  // Catálogo filtrado: solo items con stock disponible
+  // Catálogo filtrado: solo items con stock disponible y que no sean EPP ni Equipos
   const catalogoDisponible = catalogo.filter(c => {
+    if (c.categoria === 'epp' || c.categoria === 'equipo') return false
     const stockDisp = Math.max(0, parseFloat(c.cantidad_sacada || 0) - parseFloat(c.cantidad_usada || 0))
     return stockDisp > 0
   })

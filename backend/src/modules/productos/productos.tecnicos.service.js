@@ -9,10 +9,13 @@ export async function getInventarioTecnico(tecnicoId) {
       pc.nombre_comercial, 
       pc.unidad_base, 
       pc.tipo_producto, 
-      pc.ingrediente_activo
+      pc.ingrediente_activo,
+      pc.categoria
     FROM tecnicos_inventario ti
     JOIN productos_catalogo pc ON pc.id = ti.catalogo_id
-    WHERE ti.tecnico_id = $1 AND ti.estado = 'en_poder'
+    WHERE ti.tecnico_id = $1
+      AND ti.estado = 'en_poder'
+      AND pc.categoria NOT IN ('epp', 'equipo')
     ORDER BY pc.nombre_comercial
   `
   const { rows } = await pool.query(sql, [tecnicoId])
@@ -120,8 +123,14 @@ export async function checkInProductos(tecnicoId, items, userId) {
     for (const item of items) {
       const { id, cantidad_devuelta } = item
 
-      // Obtener el registro actual
-      const { rows } = await client.query(`SELECT * FROM tecnicos_inventario WHERE id = $1 AND estado = 'en_poder'`, [id])
+      // Obtener el registro actual (solo insumos consumibles, jamás EPP ni equipo)
+      const { rows } = await client.query(`
+        SELECT ti.* FROM tecnicos_inventario ti
+        JOIN productos_catalogo pc ON pc.id = ti.catalogo_id
+        WHERE ti.id = $1 
+          AND ti.estado = 'en_poder'
+          AND pc.categoria NOT IN ('epp', 'equipo')
+      `, [id])
       if (!rows[0]) continue
 
       const inv = rows[0]

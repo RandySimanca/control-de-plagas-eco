@@ -398,7 +398,7 @@ export default function Ordenes() {
                 <div>
                   <label className="label-field">Tipo de Control</label>
                   <div className="flex flex-wrap gap-2 p-2 border rounded-md">
-                    {['Desinsectación', 'Desratización', 'Desinfección', 'Desodoracion', 'Control de aves', 'Lavado de Tanques'].map(tipo => {
+                    {['Desinsectación', 'Desratización', 'Desinfección', 'Desodoracion', 'Control de Aves', 'Lavado de Tanques'].map(tipo => {
                       const seleccionado = (form.tipo_plaga || []).includes(tipo);
                       return (
                         <button
