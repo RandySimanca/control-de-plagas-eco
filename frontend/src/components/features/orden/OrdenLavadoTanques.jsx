@@ -46,7 +46,7 @@ export default function OrdenLavadoTanques({
   const [uploadingFoto, setUploadingFoto] = useState(false)
   const [editingTanque, setEditingTanque] = useState(null)
 
-  const canEdit = isAssignedTecnico && ordenEstado === 'en_progreso'
+  const canEdit = isAdmin || (isAssignedTecnico && ordenEstado === 'en_progreso')
   const canManageTanks = isAdmin
   const token = localStorage.getItem('token')
 

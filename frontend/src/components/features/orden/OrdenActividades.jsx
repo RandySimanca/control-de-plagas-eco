@@ -32,7 +32,7 @@ const OrdenActividades = forwardRef(function OrdenActividades({
   const [showEditActivityModal, setShowEditActivityModal] = useState(false)
   const [savingEditActivity, setSavingEditActivity] = useState(false)
 
-  const canEdit = (isAssignedTecnico || isAdmin) && ordenEstado === 'en_progreso'
+  const canEdit = isAdmin || (isAssignedTecnico && ordenEstado === 'en_progreso')
 
   useImperativeHandle(ref, () => ({
     openWizard: () => {

@@ -289,6 +289,7 @@ export default function OrdenDetalle() {
             setFotos={setFotos}
             isAssignedTecnico={isAssignedTecnico}
             ordenEstado={orden.estado}
+            isAdmin={isAdmin}
             queuePhoto={queuePhoto}
           />
 

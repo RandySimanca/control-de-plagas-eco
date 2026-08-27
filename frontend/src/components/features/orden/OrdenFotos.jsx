@@ -12,11 +12,12 @@ export default function OrdenFotos({
   setFotos,
   isAssignedTecnico,
   ordenEstado,
-  queuePhoto
+  queuePhoto,
+  isAdmin
 }) {
   const [uploadingFotos, setUploadingFotos] = useState(false)
 
-  const canEdit = isAssignedTecnico && ordenEstado === 'en_progreso'
+  const canEdit = isAdmin || (isAssignedTecnico && ordenEstado === 'en_progreso')
 
   async function handleUploadFotosQuick(e) {
     if (!e.target.files || e.target.files.length === 0) return

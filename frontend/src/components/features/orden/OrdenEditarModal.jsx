@@ -77,7 +77,7 @@ export default function OrdenEditarModal({ orden, onClose, onSave, queueOrExecut
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between p-4 border-b border-dark-100">
           <h2 className="text-lg font-bold text-dark-900">Editar Orden</h2>
           <button onClick={onClose} className="p-2 text-dark-400 hover:text-dark-700 hover:bg-dark-100 rounded-xl">
@@ -85,7 +85,7 @@ export default function OrdenEditarModal({ orden, onClose, onSave, queueOrExecut
           </button>
         </div>
         
-        <form onSubmit={handleSubmit} className="p-4 space-y-4">
+        <form onSubmit={handleSubmit} className="p-4 space-y-4 overflow-y-auto">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="label-field">Técnico Asignado</label>
@@ -150,7 +150,7 @@ export default function OrdenEditarModal({ orden, onClose, onSave, queueOrExecut
           <div>
             <label className="label-field">Tipo de Control</label>
             <div className="flex flex-wrap gap-2 p-2 border rounded-md">
-              {['Desinsectación', 'Desratización', 'Desinfección', 'Desodoracion', 'Lavado de Tanques'].map(tipo => {
+              {['Desinsectación', 'Desratización', 'Desinfección', 'Desodoracion', 'Lavado de Tanques', 'Control de Aves'].map(tipo => {
                 const seleccionado = form.tipo_plaga.includes(tipo);
                 return (
                   <button

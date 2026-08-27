@@ -8,7 +8,7 @@ import api from '../../../lib/api'
 
 const DEFAULT_TYPES = ['Cebadero', 'Impacto', 'Jaula atrapavivos']
 
-export default function OrdenEstaciones({ ordenId, clienteId, sedeId, estaciones, setEstaciones, isAssignedTecnico, ordenEstado, isOnline, queueOrExecute, queuePhoto }) {
+export default function OrdenEstaciones({ ordenId, clienteId, sedeId, estaciones, setEstaciones, isAssignedTecnico, isAdmin, ordenEstado, isOnline, queueOrExecute, queuePhoto }) {
   const [maestras, setMaestras] = useState([])
   const [loadingMaestras, setLoadingMaestras] = useState(true)
 
@@ -216,7 +216,7 @@ export default function OrdenEstaciones({ ordenId, clienteId, sedeId, estaciones
     }
   }
 
-  const canEdit = isAssignedTecnico && ordenEstado === 'en_progreso'
+  const canEdit = isAdmin || (isAssignedTecnico && ordenEstado === 'en_progreso')
 
   if (loadingMaestras) return (
     <div className="p-8 text-center">

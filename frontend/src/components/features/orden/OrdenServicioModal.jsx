@@ -38,7 +38,7 @@ export default function OrdenServicioModal({
   if (!isOpen || !servicioNombre) return null
 
   const isTanques = servicioNombre.toLowerCase().includes('tanque')
-  const canEdit = (isAssignedTecnico || isAdmin) && orden.estado === 'en_progreso'
+  const canEdit = isAdmin || (isAssignedTecnico && orden.estado === 'en_progreso')
 
   const actividadesServicio = actividades.filter(act => {
     if (isTanques) return true
@@ -261,6 +261,7 @@ export default function OrdenServicioModal({
                       ordenTipoPlaga={orden.tipo_plaga}
                       servicioFiltro={servicioNombre}
                       isOnline={isOnline}
+                      isAdmin={isAdmin}
                       ordenTecnicoId={orden.tecnico_id}
                     />
                   )}
@@ -275,6 +276,7 @@ export default function OrdenServicioModal({
                       isAssignedTecnico={isAssignedTecnico}
                       ordenEstado={orden.estado}
                       isOnline={isOnline}
+                      isAdmin={isAdmin}
                       queueOrExecute={queueOrExecute}
                       queuePhoto={queuePhoto}
                     />
@@ -286,6 +288,7 @@ export default function OrdenServicioModal({
                       setOrden={setOrden}
                       setFotos={setFotos}
                       isAssignedTecnico={isAssignedTecnico}
+                      isAdmin={isAdmin}
                       queueOrExecute={queueOrExecute}
                       queuePhoto={queuePhoto}
                     />

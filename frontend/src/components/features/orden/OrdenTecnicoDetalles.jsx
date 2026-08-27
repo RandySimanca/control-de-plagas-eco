@@ -61,7 +61,8 @@ export default function OrdenTecnicoDetalles({
   setFotos,
   isAssignedTecnico,
   queueOrExecute,
-  queuePhoto
+  queuePhoto,
+  isAdmin
 }) {
   const [showAreasModal, setShowAreasModal] = useState(false)
   const [activeTipoControlArea, setActiveTipoControlArea] = useState('')
@@ -105,7 +106,7 @@ export default function OrdenTecnicoDetalles({
     loadEppCatalogo()
   }, [])
 
-  const canEdit = isAssignedTecnico && orden.estado === 'en_progreso'
+  const canEdit = isAdmin || (isAssignedTecnico && orden.estado === 'en_progreso')
   const tiposControl = parseTipoPlaga(orden.tipo_plaga)
   const metodosGuardados = parseMetodos(orden.metodos_aplicacion)
   const areasGuardadas = parseAreas(orden.areas_intervenidas)

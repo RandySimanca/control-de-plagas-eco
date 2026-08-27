@@ -17,7 +17,8 @@ export default function OrdenProductos({
   ordenTipoPlaga,
   servicioFiltro,
   isOnline,
-  ordenTecnicoId
+  ordenTecnicoId,
+  isAdmin
 }) {
   const [catalogo, setCatalogo] = useState([])
   const [loadingCatalogo, setLoadingCatalogo] = useState(true)
@@ -59,7 +60,7 @@ export default function OrdenProductos({
   }, [productos])
 
   const tiposControl = parseTipoPlaga(ordenTipoPlaga)
-  const canEdit = isAssignedTecnico && ordenEstado === 'en_progreso'
+  const canEdit = isAdmin || (isAssignedTecnico && ordenEstado === 'en_progreso')
 
   // Productos visibles según el servicio activo (para la vista de solo lectura)
   const productosMostrar = servicioFiltro
