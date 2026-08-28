@@ -1194,3 +1194,110 @@ export async function rechazarInformeTecnico(id, user) {
   if (!rows[0]) throw new AppError('Informe técnico no encontrado', 404)
   return rows[0]
 }
+
+// --- CERTIFICADOS SANITARIOS ---
+
+export async function listCertificadosSanitarios(user) {
+  let sql = `
+    SELECT c.*, row_to_json(o) AS ordenes_servicio
+    FROM certificados_sanitarios c
+    JOIN (
+      SELECT o.*, row_to_json(cl) AS clientes, row_to_json(p) AS profiles
+      FROM ordenes_servicio o
+      LEFT JOIN clientes cl ON cl.id = o.cliente_id
+      LEFT JOIN profiles p ON p.id = o.tecnico_id
+    ) o ON o.id = c.orden_id
+  `
+  let params = []
+
+  if (user.role === 'cliente') {
+    const profile = await getProfile(user.id)
+    if (!profile?.cliente_id) return []
+    sql += ` WHERE o.cliente_id = $1 AND c.aprobado = true`
+    params.push(profile.cliente_id)
+  } else if (user.role === 'tecnico') {
+    // Técnicos solo ven certificados de sus órdenes asignadas
+    params.push(user.id)
+    sql += ` WHERE o.tecnico_id = $1`
+  } else if (user.role === 'admin') {
+    // Admins ven todos
+  }
+
+  sql += ` ORDER BY c.created_at DESC`
+  const { rows } = await pool.query(sql, params)
+  return rows
+}
+
+export async function getLatestCertificadoSanitarioByOrden(ordenId, user) {
+  await assertOrdenAccess(ordenId, user)
+  const { rows } = await pool.query(
+    'SELECT * FROM certificados_sanitarios WHERE orden_id = $1 ORDER BY created_at DESC LIMIT 1',
+    [ordenId]
+  )
+  
+  if (rows[0] && user.role === 'cliente' && !rows[0].aprobado) {
+    return null; // El cliente no puede ver certificados pendientes
+  }
+  
+  return rows[0] || null
+}
+
+export async function createCertificadoSanitario(data, user) {
+  if (user.role !== 'admin' && user.role !== 'tecnico') throw new AppError('No autorizado', 403)
+  await assertOrdenAccess(data.orden_id, user)
+
+  const { rows: configRows } = await pool.query('SELECT representante_legal_nombre, representante_legal_cargo, representante_legal_firma_url FROM configuracion LIMIT 1')
+  const config = configRows[0] || {}
+
+  // Delete previous certificate for this order (so we only keep 1 per order)
+  await pool.query('DELETE FROM certificados_sanitarios WHERE orden_id = $1', [data.orden_id])
+
+  const { rows } = await pool.query(`
+    INSERT INTO certificados_sanitarios (
+      orden_id, folio, tipo_establecimiento, tipo_servicio, resultado, observaciones, 
+      fecha_servicio, fecha_emision, fecha_vencimiento, normativa_referencia,
+      representante_legal_nombre, representante_legal_cargo, firma_representante_url
+    ) VALUES (
+      $1, $2, $3, $4, $5, $6,
+      $7, $8, $9, $10,
+      $11, $12, $13
+    ) RETURNING *
+  `, [
+    data.orden_id,
+    data.folio,
+    data.tipo_establecimiento,
+    data.tipo_servicio,
+    data.resultado,
+    data.observaciones,
+    data.fecha_servicio,
+    data.fecha_emision,
+    data.fecha_vencimiento,
+    data.normativa_referencia,
+    config.representante_legal_nombre || '',
+    config.representante_legal_cargo || '',
+    config.representante_legal_firma_url || ''
+  ])
+  return rows[0]
+}
+
+export async function aprobarCertificadoSanitario(id, user) {
+  if (user.role !== 'admin') throw new AppError('Solo admins pueden aprobar', 403)
+  const { rows } = await pool.query(`
+    UPDATE certificados_sanitarios 
+    SET aprobado = true, aprobado_por = $2, fecha_aprobacion = NOW(), updated_at = NOW() 
+    WHERE id = $1 RETURNING *
+  `, [id, user.id])
+  if (!rows[0]) throw new AppError('Certificado no encontrado', 404)
+  return rows[0]
+}
+
+export async function rechazarCertificadoSanitario(id, user) {
+  if (user.role !== 'admin') throw new AppError('Solo admins pueden revocar', 403)
+  const { rows } = await pool.query(`
+    UPDATE certificados_sanitarios 
+    SET aprobado = false, aprobado_por = NULL, fecha_aprobacion = NULL, updated_at = NOW() 
+    WHERE id = $1 RETURNING *
+  `, [id])
+  if (!rows[0]) throw new AppError('Certificado no encontrado', 404)
+  return rows[0]
+}

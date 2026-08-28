@@ -19,7 +19,7 @@ export const HELP_CONTENT = {
     'Aquí se crean, asignan a un técnico y se hace seguimiento al estado: pendiente, en proceso o finalizada.',
   ],
 
-  certificados: 'Certificados de control de plagas generados automáticamente al finalizar una orden. Sirven como soporte legal para el cliente y se pueden descargar en PDF.',
+  certificados: 'Informes de Actividades generados automáticamente al finalizar una orden. Sirven como soporte legal para el cliente y se pueden descargar en PDF.',
 
   usuarios: [
     'Aquí se administran las cuentas de los usuarios del sistema: administradores, técnicos y clientes con acceso al portal.',
@@ -47,7 +47,7 @@ export const HELP_CONTENT = {
   portalCliente: [
     'Este es tu portal personal como cliente de {{empresa}}.',
     'En "Historial" puedes ver todos los servicios realizados en tu propiedad.',
-    'En "Certificados" puedes descargar los certificados de cada servicio finalizado.',
+    'En "Informes de Actividades" puedes descargar los informes de cada servicio finalizado.',
     'En "Documentos" puedes visualizar y descargar los documentos que validan y acreditan a {{empresa}}.',
     'En "Solicitudes" puedes pedir un nuevo servicio y hacer seguimiento a su estado (pendiente, en evaluación técnica, cotizada, programada).',
   ],

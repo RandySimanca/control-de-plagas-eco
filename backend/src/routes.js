@@ -8,6 +8,7 @@ import uploadRoutes from './modules/upload/upload.routes.js'
 import operacionesRoutes from './modules/operaciones/operaciones.routes.js'
 import productosRoutes from './modules/productos/productos.routes.js'
 import productosTecnicosRoutes from './modules/productos/productos.tecnicos.routes.js'
+import verificacionRoutes from './modules/verificacion/verificacion.routes.js'
 
 const router = Router()
 
@@ -15,6 +16,9 @@ const router = Router()
 router.get('/health', (req, res) => {
   res.json({ ok: true, service: 'plagcontrol-api' })
 })
+
+// Public routes
+router.use('/verificacion', verificacionRoutes)
 
 // Módulos del API
 router.use('/auth', authRoutes)

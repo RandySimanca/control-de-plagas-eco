@@ -4,11 +4,12 @@ import api from '../../lib/api'
 
 import { 
   ArrowLeft, Calendar, User, MapPin, Package, 
-  FileText, Camera, Clock, History, MessageSquare, Download, CheckCircle2, ShieldCheck
+  FileText, Camera, Clock, History, MessageSquare, Download, CheckCircle2, ShieldCheck, Shield
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { abrirInformeActividades } from '../../lib/generarInformeActividades'
 import { abrirInformeTecnico } from '../../lib/generarInformeTecnico'
+import { abrirCertificadoSanitario } from '../../lib/generarCertificadoSanitario'
 import { getAuthImageUrl } from '../../utils/imageUtils'
 import { parseTipoPlaga } from '../../utils/tipoPlaga'
 import { formatFechaLarga } from '../../utils/dateUtils'
@@ -24,6 +25,7 @@ export default function PortalOrdenDetalle() {
   const [actividades, setActividades] = useState([])
   const [certificado, setCertificado] = useState(null)
   const [informeTecnico, setInformeTecnico] = useState(null)
+  const [certificadoSanitario, setCertificadoSanitario] = useState(null)
   const [loading, setLoading] = useState(true)
   const [descargando, setDescargando] = useState(false)
 
@@ -41,7 +43,8 @@ export default function PortalOrdenDetalle() {
         api.get(`/ordenes/${id}/productos`, { token }),
         api.get(`/ordenes/${id}/fotos`, { token }),
         api.get(`/ordenes/${id}/actividades`, { token }),
-        api.get(`/ordenes/${id}/estaciones`, { token })
+        api.get(`/ordenes/${id}/estaciones`, { token }),
+        api.get(`/ordenes/${id}/certificado-sanitario`, { token })
       ]
 
       if (esVisitaTecnicaOrden) {
@@ -50,13 +53,14 @@ export default function PortalOrdenDetalle() {
         requests.push(api.get(`/ordenes/${id}/certificado`, { token }))
       }
 
-      const [prodsRes, fotosRes, actividadesRes, estacRes, docRes] = await Promise.all(requests)
+      const [prodsRes, fotosRes, actividadesRes, estacRes, certSanRes, docRes] = await Promise.all(requests)
 
       setOrden(ordenData)
       setProductos(prodsRes.data || [])
       setEstaciones(estacRes.data || [])
       setFotos(fotosRes.data || [])
       setActividades(actividadesRes.data || [])
+      setCertificadoSanitario(certSanRes.data || null)
 
       if (esVisitaTecnicaOrden) {
         setInformeTecnico(docRes.data || null)
@@ -112,6 +116,29 @@ export default function PortalOrdenDetalle() {
         config,
         tecnico: orden.profiles || {},
         folio: informeTecnico.folio
+      })
+    } catch (err) {
+      toast.error('Error al descargar: ' + err.message)
+    } finally {
+      setDescargando(false)
+    }
+  }
+
+  async function descargarCertificadoSanitario() {
+    setDescargando(true)
+    try {
+      const token = localStorage.getItem('token')
+      const configRes = await api.get('/configuracion', { token })
+      const config = configRes.data
+      const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api').replace('/api', '').replace(/\/$/, '')
+      
+      await abrirCertificadoSanitario({
+        certificado: certificadoSanitario,
+        orden,
+        cliente: orden.clientes,
+        config,
+        folio: certificadoSanitario.folio,
+        baseUrl: API_BASE
       })
     } catch (err) {
       toast.error('Error al descargar: ' + err.message)
@@ -319,6 +346,61 @@ export default function PortalOrdenDetalle() {
           </div>
         )}
 
+        {/* Certificado Sanitario */}
+        {certificadoSanitario && certificadoSanitario.aprobado && (
+          <div className="card shadow-sm border-l-4 border-l-emerald-500">
+            <h2 className="text-lg font-bold text-dark-900 flex items-center gap-2 mb-4">
+              <Shield className="w-5 h-5 text-emerald-600" /> Certificado Sanitario
+            </h2>
+            <div className="bg-emerald-50 p-4 rounded-xl space-y-3">
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider mb-1">Folio</p>
+                  <p className="font-mono font-bold text-dark-900">{certificadoSanitario.folio}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider mb-1">Resultado</p>
+                  <span className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${
+                    certificadoSanitario.resultado === 'CUMPLE' ? 'text-green-600 bg-green-50' :
+                    certificadoSanitario.resultado === 'CUMPLE CON OBSERVACIONES' ? 'text-amber-600 bg-amber-50' :
+                    'text-red-600 bg-red-50'
+                  }`}>
+                    {certificadoSanitario.resultado}
+                  </span>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-xs font-bold text-dark-400 uppercase tracking-wider mb-1">Vigencia</p>
+                  <p className="font-medium text-dark-800">
+                    {certificadoSanitario.fecha_vencimiento 
+                      ? new Date(certificadoSanitario.fecha_vencimiento).toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                      : 'N/A'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-dark-400 uppercase tracking-wider mb-1">Tipo de Servicio</p>
+                  <p className="font-medium text-dark-800">{certificadoSanitario.tipo_servicio}</p>
+                </div>
+              </div>
+              {certificadoSanitario.observaciones && (
+                <div className="pt-3 border-t border-emerald-100">
+                  <p className="text-xs font-bold text-dark-400 uppercase tracking-wider mb-1">Observaciones</p>
+                  <p className="text-sm text-dark-700">{certificadoSanitario.observaciones}</p>
+                </div>
+              )}
+              <button
+                onClick={descargarCertificadoSanitario}
+                disabled={descargando}
+                className="w-full mt-2 bg-emerald-600 text-white px-4 py-2 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-emerald-700 transition-colors"
+              >
+                {descargando ? <div className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : <Download className="w-5 h-5" />}
+                Descargar Certificado Sanitario
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Recomendaciones */}
         {(orden.recomendaciones || orden.observaciones) && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -363,22 +445,41 @@ export default function PortalOrdenDetalle() {
                       : 'Su certificado está siendo revisado por nuestro equipo. Lo notificaremos cuando esté disponible.'}
                   </p>
               }
+              {certificadoSanitario && certificadoSanitario.aprobado && (
+                <p className="text-primary-100 mt-2 flex items-center gap-2">
+                  <Shield className="w-4 h-4" />
+                  Certificado Sanitario disponible para descarga
+                </p>
+              )}
             </div>
-            {documentoDisponible ? (
-              <button
-                onClick={esVisitaTecnicaOrden ? descargarInformeTecnico : descargarCertificado}
-                disabled={descargando}
-                className="bg-white text-primary-600 px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-xl hover:scale-105 transition-transform"
-              >
-                {descargando ? <div className="w-5 h-5 border-2 border-primary-600 border-t-transparent animate-spin rounded-full" /> : <Download className="w-5 h-5" />}
-                {esVisitaTecnicaOrden ? 'Descargar Informe PDF' : 'Descargar Certificado PDF'}
-              </button>
-            ) : (
-              <div className="bg-primary-500/50 px-4 py-3 rounded-xl text-sm flex items-center gap-2">
-                <ShieldCheck className="w-5 h-5 opacity-80" />
-                <span>En revisión por el administrador...</span>
-              </div>
-            )}
+            <div className="flex flex-col sm:flex-row gap-3">
+              {documentoDisponible && (
+                <button
+                  onClick={esVisitaTecnicaOrden ? descargarInformeTecnico : descargarCertificado}
+                  disabled={descargando}
+                  className="bg-white text-primary-600 px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-xl hover:scale-105 transition-transform"
+                >
+                  {descargando ? <div className="w-5 h-5 border-2 border-primary-600 border-t-transparent animate-spin rounded-full" /> : <Download className="w-5 h-5" />}
+                  {esVisitaTecnicaOrden ? 'Informe Técnico' : 'Certificado'}
+                </button>
+              )}
+              {certificadoSanitario && certificadoSanitario.aprobado && (
+                <button
+                  onClick={descargarCertificadoSanitario}
+                  disabled={descargando}
+                  className="bg-emerald-500 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-xl hover:bg-emerald-600 transition-colors"
+                >
+                  {descargando ? <div className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : <Shield className="w-5 h-5" />}
+                  Certificado Sanitario
+                </button>
+              )}
+              {!documentoDisponible && !certificadoSanitario && (
+                <div className="bg-primary-500/50 px-4 py-3 rounded-xl text-sm flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5 opacity-80" />
+                  <span>En revisión por el administrador...</span>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

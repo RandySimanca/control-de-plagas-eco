@@ -25,6 +25,7 @@ import {
   OrdenTecnicoHub,
   OrdenInformeTecnico
 } from '../components/features/orden'
+import OrdenCertificadoSanitario from '../components/features/orden/OrdenCertificadoSanitario'
 import OrdenLavadoTanques from '../components/features/orden/OrdenLavadoTanques'
 import { isVisitaTecnica, puedeGenerarInforme } from '../utils/tipoVisitaConfig'
 
@@ -125,7 +126,7 @@ export default function OrdenDetalle() {
   // --- Handlers de Alto Nivel ---
 
   async function handleDeleteOrden() {
-    const isConfirmed = await confirmDelete('¿Estás seguro de eliminar esta orden?', 'Se borrarán también todas las actividades, fotos y el certificado asociado.')
+    const isConfirmed = await confirmDelete('¿Estás seguro de eliminar esta orden?', 'Se borrarán también todas las actividades, fotos y el informe asociado.')
     if (!isConfirmed) return
     try {
       await api.delete(`/ordenes/${id}`)
@@ -148,6 +149,41 @@ export default function OrdenDetalle() {
           const folio = generateFolio(nombreEmpresa)
           await queueOrExecute('certificados', 'insert', { orden_id: id, folio }, id)
           setCertificado({ folio })
+        }
+        // Generar automáticamente certificado sanitario para órdenes regulares
+        if (orden.tipo_visita !== 'tecnica') {
+          try {
+            const token = localStorage.getItem('token')
+            
+            // Verificar si ya existe certificado sanitario
+            const existingCert = await api.get(`/ordenes/${id}/certificado-sanitario`, { token })
+            if (existingCert.data) {
+              console.log('Certificado sanitario ya existe, no se genera nuevo')
+            } else {
+              const configRes = await api.get('/configuracion', { token })
+              const config = configRes.data
+              
+              const folioCertSanitario = `CS-${new Date().getFullYear()}-${id.split('-')[0]}`
+              const payload = {
+                orden_id: id,
+                folio: folioCertSanitario,
+                tipo_establecimiento: orden.clientes?.tipo || 'Establecimiento',
+                tipo_servicio: orden.tipo_plaga || 'Control Integral de Plagas',
+                resultado: 'CUMPLE',
+                observaciones: '',
+                fecha_servicio: orden.fecha_programada || orden.created_at,
+                fecha_emision: new Date().toISOString(),
+                fecha_vencimiento: new Date(new Date().setMonth(new Date().getMonth() + (config?.vigencia_certificado_meses || 3))).toISOString(),
+                normativa_referencia: 'Resolución 2674 de 2013, Decreto 1843 de 1991'
+              }
+              
+              await api.post('/certificados-sanitarios', payload, { token })
+              toast.success('Certificado Sanitario generado automáticamente')
+            }
+          } catch (err) {
+            console.error('Error al generar certificado sanitario automático:', err)
+            // No mostrar error al usuario para no interrumpir el flujo
+          }
         }
         if (orden.tipo_visita === 'tecnica' && relevamiento && puedeGenerarInforme(relevamiento) && !relevamiento.informe_generado_at) {
           try {
@@ -326,6 +362,14 @@ export default function OrdenDetalle() {
             fotos={fotos}
             certificado={certificado}
             setCertificado={setCertificado}
+          />
+
+          {/* 8. Certificado Sanitario */}
+          <OrdenCertificadoSanitario 
+            orden={orden}
+            cliente={orden.clientes}
+            isAdmin={isAdmin}
+            isAssignedTecnico={isAssignedTecnico}
           />
         </>
       )}

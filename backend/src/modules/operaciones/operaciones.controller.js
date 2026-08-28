@@ -79,3 +79,10 @@ export const getLatestInformeTecnicoByOrden = catchAsync(async (req, res) => res
 export const generarInformeTecnicoRecord = catchAsync(async (req, res) => res.status(201).json({ success: true, data: await service.generarInformeTecnicoRecord(req.body, req.user) }))
 export const aprobarInformeTecnico = catchAsync(async (req, res) => res.json({ success: true, data: await service.aprobarInformeTecnico(req.params.id, req.user) }))
 export const rechazarInformeTecnico = catchAsync(async (req, res) => res.json({ success: true, data: await service.rechazarInformeTecnico(req.params.id, req.user) }))
+
+// --- CERTIFICADOS SANITARIOS ---
+export const listCertificadosSanitarios = catchAsync(async (req, res) => res.json({ success: true, data: await service.listCertificadosSanitarios(req.user) }))
+export const getLatestCertificadoSanitarioByOrden = catchAsync(async (req, res) => res.json({ success: true, data: await service.getLatestCertificadoSanitarioByOrden(req.params.id, req.user) }))
+export const createCertificadoSanitario = catchAsync(async (req, res) => res.status(201).json({ success: true, data: await service.createCertificadoSanitario(req.body, req.user) }))
+export const aprobarCertificadoSanitario = catchAsync(async (req, res) => res.json({ success: true, data: await service.aprobarCertificadoSanitario(req.params.id, req.user) }))
+export const rechazarCertificadoSanitario = catchAsync(async (req, res) => res.json({ success: true, data: await service.rechazarCertificadoSanitario(req.params.id, req.user) }))

@@ -25,12 +25,16 @@ import Auditoria from './pages/admin/Auditoria'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 import MisEPPPage from './pages/MisEPPPage'
+import VerificacionCertificado from './pages/VerificacionCertificado'
 
 export default function AppRoutes() {
   const { user, profile } = useAuth()
 
   return (
     <Routes>
+      {/* Public Routes */}
+      <Route path="/verificar-certificado/:folio" element={<VerificacionCertificado />} />
+
       {/* Auth */}
       <Route path="/login" element={user && profile && profile.rol !== 'cliente' ? <Navigate to="/" /> : <Login />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />

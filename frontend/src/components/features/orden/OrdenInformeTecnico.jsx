@@ -110,7 +110,7 @@ export default function OrdenInformeTecnico({
                   <p className="text-xs mt-0.5 opacity-80">
                     {informeAprobado
                       ? `Folio: ${relevamiento.folio || '—'} — Aprobado el ${relevamiento.fecha_aprobacion ? new Date(relevamiento.fecha_aprobacion).toLocaleDateString('es') : '—'}`
-                      : 'Revise el PDF en el menú Certificados y apruebe para que el cliente pueda descargarlo.'}
+                      : 'Revise el PDF en el menú Informes de Actividades y apruebe para que el cliente pueda descargarlo.'}
                   </p>
                 </div>
               </div>

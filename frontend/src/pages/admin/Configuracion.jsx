@@ -10,6 +10,7 @@ export default function Configuracion() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [logo, setLogo] = useState(null)
+  const [firma, setFirma] = useState(null)
   const [form, setForm] = useState({
     nombre_empresa: '',
     nit: '',
@@ -21,9 +22,10 @@ export default function Configuracion() {
     recomendaciones_generales: '',
     version_informe: '',
     fecha_modelo_informe: '',
-    recomendaciones_generales: '',
-    version_informe: '',
-    fecha_modelo_informe: ''
+    representante_legal_nombre: '',
+    representante_legal_cargo: '',
+    representante_legal_firma_url: '',
+    vigencia_certificado_meses: 3
   })
 
   useEffect(() => {
@@ -79,9 +81,37 @@ export default function Configuracion() {
         logoUrl = uploadData.publicUrl
       }
 
+      let firmaUrl = form.representante_legal_firma_url
+      if (firma) {
+        const ext = firma.name.includes('.') ? firma.name.slice(firma.name.lastIndexOf('.')) : ''
+        const path = `branding/firma_${Date.now()}${ext}`
+        const token = localStorage.getItem('token')
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
+
+        const formData = new FormData()
+        formData.append('file', firma)
+        formData.append('path', path)
+        formData.append('bucket', 'fotos-servicio')
+
+        const uploadRes = await fetch(`${API_URL}/upload`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+          body: formData
+        })
+
+        if (!uploadRes.ok) {
+          throw new Error('Error subiendo firma del representante')
+        }
+
+        const uploadData = await uploadRes.json()
+        firmaUrl = uploadData.publicUrl
+      }
+
       const payload = {
         ...form,
         logo_url: logoUrl,
+        representante_legal_firma_url: firmaUrl,
+        vigencia_certificado_meses: form.vigencia_certificado_meses ? Number(form.vigencia_certificado_meses) : 3,
         updated_at: new Date().toISOString()
       }
 
@@ -99,6 +129,7 @@ export default function Configuracion() {
       }
 
       setLogo(null)
+      setFirma(null)
       toast.success('Configuración guardada')
     } catch (err) {
       toast.error('Error: ' + err.message)
@@ -218,8 +249,43 @@ export default function Configuracion() {
                   className="input-field mt-1" rows={3}
                   value={form.footer_pdf || ''}
                   onChange={e => setForm(prev => ({ ...prev, footer_pdf: e.target.value }))}
-                  placeholder="Ej: Gracias por confiar en PlagControl. Este certificado es válido por 6 meses."
+                  placeholder="Ej: Gracias por confiar en PlagControl. Este informe es válido por 6 meses."
                 />
+              </div>
+
+              <div className="pt-6 border-t border-dark-100 mt-6">
+                <h3 className="text-md font-bold text-dark-900 mb-4 flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-primary-600" />
+                  Certificado Sanitario
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-5">
+                  <div>
+                    <label className="label-field">Representante Legal (Nombre)</label>
+                    <input
+                      type="text" className="input-field"
+                      value={form.representante_legal_nombre || ''}
+                      onChange={e => setForm(prev => ({ ...prev, representante_legal_nombre: e.target.value }))}
+                      placeholder="Nombre de quien firma"
+                    />
+                  </div>
+                  <div>
+                    <label className="label-field">Representante Legal (Cargo)</label>
+                    <input
+                      type="text" className="input-field"
+                      value={form.representante_legal_cargo || ''}
+                      onChange={e => setForm(prev => ({ ...prev, representante_legal_cargo: e.target.value }))}
+                      placeholder="Ej: Gerente General"
+                    />
+                  </div>
+                  <div>
+                    <label className="label-field">Vigencia por Defecto (Meses)</label>
+                    <input
+                      type="number" className="input-field" min="1" max="60"
+                      value={form.vigencia_certificado_meses || 3}
+                      onChange={e => setForm(prev => ({ ...prev, vigencia_certificado_meses: e.target.value }))}
+                    />
+                  </div>
+                </div>
               </div>
 
               <div>
@@ -268,6 +334,33 @@ export default function Configuracion() {
                 </label>
               </div>
               <p className="text-xs text-dark-400 text-center">Se recomienda usar archivos PNG o JPG con fondo transparente.</p>
+            </div>
+          </div>
+
+          <div className="card mt-6">
+            <h2 className="text-lg font-bold text-dark-900 mb-6 flex items-center gap-2">
+              <Upload className="w-5 h-5 text-primary-600" /> Firma Representante
+            </h2>
+            <div className="space-y-4">
+              <div className="aspect-[2/1] w-full bg-dark-50 rounded-2xl flex items-center justify-center border-2 border-dashed border-dark-200 overflow-hidden relative group">
+                {firma ? (
+                  <img src={URL.createObjectURL(firma)} alt="Vista previa" className="w-full h-full object-contain" />
+                ) : form.representante_legal_firma_url ? (
+                  <img src={getAuthImageUrl(form.representante_legal_firma_url)} alt="Firma actual" className="w-full h-full object-contain" />
+                ) : (
+                  <div className="text-center p-4">
+                    <Type className="w-10 h-10 text-dark-200 mx-auto mb-2" />
+                    <p className="text-xs text-dark-400">Sin firma</p>
+                  </div>
+                )}
+                <label className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                  <div className="flex flex-col items-center text-white">
+                    <Upload className="w-6 h-6 mb-1" />
+                    <span className="text-xs font-medium">Cambiar Firma</span>
+                  </div>
+                  <input type="file" accept="image/*" className="hidden" onChange={e => setFirma(e.target.files[0])} />
+                </label>
+              </div>
             </div>
           </div>
         </div>

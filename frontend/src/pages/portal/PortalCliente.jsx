@@ -623,7 +623,7 @@ useEffect(() => {
                 onClick={() => setTab('certificados')} 
                 className={`flex-1 flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-bold transition-all duration-200 whitespace-nowrap ${tab === 'certificados' ? 'bg-dark-900 text-white shadow-md' : 'text-dark-500 hover:text-dark-900 hover:bg-dark-50'}`}
               >
-                <FileCheck className="w-4 h-4" /> Certificados
+                <FileCheck className="w-4 h-4" /> Informes de Actividades
               </button>
               <button 
                 onClick={() => setTab('documentos')} 
@@ -752,10 +752,10 @@ useEffect(() => {
                     {tieneDocumentosPendientes ? (
                       <>
                         <p className="text-dark-700 font-semibold">Su documento está en revisión</p>
-                        <p className="text-dark-400 text-sm mt-1">Nuestro equipo está verificando el certificado o informe técnico. Le notificaremos cuando esté disponible para descarga.</p>
+                        <p className="text-dark-400 text-sm mt-1">Nuestro equipo está verificando el informe o informe técnico. Le notificaremos cuando esté disponible para descarga.</p>
                       </>
                     ) : (
-                      <p className="text-dark-500 font-medium">No hay certificados ni informes emitidos</p>
+                      <p className="text-dark-500 font-medium">No hay informes ni documentos emitidos</p>
                     )}
                   </div>
                 ) : (

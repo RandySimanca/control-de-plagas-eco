@@ -17,13 +17,17 @@ export async function createConfig(data) {
     recomendaciones_generales,
     version_informe,
     fecha_modelo_informe,
-    especies_causantes
+    especies_causantes,
+    representante_legal_nombre,
+    representante_legal_cargo,
+    representante_legal_firma_url,
+    vigencia_certificado_meses
   } = data;
 
   const { rows } = await pool.query(`
     INSERT INTO configuracion 
-      (nombre_empresa, nit, email_contacto, telefono_contacto, direccion_fiscal, footer_pdf, logo_url, recomendaciones_generales, version_informe, fecha_modelo_informe, especies_causantes, updated_at)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
+      (nombre_empresa, nit, email_contacto, telefono_contacto, direccion_fiscal, footer_pdf, logo_url, recomendaciones_generales, version_informe, fecha_modelo_informe, especies_causantes, representante_legal_nombre, representante_legal_cargo, representante_legal_firma_url, vigencia_certificado_meses, updated_at)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW())
     RETURNING *
   `, [
     nombre_empresa,
@@ -36,7 +40,11 @@ export async function createConfig(data) {
     recomendaciones_generales,
     version_informe,
     fecha_modelo_informe,
-    JSON.stringify(especies_causantes || ['Palomas', 'Roedores', 'Insectos', 'Aves', 'Murciélagos', 'Avispas', 'Abejas', 'Otros'])
+    JSON.stringify(especies_causantes || ['Palomas', 'Roedores', 'Insectos', 'Aves', 'Murciélagos', 'Avispas', 'Abejas', 'Otros']),
+    representante_legal_nombre,
+    representante_legal_cargo,
+    representante_legal_firma_url,
+    vigencia_certificado_meses || 3
   ]);
 
   return rows[0];
@@ -46,7 +54,8 @@ export async function updateConfig(id, data) {
   const allowed = [
     'nombre_empresa', 'nit', 'email_contacto', 'telefono_contacto',
     'direccion_fiscal', 'footer_pdf', 'logo_url',
-    'recomendaciones_generales', 'version_informe', 'fecha_modelo_informe', 'especies_causantes', 'epp_catalogo'
+    'recomendaciones_generales', 'version_informe', 'fecha_modelo_informe', 'especies_causantes', 'epp_catalogo',
+    'representante_legal_nombre', 'representante_legal_cargo', 'representante_legal_firma_url', 'vigencia_certificado_meses'
   ];
 
   const fields = [];

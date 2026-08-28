@@ -172,7 +172,7 @@ export default function Layout() {
     { to: '/', icon: LayoutDashboard, label: 'Panel' },
     { to: '/clientes', icon: Users, label: 'Clientes' },
     { to: '/ordenes', icon: ClipboardList, label: 'Órdenes' },
-    { to: '/certificados', icon: FileCheck, label: 'Certificados' },
+    { to: '/certificados', icon: FileCheck, label: 'Informes de Actividades' },
   ].filter(item => {
     if (item.to === '/clientes' && profile?.rol === 'tecnico') return false
     return true
