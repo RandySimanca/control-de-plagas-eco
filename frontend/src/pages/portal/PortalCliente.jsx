@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { abrirInformeActividades } from '../../lib/generarInformeActividades'
 import { abrirInformeTecnico } from '../../lib/generarInformeTecnico'
+import { abrirCertificadoSanitario } from '../../lib/generarCertificadoSanitario'
 import { useNavigate, Link, useLocation } from 'react-router-dom'
 import {
   Bug, LogOut, ClipboardList, FileCheck, Calendar, Download,
@@ -28,7 +29,9 @@ export default function PortalCliente() {
   const [ordenes, setOrdenes] = useState([])
   const [certificados, setCertificados] = useState([])
   const [informesTecnicos, setInformesTecnicos] = useState([])
+  const [certificadosSanitarios, setCertificadosSanitarios] = useState([])
   const [documentos, setDocumentos] = useState([])
+  const [activeDocTab, setActiveDocTab] = useState('todos')
   const [solicitudes, setSolicitudes] = useState([])
   const [sedes, setSedes] = useState([])
   const [tab, setTab] = useState(() => {
@@ -63,10 +66,11 @@ useEffect(() => {
       if (!profile?.cliente_id) { setLoading(false); return }
       try {
         const token = localStorage.getItem('token')
-        const [ordenesRes, certRes, informesRes, docsRes, solRes, sedesRes] = await Promise.all([
+        const [ordenesRes, certRes, informesRes, certSanRes, docsRes, solRes, sedesRes] = await Promise.all([
           api.get('/ordenes-servicio', { token }),
           api.get('/certificados', { token }),
           api.get('/informes-tecnicos', { token }),
+          api.get('/certificados-sanitarios', { token }),
           api.get('/documentos-legales', { token }),
           api.get('/solicitudes-servicio', { token }),
           api.get(`/clientes/${profile.cliente_id}/sedes`, { token })
@@ -75,6 +79,7 @@ useEffect(() => {
         setOrdenes(ordenesRes.data || [])
         setCertificados(certRes.data || [])
         setInformesTecnicos(informesRes.data || [])
+        setCertificadosSanitarios(certSanRes.data || [])
         setDocumentos(docsRes.data || [])
         setSolicitudes(solRes.data || [])
         setSedes(sedesRes.data || [])
@@ -219,25 +224,72 @@ useEffect(() => {
     }
   }
 
-  const documentosPortal = [
-    ...certificados.map(c => ({
-      tipo: 'certificado',
-      id: c.id,
-      folio: c.folio,
-      created_at: c.created_at,
-      raw: c
-    })),
-    ...informesTecnicos.map(i => ({
-      tipo: 'informe_tecnico',
-      id: i.id,
-      folio: i.folio,
-      created_at: i.informe_generado_at || i.created_at,
-      raw: i
-    }))
-  ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+  async function descargarCertificadoSanitario(cert) {
+    try {
+      const orden = cert.ordenes_servicio
+      const token = localStorage.getItem('token')
+      const configRes = await api.get('/configuracion', { token })
+      const config = configRes.data
+      const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api').replace('/api', '').replace(/\/$/, '')
+      await abrirCertificadoSanitario({
+        certificado: cert,
+        orden,
+        cliente: orden.clientes,
+        config,
+        folio: cert.folio,
+        baseUrl: API_BASE
+      })
+    } catch {
+      toast.error('Error al generar el Certificado Sanitario')
+    }
+  }
+
+  // Agrupar documentos por orden (igual que admin)
+  const documentosPorOrden = {}
+  const agregarDocPortal = (doc, tipo) => {
+    const ordenId = doc.ordenes_servicio?.id
+    if (!ordenId) return
+    if (!documentosPorOrden[ordenId]) {
+      documentosPorOrden[ordenId] = {
+        ordenId,
+        orden: doc.ordenes_servicio,
+        cliente: doc.ordenes_servicio?.clientes,
+        fechaCreacion: doc.created_at || doc.informe_generado_at,
+        documentos: []
+      }
+    }
+    documentosPorOrden[ordenId].documentos.push({
+      tipo,
+      id: doc.id,
+      folio: doc.folio,
+      created_at: doc.created_at || doc.informe_generado_at,
+      raw: doc
+    })
+  }
+  certificados.forEach(c => agregarDocPortal(c, 'certificado'))
+  informesTecnicos.forEach(i => agregarDocPortal(i, 'informe_tecnico'))
+  certificadosSanitarios.forEach(cs => agregarDocPortal(cs, 'certificado_sanitario'))
+
+  const ordenesAgrupadasPortal = Object.values(documentosPorOrden).sort((a, b) =>
+    new Date(b.fechaCreacion) - new Date(a.fechaCreacion)
+  )
+
+  const filteredDocGroups = ordenesAgrupadasPortal.filter(grupo => {
+    if (activeDocTab === 'certificados' && !grupo.documentos.some(d => d.tipo === 'certificado')) return false
+    if (activeDocTab === 'informes' && !grupo.documentos.some(d => d.tipo === 'informe_tecnico')) return false
+    if (activeDocTab === 'sanitarios' && !grupo.documentos.some(d => d.tipo === 'certificado_sanitario')) return false
+    return true
+  })
+
+  const docTabCounts = {
+    todos: certificados.length + informesTecnicos.length + certificadosSanitarios.length,
+    certificados: certificados.length,
+    informes: informesTecnicos.length,
+    sanitarios: certificadosSanitarios.length
+  }
 
   const ordenesCompletadas = ordenes.filter(o => o.estado === 'completada')
-  const tieneDocumentosPendientes = documentosPortal.length === 0 && ordenesCompletadas.length > 0
+  const tieneDocumentosPendientes = ordenesAgrupadasPortal.length === 0 && ordenesCompletadas.length > 0
 
   async function handleLogout() {
     await logout()
@@ -743,50 +795,113 @@ useEffect(() => {
               </div>
             )}
 
-            {/* TAB CONTENT: CERTIFICADOS */}
+            {/* TAB CONTENT: CERTIFICADOS - Agrupados por orden */}
             {tab === 'certificados' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {documentosPortal.length === 0 ? (
-                  <div className="col-span-full p-12 text-center bg-white rounded-3xl border border-dark-100 shadow-sm">
+              <div>
+                {/* Sub-tabs de filtro */}
+                <div className="flex gap-2 mb-5 overflow-x-auto pb-1 no-scrollbar">
+                  {[
+                    { key: 'todos', label: `Todos (${docTabCounts.todos})` },
+                    { key: 'certificados', label: `Informes (${docTabCounts.certificados})` },
+                    { key: 'informes', label: `Informes Técnicos (${docTabCounts.informes})` },
+                    { key: 'sanitarios', label: `Certificados Sanitarios (${docTabCounts.sanitarios})` }
+                  ].map(t => (
+                    <button
+                      key={t.key}
+                      onClick={() => setActiveDocTab(t.key)}
+                      className={`px-4 py-2 rounded-xl font-semibold text-sm whitespace-nowrap transition-all duration-200 ${
+                        activeDocTab === t.key
+                          ? 'bg-dark-900 text-white shadow-md'
+                          : 'bg-white text-dark-600 hover:bg-dark-50 border border-dark-200 hover:text-dark-900'
+                      }`}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+
+                {filteredDocGroups.length === 0 ? (
+                  <div className="p-12 text-center bg-white rounded-3xl border border-dark-100 shadow-sm">
                     <FileCheck className="w-12 h-12 text-dark-200 mx-auto mb-3" />
                     {tieneDocumentosPendientes ? (
                       <>
-                        <p className="text-dark-700 font-semibold">Su documento está en revisión</p>
-                        <p className="text-dark-400 text-sm mt-1">Nuestro equipo está verificando el informe o informe técnico. Le notificaremos cuando esté disponible para descarga.</p>
+                        <p className="text-dark-700 font-semibold">Sus documentos están en revisión</p>
+                        <p className="text-dark-400 text-sm mt-1">Nuestro equipo está verificando los documentos. Le notificaremos cuando estén disponibles para descarga.</p>
                       </>
                     ) : (
                       <p className="text-dark-500 font-medium">No hay informes ni documentos emitidos</p>
                     )}
                   </div>
                 ) : (
-                  documentosPortal.map(doc => {
-                    const isInforme = doc.tipo === 'informe_tecnico'
-                    return (
-                      <div key={`${doc.tipo}-${doc.id}`} className={`group bg-linear-to-b from-white to-dark-50/30 rounded-3xl p-5 sm:p-6 border border-dark-100/80 shadow-sm hover:shadow-xl ${isInforme ? 'hover:shadow-indigo-500/10 hover:border-indigo-300' : 'hover:shadow-green-500/10 hover:border-green-300'} hover:-translate-y-1 transition-all duration-300 flex flex-col h-full relative overflow-hidden`}>
-                        <div className={`absolute bottom-0 left-0 w-32 h-32 rounded-full blur-2xl -ml-10 -mb-10 transition-opacity opacity-0 group-hover:opacity-100 pointer-events-none ${isInforme ? 'bg-indigo-400/10' : 'bg-green-400/10'}`}></div>
-                        <div className="flex-1 flex items-start gap-4 mb-5 relative z-10">
-                          <div className={`w-12 h-12 rounded-xl bg-linear-to-br from-dark-50 to-dark-100 border border-dark-200/50 flex items-center justify-center shrink-0 shadow-sm group-hover:scale-110 group-hover:shadow-md transition-all duration-300 ${isInforme ? 'group-hover:from-indigo-50 group-hover:to-indigo-100 group-hover:border-indigo-200' : 'group-hover:from-green-50 group-hover:to-green-100 group-hover:border-green-200'}`}>
-                            {isInforme
-                              ? <FileText className="w-6 h-6 text-dark-600 group-hover:text-indigo-600 transition-colors" />
-                              : <FileCheck className="w-6 h-6 text-dark-600 group-hover:text-green-600 transition-colors" />}
+                  <div className="space-y-4">
+                    {filteredDocGroups.map(grupo => (
+                      <div key={`grupo-${grupo.ordenId}`} className="bg-white rounded-3xl border border-dark-100 shadow-sm overflow-hidden">
+                        {/* Cabecera del grupo: cliente + fecha */}
+                        <div className="flex items-center gap-3 px-5 py-4 border-b border-dark-100 bg-dark-50/40">
+                          <div className="w-10 h-10 bg-white rounded-xl border border-dark-200 shadow-sm flex items-center justify-center shrink-0">
+                            <FileText className="w-5 h-5 text-dark-500" />
                           </div>
                           <div>
-                            <p className="text-xs font-bold text-dark-400 uppercase tracking-wider mb-1">
-                              {isInforme ? 'Informe Técnico' : 'Informe General de Actividades'}
+                            <p className="font-bold text-dark-900 text-sm">{grupo.cliente?.nombre || 'Cliente'}</p>
+                            <p className="text-xs text-dark-500 flex items-center gap-1 mt-0.5">
+                              <Calendar className="w-3.5 h-3.5" />
+                              Orden del {new Date(grupo.orden?.fecha_programada || grupo.fechaCreacion).toLocaleDateString('es')}
                             </p>
-                            <p className={`text-sm font-bold text-dark-900 break-all transition-colors ${isInforme ? 'group-hover:text-indigo-800' : 'group-hover:text-green-800'}`}>Folio: {doc.folio}</p>
-                            <p className="text-xs font-medium text-dark-500 mt-0.5">{new Date(doc.created_at).toLocaleDateString()}</p>
                           </div>
                         </div>
-                        <button
-                          onClick={() => isInforme ? descargarInforme(doc.raw) : descargarCert(doc.raw)}
-                          className={`relative z-10 w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-dark-700 bg-white border border-dark-200 rounded-xl transition-all shadow-sm hover:shadow ${isInforme ? 'hover:border-indigo-400 hover:bg-indigo-50 hover:text-indigo-700' : 'hover:border-green-400 hover:bg-green-50 hover:text-green-700'}`}
-                        >
-                          <Download className="w-4 h-4" /> Descargar PDF
-                        </button>
+
+                        {/* Documentos del grupo */}
+                        <div className="flex flex-col gap-2 p-4">
+                          {grupo.documentos
+                            .filter(doc => {
+                              if (activeDocTab === 'certificados') return doc.tipo === 'certificado'
+                              if (activeDocTab === 'informes') return doc.tipo === 'informe_tecnico'
+                              if (activeDocTab === 'sanitarios') return doc.tipo === 'certificado_sanitario'
+                              return true
+                            })
+                            .map(doc => {
+                              const isInforme = doc.tipo === 'informe_tecnico'
+                              const isCertSanitario = doc.tipo === 'certificado_sanitario'
+                              const colorClass = isInforme
+                                ? 'bg-indigo-100 text-indigo-700'
+                                : isCertSanitario
+                                  ? 'bg-emerald-100 text-emerald-700'
+                                  : 'bg-primary-100 text-primary-700'
+                              const label = isInforme ? 'Informe Técnico' : isCertSanitario ? 'Certificado Sanitario' : 'Informe de Actividades'
+
+                              return (
+                                <div key={`${doc.tipo}-${doc.id}`} className="flex flex-wrap sm:flex-nowrap items-center justify-between bg-dark-50/50 p-3 rounded-xl border border-dark-100 gap-3">
+                                  <div className="flex items-center gap-3 min-w-0">
+                                    <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center shrink-0">
+                                      <FileCheck className="w-4 h-4 text-green-600" />
+                                    </div>
+                                    <div className="min-w-0">
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${colorClass}`}>
+                                          {label}
+                                        </span>
+                                        <span className="text-[10px] bg-green-100 text-green-700 font-semibold px-1.5 py-0.5 rounded">Aprobado</span>
+                                      </div>
+                                      <div className="text-xs text-dark-500 mt-1 truncate">Folio: {doc.folio || '—'}</div>
+                                    </div>
+                                  </div>
+                                  <button
+                                    onClick={() => {
+                                      if (isInforme) descargarInforme(doc.raw)
+                                      else if (isCertSanitario) descargarCertificadoSanitario(doc.raw)
+                                      else descargarCert(doc.raw)
+                                    }}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-dark-700 bg-white border border-dark-200 rounded-lg hover:bg-dark-50 hover:border-dark-300 transition-all shadow-sm shrink-0"
+                                  >
+                                    <Download className="w-3.5 h-3.5" /> PDF
+                                  </button>
+                                </div>
+                              )
+                            })}
+                        </div>
                       </div>
-                    )
-                  })
+                    ))}
+                  </div>
                 )}
               </div>
             )}
