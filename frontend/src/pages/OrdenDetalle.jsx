@@ -19,7 +19,7 @@ import {
   OrdenEstaciones,
   OrdenActividades,
   OrdenFotos,
-  OrdenCertificado,
+  OrdenInformeActividades,
   OrdenTecnicoDetalles,
   OrdenEditarModal,
   OrdenTecnicoHub,
@@ -317,8 +317,8 @@ export default function OrdenDetalle() {
             queuePhoto={queuePhoto}
           />
 
-          {/* 7. Certificado Final */}
-          <OrdenCertificado 
+          {/* 7. Informe General de Actividades */}
+          <OrdenInformeActividades 
             orden={orden}
             productos={productos}
             estaciones={estaciones}

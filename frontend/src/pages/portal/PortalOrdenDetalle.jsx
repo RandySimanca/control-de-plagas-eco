@@ -7,7 +7,7 @@ import {
   FileText, Camera, Clock, History, MessageSquare, Download, CheckCircle2, ShieldCheck
 } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { abrirCertificado } from '../../lib/generarCertificado'
+import { abrirInformeActividades } from '../../lib/generarInformeActividades'
 import { abrirInformeTecnico } from '../../lib/generarInformeTecnico'
 import { getAuthImageUrl } from '../../utils/imageUtils'
 import { parseTipoPlaga } from '../../utils/tipoPlaga'
@@ -80,7 +80,7 @@ export default function PortalOrdenDetalle() {
       const token = localStorage.getItem('token')
       const configRes = await api.get('/configuracion', { token })
       const config = configRes.data
-      await abrirCertificado({
+      await abrirInformeActividades({
         folio: certificado.folio,
         cliente: orden.clientes,
         orden,

@@ -1,39 +1,13 @@
 import { getAuthImageUrl } from '../../utils/imageUtils'
 import { parseTipoPlaga } from '../../utils/tipoPlaga'
 import { parseDescripcion, buildDescripcion } from '../../utils/actividadTemplates'
+import { getImgData } from './utils/imageUtils'
 
 /**
- * Utilidad para obtener y convertir una URL de imagen a base64
+ * Prepara y normaliza todos los datos necesarios para el Informe General de Actividades PDF
+ * Anteriormente conocido como prepareCertificadoData
  */
-export async function getImgData(url) {
-  if (!url) return null
-  
-  if (typeof url === 'string' && url.startsWith('data:')) {
-    return url
-  }
-
-  const finalUrl = getAuthImageUrl(url)
-  if (!finalUrl) return null
-
-  try {
-    const res = await fetch(finalUrl)
-    if (!res.ok) throw new Error(`Error HTTP! status: ${res.status}`)
-    const blob = await res.blob()
-    return new Promise((resolve) => {
-      const reader = new FileReader()
-      reader.onloadend = () => resolve(reader.result)
-      reader.readAsDataURL(blob)
-    })
-  } catch (err) {
-    console.error('Error al obtener la imagen:', url, '->', finalUrl, err)
-    return null
-  }
-}
-
-/**
- * Prepara y normaliza todos los datos necesarios para el informe PDF
- */
-export async function prepareCertificadoData(params) {
+export async function prepareInformeActividadesData(params) {
   const { 
     orden, 
     estaciones = [], 
@@ -178,7 +152,7 @@ export async function prepareCertificadoData(params) {
   // 3. Carga de recursos (imágenes)
   const logoData = config?.logo_url ? await getImgData(config.logo_url) : null
   
-  // Intentar la firma del certificado primero, luego usar la firma del perfil del técnico como respaldo
+  // Intentar la firma del informe primero, luego usar la firma del perfil del técnico como respaldo
   const signatureUrl = firma_tecnico || orden.profiles?.firma_url
   const firmaData = signatureUrl ? await getImgData(signatureUrl) : null
 

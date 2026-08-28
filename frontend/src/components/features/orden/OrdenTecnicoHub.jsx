@@ -7,7 +7,7 @@ import {
 import { parseTipoPlaga } from '../../../utils/tipoPlaga'
 import { isVisitaTecnica } from '../../../utils/tipoVisitaConfig'
 import OrdenServicioModal from './OrdenServicioModal'
-import OrdenCertificado from './OrdenCertificado'
+import OrdenInformeActividades from './OrdenInformeActividades'
 import OrdenRelevamientoHub from './OrdenRelevamientoHub'
 import OrdenFotos from './OrdenFotos'
 import ActividadWizardModal from './ActividadWizardModal'
@@ -211,7 +211,7 @@ export default function OrdenTecnicoHub({
               </div>
               <h4 className="text-lg font-black tracking-tight">Firma & Cierre de Servicio</h4>
               <p className="text-xs text-rose-100/80 mt-1 line-clamp-2 leading-relaxed">
-                Captura de firma del cliente y generación del certificado oficial.
+                Captura de firma del cliente y generación del Informe General de Actividades.
               </p>
             </div>
 
@@ -269,7 +269,9 @@ export default function OrdenTecnicoHub({
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <OrdenCertificado
+            
+            {/* Informe General de Actividades */}
+            <OrdenInformeActividades
               orden={orden}
               productos={productos}
               estaciones={estaciones}

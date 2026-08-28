@@ -1,6 +1,10 @@
 import { jsPDF } from 'jspdf'
 
-export async function renderCertificado(data) {
+/**
+ * Renderiza el PDF del Informe General de Actividades
+ * Anteriormente conocido como renderCertificado
+ */
+export async function renderInformeActividades(data) {
   const { cliente, orden, productos, actividades = [], config, normalized } = data
   const { logoData, firmaData, evidences, tipoPlagaTitle, diagnosisText, fechaEjecucion } = normalized
 
@@ -18,7 +22,7 @@ export async function renderCertificado(data) {
 
   doc.setTextColor(15, 23, 42)
   doc.setFontSize(32); doc.setFont(undefined, 'bold')
-  doc.text('Informe Técnico', pageWidth - margin, pageHeight * 0.22, { align: 'right' })
+  doc.text('Informe General de Actividades', pageWidth - margin, pageHeight * 0.22, { align: 'right' })
   doc.setFontSize(28)
   doc.text(cliente?.nombre || 'Cliente', pageWidth - margin, pageHeight * 0.32, { align: 'right' })
 
@@ -52,7 +56,7 @@ export async function renderCertificado(data) {
     doc.rect(margin + 50, headerY, pageWidth - 2 * margin - 100, headerHeight)
     
     doc.setFontSize(10); doc.setFont(undefined, 'bold'); doc.setTextColor(30, 41, 59)
-    doc.text('INFORME TÉCNICO DEL SERVICIO', margin + (pageWidth - 2 * margin) / 2, headerY + 5, { align: 'center' })
+    doc.text('INFORME GENERAL DE ACTIVIDADES DEL SERVICIO', margin + (pageWidth - 2 * margin) / 2, headerY + 5, { align: 'center' })
     
     doc.setFontSize(8); doc.setFont(undefined, 'bold')
     doc.text(`${companyName}${nitText ? ` - ${nitText}` : ''}`, margin + (pageWidth - 2 * margin) / 2, headerY + 10, { align: 'center' })
@@ -201,7 +205,6 @@ export async function renderCertificado(data) {
       doc.text(timestamp, margin + 3, y)
 
       // Extraer el prefijo y el detalle real para dibujarlos
-      // Importaremos parseDescripcion dinámicamente si es posible, o usaremos Regex directo.
       const match = (act.descripcion || '').match(/^\[(.*?)\]\s*(.*)$/s)
       let prefix = ''
       let detail = act.descripcion || ''

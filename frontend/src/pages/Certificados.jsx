@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import api from '../lib/api'
 
-import { abrirCertificado } from '../lib/generarCertificado'
+import { abrirInformeActividades } from '../lib/generarInformeActividades'
 import { abrirInformeTecnico } from '../lib/generarInformeTecnico'
 import { FileCheck, Download, Search, Calendar, ShieldCheck, ShieldX, Clock, FileText } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
@@ -44,7 +44,7 @@ export default function Certificados() {
     try {
       const token = localStorage.getItem('token')
       await api.patch(`/certificados/${cert.id}/aprobar`, {}, { token })
-      toast.success(`Certificado ${cert.folio} aprobado y visible para el cliente`)
+      toast.success(`Informe General de Actividades ${cert.folio} aprobado y visible para el cliente`)
       setCertificados(prev => prev.map(c => c.id === cert.id ? { ...c, aprobado: true } : c))
     } catch {
       toast.error('Error al aprobar certificado')
@@ -58,7 +58,7 @@ export default function Certificados() {
     try {
       const token = localStorage.getItem('token')
       await api.patch(`/certificados/${cert.id}/rechazar`, {}, { token })
-      toast.success(`Certificado ${cert.folio} ocultado del portal del cliente`)
+      toast.success(`Informe General de Actividades ${cert.folio} ocultado del portal del cliente`)
       setCertificados(prev => prev.map(c => c.id === cert.id ? { ...c, aprobado: false } : c))
     } catch {
       toast.error('Error al actualizar certificado')
@@ -109,7 +109,7 @@ export default function Certificados() {
         api.get('/estaciones-usadas', { token, params: { orden_id: orden.id } })
       ])
       
-      await abrirCertificado({
+      await abrirInformeActividades({
         folio: cert.folio,
         cliente: orden.clientes,
         orden,

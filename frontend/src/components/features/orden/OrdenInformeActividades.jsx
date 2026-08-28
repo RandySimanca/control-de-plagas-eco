@@ -2,14 +2,18 @@ import { useState } from 'react'
 import { FileText, Clock, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../../../lib/api'
-import { abrirCertificado } from '../../../lib/generarCertificado'
+import { abrirInformeActividades } from '../../../lib/generarInformeActividades'
 import logoDerosh from '../../../assets/logo Derosh.png'
 import { useConfig } from '../../../contexts/ConfigContext'
 import { generateFolio } from '../../../utils/empresaUtils'
 
 import { getAuthImageUrl } from '../../../utils/imageUtils'
 
-export default function OrdenCertificado({
+/**
+ * Componente para generar y descargar el Informe General de Actividades
+ * Anteriormente conocido como OrdenCertificado
+ */
+export default function OrdenInformeActividades({
   orden,
   productos,
   estaciones,
@@ -75,12 +79,12 @@ export default function OrdenCertificado({
     }
   }
 
-  async function handleGenerarCertificado() {
+  async function handleGenerarInforme() {
     setGenerando(true)
     try {
       const folio = generateFolio(nombreEmpresa)
       
-      // Guardar registro del certificado
+      // Guardar registro del certificado (manteniendo compatibilidad con backend)
       if (!certificado) {
         await api.post('/certificados', { orden_id: orden.id, folio })
       } else {
@@ -88,21 +92,21 @@ export default function OrdenCertificado({
       }
 
       const reportData = await prepareDataForReport(folio)
-      await abrirCertificado(reportData)
+      await abrirInformeActividades(reportData)
 
       setCertificado(prev => ({ ...prev, folio }))
-      toast.success('Certificado generado')
+      toast.success('Informe General de Actividades generado')
     } catch (err) {
-      toast.error('Error generando certificado: ' + err.message)
+      toast.error('Error generando Informe General de Actividades: ' + err.message)
     } finally {
       setGenerando(false)
     }
   }
 
-  async function descargarCertificado() {
+  async function descargarInforme() {
     try {
       const reportData = await prepareDataForReport(certificado?.folio || 'ORD-' + orden.id.substring(0, 5))
-      await abrirCertificado(reportData)
+      await abrirInformeActividades(reportData)
     } catch (err) {
       toast.error('Error al descargar: ' + err.message)
     }
@@ -111,32 +115,32 @@ export default function OrdenCertificado({
   return (
     <div className="card mt-6">
       <h2 className="text-lg font-bold text-dark-900 flex items-center gap-2 mb-4">
-        <FileText className="w-5 h-5 text-primary-600" /> Certificado
+        <FileText className="w-5 h-5 text-primary-600" /> Informe General de Actividades
       </h2>
       {orden.estado !== 'completada' ? (
         <div className="flex items-center gap-2 text-sm text-dark-400">
-          <Clock className="w-4 h-4" /> El certificado estará disponible cuando la orden se marque como completada
+          <Clock className="w-4 h-4" /> El Informe General de Actividades estará disponible cuando la orden se marque como completada
         </div>
       ) : certificado ? (
         <div className="flex items-center justify-between bg-green-50 p-4 rounded-xl">
           <div>
-            <p className="font-semibold text-green-800">Certificado generado</p>
+            <p className="font-semibold text-green-800">Informe General de Actividades generado</p>
             <p className="text-sm text-green-600">Folio: {certificado.folio}</p>
           </div>
-          <button onClick={descargarCertificado} className="btn-primary text-sm">
+          <button onClick={descargarInforme} className="btn-primary text-sm">
             Descargar PDF
           </button>
         </div>
       ) : (
         <button 
-          onClick={handleGenerarCertificado} 
+          onClick={handleGenerarInforme} 
           disabled={generando} 
           className="btn-primary"
         >
           {generando ? (
             <Loader2 className="w-5 h-5 animate-spin" />
           ) : (
-            <><FileText className="w-5 h-5" /> Generar Certificado</>
+            <><FileText className="w-5 h-5" /> Generar Informe General de Actividades</>
           )}
         </button>
       )}

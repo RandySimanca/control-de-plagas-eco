@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
-import { generarCertificado as _generarCertificado, abrirCertificado } from '../../lib/generarCertificado'
+import { abrirInformeActividades } from '../../lib/generarInformeActividades'
 import { abrirInformeTecnico } from '../../lib/generarInformeTecnico'
 import { useNavigate, Link, useLocation } from 'react-router-dom'
 import {
@@ -179,7 +179,7 @@ useEffect(() => {
       ])
 
       const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api').replace('/api', '').replace(/\/$/, '')
-      await abrirCertificado({
+      await abrirInformeActividades({
         folio: cert.folio, 
         cliente: orden.clientes, 
         orden,
@@ -192,7 +192,7 @@ useEffect(() => {
         fotos: fotosRes.data || []
       })
     } catch {
-      toast.error('Error al generar certificado')
+      toast.error('Error al generar el Informe General de Actividades')
     }
   }
 
@@ -772,7 +772,7 @@ useEffect(() => {
                           </div>
                           <div>
                             <p className="text-xs font-bold text-dark-400 uppercase tracking-wider mb-1">
-                              {isInforme ? 'Informe Técnico' : 'Certificado Oficial'}
+                              {isInforme ? 'Informe Técnico' : 'Informe General de Actividades'}
                             </p>
                             <p className={`text-sm font-bold text-dark-900 break-all transition-colors ${isInforme ? 'group-hover:text-indigo-800' : 'group-hover:text-green-800'}`}>Folio: {doc.folio}</p>
                             <p className="text-xs font-medium text-dark-500 mt-0.5">{new Date(doc.created_at).toLocaleDateString()}</p>

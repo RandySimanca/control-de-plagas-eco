@@ -1,4 +1,4 @@
-import { getImgData } from './certificadoData'
+import { getImgData } from './utils/imageUtils'
 import { formatFechaLarga } from '../../utils/dateUtils'
 
 export async function prepareInformeTecnicoData(params) {
