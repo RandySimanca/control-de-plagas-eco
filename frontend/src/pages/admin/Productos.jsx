@@ -472,7 +472,7 @@ export default function Productos() {
                         {p.modelo && <div className="text-xs text-dark-400">{p.modelo}</div>}
                       </td>
                       <td className="py-3 px-4">
-                        <span className={`text-xs px-2 py-1 rounded-full font-bold ${p.estado_prestamo === 'prestado' ? 'bg-red-100 text-red-800' :
+                        <span className={`text-xs px-2 py-1 rounded-full font-bold ${p.estado_prestamo === 'prestado' ? 'bg-red-100 text-black-700' :
                             p.estado_fisico === 'disponible' ? 'bg-green-100 text-green-800' :
                               p.estado_fisico === 'reparacion' ? 'bg-amber-100 text-amber-800' :
                                 p.estado_fisico === 'baja' ? 'bg-red-100 text-red-800' :
