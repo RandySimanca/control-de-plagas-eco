@@ -61,25 +61,29 @@ export async function listProductosCatalogo(filters = {}) {
 
   if (filters.estado) {
     params.push(filters.estado);
-    conditions.push(`estado = $${params.length}`);
+    conditions.push(`pc.estado = $${params.length}`);
   }
   if (filters.tipo_producto) {
     params.push(filters.tipo_producto);
-    conditions.push(`tipo_producto = $${params.length}`);
+    conditions.push(`pc.tipo_producto = $${params.length}`);
   }
   if (filters.categoria) {
     params.push(filters.categoria);
-    conditions.push(`categoria = $${params.length}`);
+    conditions.push(`pc.categoria = $${params.length}`);
   }
   if (filters.stock_bajo === 'true') {
-    conditions.push(`stock_actual <= stock_minimo AND stock_minimo > 0`);
+    conditions.push(`pc.stock_actual <= pc.stock_minimo AND pc.stock_minimo > 0`);
   }
 
-  let sql = 'SELECT * FROM productos_catalogo';
+  let sql = `
+    SELECT pc.*, p.nombre_completo AS tecnico_actual_nombre 
+    FROM productos_catalogo pc
+    LEFT JOIN profiles p ON pc.tecnico_actual_id = p.id
+  `;
   if (conditions.length > 0) {
     sql += ' WHERE ' + conditions.join(' AND ');
   }
-  sql += ' ORDER BY nombre_comercial ASC';
+  sql += ' ORDER BY pc.nombre_comercial ASC';
 
   const { rows } = await pool.query(sql, params);
   return rows;

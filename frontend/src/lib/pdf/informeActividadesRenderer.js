@@ -21,10 +21,10 @@ export async function renderInformeActividades(data) {
   doc.triangle(0, pageHeight * 0.25, pageWidth, pageHeight * 0.7, 0, pageHeight * 0.7, 'F')
 
   doc.setTextColor(15, 23, 42)
-  doc.setFontSize(32); doc.setFont(undefined, 'bold')
-  doc.text('Informe General de Actividades', pageWidth - margin, pageHeight * 0.22, { align: 'right' })
-  doc.setFontSize(28)
-  doc.text(cliente?.nombre || 'Cliente', pageWidth - margin, pageHeight * 0.32, { align: 'right' })
+  doc.setFontSize(22); doc.setFont(undefined, 'bold')
+  doc.text('Informe General de Actividades', pageWidth - margin, pageHeight * 0.28, { align: 'right' })
+  doc.setFontSize(20)
+  doc.text(cliente?.nombre || 'Cliente', pageWidth - margin, pageHeight * 0.36, { align: 'right' })
 
   doc.setTextColor(15, 23, 42)
   doc.setFontSize(14)
@@ -42,7 +42,7 @@ export async function renderInformeActividades(data) {
 
   const drawHeader = (pageNumber, totalPages) => {
     const headerY = 10
-    const headerHeight = 22
+    const headerHeight = 26
     doc.setDrawColor(31, 41, 55); doc.setLineWidth(0.3)
 
     doc.rect(margin, headerY, 50, headerHeight)
@@ -52,18 +52,29 @@ export async function renderInformeActividades(data) {
     const nitText = config?.nit ? `NIT: ${config.nit}` : ''
     const contactText = [config?.telefono_contacto, config?.email_contacto].filter(Boolean).join(' | ')
     const addressText = config?.direccion_fiscal || ''
+    
+    const centerCellW = pageWidth - 2 * margin - 100
+    const centerCellX = margin + 50
+    const centerMidX = centerCellX + centerCellW / 2
 
-    doc.rect(margin + 50, headerY, pageWidth - 2 * margin - 100, headerHeight)
-    
-    doc.setFontSize(10); doc.setFont(undefined, 'bold'); doc.setTextColor(30, 41, 59)
-    doc.text('INFORME GENERAL DE ACTIVIDADES DEL SERVICIO', margin + (pageWidth - 2 * margin) / 2, headerY + 5, { align: 'center' })
-    
-    doc.setFontSize(8); doc.setFont(undefined, 'bold')
-    doc.text(`${companyName}${nitText ? ` - ${nitText}` : ''}`, margin + (pageWidth - 2 * margin) / 2, headerY + 10, { align: 'center' })
-    
-    doc.setFontSize(7); doc.setFont(undefined, 'normal')
-    if (contactText) doc.text(contactText, margin + (pageWidth - 2 * margin) / 2, headerY + 14, { align: 'center' })
-    if (addressText) doc.text(addressText, margin + (pageWidth - 2 * margin) / 2, headerY + 18, { align: 'center' })
+    // Zona superior: título (primeros ~10mm)
+    const titleZoneH = 10
+    doc.rect(centerCellX, headerY, centerCellW, headerHeight)
+    doc.setFontSize(8); doc.setFont(undefined, 'bold'); doc.setTextColor(30, 41, 59)
+    const titleLines = doc.splitTextToSize('INFORME GENERAL DE ACTIVIDADES DEL SERVICIO', centerCellW - 4)
+    // Centrar verticalmente en la zona superior
+    const titleY = headerY + (titleZoneH / 2) + (titleLines.length > 1 ? -1.5 : 1)
+    doc.text(titleLines, centerMidX, titleY, { align: 'center', lineHeightFactor: 1.3 })
+
+    // Línea divisora entre título y datos
+    doc.line(centerCellX, headerY + titleZoneH, centerCellX + centerCellW, headerY + titleZoneH)
+
+    // Zona inferior: datos de empresa (desde titleZoneH hasta headerHeight)
+    doc.setFontSize(7); doc.setFont(undefined, 'bold')
+    doc.text(`${companyName}${nitText ? ` - ${nitText}` : ''}`, centerMidX, headerY + titleZoneH + 4, { align: 'center' })
+    doc.setFont(undefined, 'normal')
+    if (contactText) doc.text(contactText, centerMidX, headerY + titleZoneH + 8, { align: 'center' })
+    if (addressText) doc.text(addressText, centerMidX, headerY + titleZoneH + 12, { align: 'center' })
 
     const metaX = pageWidth - margin - 50
     doc.rect(metaX, headerY, 50, headerHeight)

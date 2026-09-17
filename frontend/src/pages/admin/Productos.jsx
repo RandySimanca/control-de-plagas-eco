@@ -318,7 +318,7 @@ export default function Productos() {
   const filtered = productos.filter(p => {
     const matchTab =
       activeTab === 'quimicos' ? !['epp', 'equipo'].includes(p.categoria) :
-      activeTab === 'equipos'  ? p.categoria === 'equipo' :
+        activeTab === 'equipos' ? p.categoria === 'equipo' :
       /* epp */                  p.categoria === 'epp'
 
     const matchSearch = p.nombre_comercial.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -383,25 +383,22 @@ export default function Productos() {
         <div className="flex gap-2 mb-6 border-b border-dark-100 pb-4">
           <button
             onClick={() => setActiveTab('quimicos')}
-            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-              activeTab === 'quimicos' ? 'bg-primary-50 text-primary-700 font-bold' : 'text-dark-500 hover:bg-dark-50'
-            }`}
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${activeTab === 'quimicos' ? 'bg-primary-50 text-primary-700 font-bold' : 'text-dark-500 hover:bg-dark-50'
+              }`}
           >
             🧪 Productos Químicos
           </button>
           <button
             onClick={() => setActiveTab('equipos')}
-            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-              activeTab === 'equipos' ? 'bg-orange-50 text-orange-700 font-bold' : 'text-dark-500 hover:bg-dark-50'
-            }`}
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${activeTab === 'equipos' ? 'bg-orange-50 text-orange-700 font-bold' : 'text-dark-500 hover:bg-dark-50'
+              }`}
           >
             🔧 Equipos
           </button>
           <button
             onClick={() => setActiveTab('epp')}
-            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-              activeTab === 'epp' ? 'bg-blue-50 text-blue-700 font-bold' : 'text-dark-500 hover:bg-dark-50'
-            }`}
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${activeTab === 'epp' ? 'bg-blue-50 text-blue-700 font-bold' : 'text-dark-500 hover:bg-dark-50'
+              }`}
           >
             🦺 Dotación EPP
           </button>
@@ -475,18 +472,19 @@ export default function Productos() {
                         {p.modelo && <div className="text-xs text-dark-400">{p.modelo}</div>}
                       </td>
                       <td className="py-3 px-4">
-                        <span className={`text-xs px-2 py-1 rounded-full font-bold ${
-                          p.estado_fisico === 'disponible' ? 'bg-green-100 text-green-800' :
-                          p.estado_fisico === 'reparacion' ? 'bg-amber-100 text-amber-800' :
-                          p.estado_fisico === 'baja' ? 'bg-red-100 text-red-800' :
-                          'bg-gray-100 text-gray-700'
-                        }`}>
-                          {p.estado_fisico === 'disponible' ? 'Disponible' :
-                           p.estado_fisico === 'reparacion' ? 'En Reparación' :
-                           p.estado_fisico === 'baja' ? 'De Baja' : p.estado_fisico || '—'}
+                        <span className={`text-xs px-2 py-1 rounded-full font-bold ${p.estado_prestamo === 'prestado' ? 'bg-red-100 text-red-800' :
+                            p.estado_fisico === 'disponible' ? 'bg-green-100 text-green-800' :
+                              p.estado_fisico === 'reparacion' ? 'bg-amber-100 text-amber-800' :
+                                p.estado_fisico === 'baja' ? 'bg-red-100 text-red-800' :
+                                  'bg-gray-100 text-gray-700'
+                          }`}>
+                          {p.estado_prestamo === 'prestado' ? 'No Disponible' :
+                            p.estado_fisico === 'disponible' ? 'Disponible' :
+                              p.estado_fisico === 'reparacion' ? 'En Reparación' :
+                                p.estado_fisico === 'baja' ? 'De Baja' : p.estado_fisico || '—'}
                         </span>
                         {p.estado_prestamo === 'prestado' && (
-                          <div className="text-xs text-indigo-600 font-semibold mt-0.5">📤 Prestado</div>
+                          <div className="text-xs text-indigo-600 font-semibold mt-0.5">📤 Prestado a: {p.tecnico_actual_nombre || 'Técnico'}</div>
                         )}
                       </td>
                     </>
@@ -642,8 +640,8 @@ export default function Productos() {
                       {(formData.categoria === 'equipo'
                         ? CATEGORIAS.filter(c => c.value === 'equipo')
                         : formData.categoria === 'epp'
-                        ? CATEGORIAS.filter(c => c.value === 'epp')
-                        : CATEGORIAS.filter(c => !['equipo', 'epp'].includes(c.value))
+                          ? CATEGORIAS.filter(c => c.value === 'epp')
+                          : CATEGORIAS.filter(c => !['equipo', 'epp'].includes(c.value))
                       ).map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                     </select>
                   )}
@@ -776,8 +774,8 @@ export default function Productos() {
                         <input
                           type="checkbox"
                           checked={formData.sin_vencimiento}
-                          onChange={e => setFormData({ 
-                            ...formData, 
+                          onChange={e => setFormData({
+                            ...formData,
                             sin_vencimiento: e.target.checked,
                             fecha_vencimiento: e.target.checked ? '' : formData.fecha_vencimiento
                           })}

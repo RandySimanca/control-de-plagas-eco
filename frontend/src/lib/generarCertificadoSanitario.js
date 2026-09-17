@@ -32,19 +32,8 @@ export async function generarCertificadoSanitario(params) {
 export async function abrirCertificadoSanitario(params) {
   try {
     const doc = await generarCertificadoSanitario(params)
-    const pdfBlob = doc.output('blob')
-    const url = URL.createObjectURL(pdfBlob)
-    
-    const w = window.open()
-    if (w) {
-      w.document.write(
-        `<iframe width='100%' height='100%' style='border:none;margin:0;padding:0' src='${url}#toolbar=1'></iframe>`
-      )
-      w.document.title = `Certificado_Sanitario_${params.folio}.pdf`
-      w.document.body.style.margin = '0'
-    } else {
-      doc.save(`Certificado_Sanitario_${params.folio}.pdf`)
-    }
+    const fileName = `Certificado_Sanitario_${params.folio || params.cliente?.nombre || 'PlagControl'}_${new Date().getTime()}.pdf`
+    doc.save(fileName)
   } catch (error) {
     console.error('Error al abrir certificado:', error)
     throw error

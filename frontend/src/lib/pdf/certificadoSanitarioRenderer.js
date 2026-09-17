@@ -67,6 +67,8 @@ export async function renderCertificadoSanitario(data) {
   doc.setFontSize(11); doc.setFont(undefined, 'bold')
   doc.text('CERTIFICA QUE:', rightColX, y)
   
+  const colMaxWidth = pageWidth - rightColX - 25
+
   y += 8
   doc.setFont(undefined, 'bold')
   const clientName = cliente?.razon_social || cliente?.nombre || 'CLIENTE NO DEFINIDO'
@@ -74,29 +76,36 @@ export async function renderCertificadoSanitario(data) {
   
   y += 6
   doc.setFont(undefined, 'normal')
-  doc.text(`Identificado con: ${cliente?.identificacion || 'N/A'}`, rightColX, y)
+  const identLines = doc.splitTextToSize(`Identificado con: ${cliente?.identificacion || 'N/A'}`, colMaxWidth)
+  doc.text(identLines, rightColX, y)
+  y += identLines.length * 5
   
-  y += 6
-  doc.text(`Ubicado en: ${cliente?.direccion || 'N/A'}`, rightColX, y)
+  const dirLines = doc.splitTextToSize(`Ubicado en: ${cliente?.direccion || 'N/A'}`, colMaxWidth)
+  doc.text(dirLines, rightColX, y)
+  y += dirLines.length * 5
   
-  y += 6
   const municipio = cliente?.municipio_nombre ? `${cliente.municipio_nombre} - ${cliente.departamento_nombre || ''}` : 'N/A'
-  doc.text(`Municipio: ${municipio}`, rightColX, y)
+  const munLines = doc.splitTextToSize(`Municipio: ${municipio}`, colMaxWidth)
+  doc.text(munLines, rightColX, y)
+  y += munLines.length * 5
   
-  y += 6
-  doc.text(`Tipo de Establecimiento: ${certificado.tipo_establecimiento || 'N/A'}`, rightColX, y)
+  const estLines = doc.splitTextToSize(`Tipo de Establecimiento: ${certificado.tipo_establecimiento || 'N/A'}`, colMaxWidth)
+  doc.text(estLines, rightColX, y)
+  y += estLines.length * 5
   
-  y += 6
-  doc.text(`Tipo de Servicio: ${certificado.tipo_servicio || 'N/A'}`, rightColX, y)
+  const svcLines = doc.splitTextToSize(`Tipo de Servicio: ${certificado.tipo_servicio || 'N/A'}`, colMaxWidth)
+  doc.text(svcLines, rightColX, y)
+  y += svcLines.length * 5
 
-  y += 15
+  y += 10
   const parrafo = `fue objeto de INSPECCIÓN Y/O CONTROL INTEGRAL DE PLAGAS, realizado de acuerdo con los procedimientos técnicos establecidos por la empresa y considerando las disposiciones aplicables al tipo de establecimiento.`
-  const textLines = doc.splitTextToSize(parrafo, pageWidth - rightColX - 25)
+  const textLines = doc.splitTextToSize(parrafo, colMaxWidth)
   doc.text(textLines, rightColX, y)
-  y += (textLines.length * 5) + 10
+  y += (textLines.length * 5) + 8
 
-  doc.text('De acuerdo con la evaluación realizada durante la visita, se obtuvo como resultado:', rightColX, y)
-  y += 12
+  const evalLines = doc.splitTextToSize('De acuerdo con la evaluación realizada durante la visita, se obtuvo como resultado:', colMaxWidth)
+  doc.text(evalLines, rightColX, y)
+  y += (evalLines.length * 5) + 8
 
   // RESULTADO
   const isCumple = certificado.resultado === 'CUMPLE'
@@ -118,7 +127,7 @@ export async function renderCertificadoSanitario(data) {
     doc.text('Observaciones:', rightColX, y)
     y += 5
     doc.setFont(undefined, 'normal')
-    const obsLines = doc.splitTextToSize(certificado.observaciones, pageWidth - rightColX - 25)
+    const obsLines = doc.splitTextToSize(certificado.observaciones, colMaxWidth)
     doc.text(obsLines, rightColX, y)
     y += (obsLines.length * 5) + 5
   }
@@ -129,7 +138,7 @@ export async function renderCertificadoSanitario(data) {
     doc.text('Normativa de Referencia Aplicable:', rightColX, y)
     y += 5
     doc.setFont(undefined, 'normal')
-    const normLines = doc.splitTextToSize(certificado.normativa_referencia, pageWidth - rightColX - 25)
+    const normLines = doc.splitTextToSize(certificado.normativa_referencia, colMaxWidth)
     doc.text(normLines, rightColX, y)
     y += (normLines.length * 5) + 10
   }
