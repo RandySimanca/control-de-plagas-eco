@@ -2,12 +2,19 @@ import { getImgData } from './utils/imageUtils'
 import { formatFechaLarga } from '../../utils/dateUtils'
 
 export async function prepareInformeTecnicoData(params) {
-  const { orden, cliente, relevamiento, config, tecnico } = params
+  const { orden, cliente, relevamiento, config, tecnico, fotosServicio } = params
 
   const logoData = await getImgData(config?.logo_url)
   const firmaData = await getImgData(tecnico?.firma_url)
 
-  const fotos = await Promise.all((relevamiento?.fotos || []).map(async (f) => ({
+  // Combinar fotos del relevamiento (fotos_relevamiento) con fotos de la actividad (fotos_servicio)
+  // Las fotos del relevamiento tienen prioridad (se muestran primero)
+  const fotosFuente = [
+    ...(relevamiento?.fotos || []),
+    ...(fotosServicio || [])
+  ]
+
+  const fotos = await Promise.all(fotosFuente.map(async (f) => ({
     ...f,
     data: await getImgData(f.url)
   })))

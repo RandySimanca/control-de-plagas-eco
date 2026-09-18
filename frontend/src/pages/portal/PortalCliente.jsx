@@ -206,9 +206,10 @@ useEffect(() => {
       const orden = informe.ordenes_servicio
       const token = localStorage.getItem('token')
       
-      const [configRes, relRes] = await Promise.all([
+      const [configRes, relRes, fotosRes] = await Promise.all([
         api.get('/configuracion', { token }),
-        api.get(`/ordenes/${orden.id}/relevamiento`, { token })
+        api.get(`/ordenes/${orden.id}/relevamiento`, { token }),
+        api.get('/fotos-servicio', { token, params: { orden_id: orden.id } })
       ])
 
       await abrirInformeTecnico({
@@ -217,7 +218,8 @@ useEffect(() => {
         relevamiento: relRes.data || informe,
         config: configRes.data,
         tecnico: orden.profiles || {},
-        folio: informe.folio
+        folio: informe.folio,
+        fotosServicio: fotosRes.data || []
       })
     } catch {
       toast.error('Error al generar informe técnico')

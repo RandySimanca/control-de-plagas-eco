@@ -107,7 +107,10 @@ export default function PortalOrdenDetalle() {
     setDescargando(true)
     try {
       const token = localStorage.getItem('token')
-      const configRes = await api.get('/configuracion', { token })
+      const [configRes, fotosRes] = await Promise.all([
+        api.get('/configuracion', { token }),
+        api.get('/fotos-servicio', { token, params: { orden_id: orden.id } })
+      ])
       const config = configRes.data
       await abrirInformeTecnico({
         orden,
@@ -115,7 +118,8 @@ export default function PortalOrdenDetalle() {
         relevamiento: informeTecnico,
         config,
         tecnico: orden.profiles || {},
-        folio: informeTecnico.folio
+        folio: informeTecnico.folio,
+        fotosServicio: fotosRes.data || []
       })
     } catch (err) {
       toast.error('Error al descargar: ' + err.message)

@@ -164,8 +164,12 @@ export default function Certificados() {
     try {
       const orden = informe.ordenes_servicio
       const token = localStorage.getItem('token')
-      const configRes = await api.get('/configuracion', { token })
+      const [configRes, fotosRes] = await Promise.all([
+        api.get('/configuracion', { token }),
+        api.get('/fotos-servicio', { token, params: { orden_id: orden.id } })
+      ])
       const config = configRes.data
+      const fotosServicio = fotosRes.data || []
 
       await abrirInformeTecnico({
         orden,
@@ -173,7 +177,8 @@ export default function Certificados() {
         relevamiento: informe,
         config,
         tecnico: orden.profiles || {},
-        folio: informe.folio
+        folio: informe.folio,
+        fotosServicio
       })
     } catch (err) {
       console.error('Error generando informe:', err)

@@ -27,6 +27,9 @@ export function getAuthImageUrl(url) {
         const separator = path.includes('?') ? '&' : '?';
         path = `${path}${separator}token=${token}`;
       }
+      
+      const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api').replace('/api', '').replace(/\/$/, '');
+      return `${API_BASE}${path}`;
     }
 
     return path;

@@ -14,7 +14,8 @@ export default function OrdenInformeTecnico({
   setRelevamiento,
   isAdmin,
   queuePhoto,
-  queueOrExecute
+  queueOrExecute,
+  fotosServicio = []
 }) {
   const [showModal, setShowModal] = useState(false)
   const [downloading, setDownloading] = useState(false)
@@ -65,7 +66,8 @@ export default function OrdenInformeTecnico({
         relevamiento: informeActualizado,
         config,
         tecnico,
-        folio: informeActualizado.folio
+        folio: informeActualizado.folio,
+        fotosServicio
       })
 
       toast.success(informeGenerado

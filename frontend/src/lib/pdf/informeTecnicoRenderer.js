@@ -99,9 +99,9 @@ export async function renderInformeTecnico(data) {
   y += 4
 
   // Fotografías
+  checkPage(50)
+  y = drawSectionHeader('3. Evidencia Fotográfica', y)
   if (fotos.length > 0) {
-    checkPage(50)
-    y = drawSectionHeader('3. Evidencia Fotográfica', y)
     const imgW = (pageWidth - 2 * margin - 10) / 2
     const imgH = 45
     let col = 0
@@ -127,7 +127,16 @@ export async function renderInformeTecnico(data) {
       }
     })
     if (col > 0) y += imgH + 14
+  } else {
+    doc.setFontSize(9)
+    doc.setFont(undefined, 'italic')
+    doc.setTextColor(150, 150, 150)
+    doc.text('Sin evidencia fotográfica registrada.', col1, y)
+    doc.setTextColor(30, 41, 59)
+    doc.setFont(undefined, 'normal')
+    y += 10
   }
+  y += 4
 
   // Diagnóstico y solución
   checkPage(40)

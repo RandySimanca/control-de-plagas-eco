@@ -54,9 +54,10 @@ export default function OrdenRelevamientoHub({
     try {
       const token = localStorage.getItem('token')
       const folio = relevamiento.folio || generateFolio(nombreEmpresa)
-      const [{ data: config }, { data: informeActualizado }] = await Promise.all([
+      const [{ data: config }, { data: informeActualizado }, fotosRes] = await Promise.all([
         api.get('/configuracion', { token }),
-        api.post('/informes-tecnicos', { orden_id: orden.id, folio }, { token })
+        api.post('/informes-tecnicos', { orden_id: orden.id, folio }, { token }),
+        api.get('/fotos-servicio', { token, params: { orden_id: orden.id } })
       ])
 
       setRelevamiento(informeActualizado)
@@ -70,7 +71,8 @@ export default function OrdenRelevamientoHub({
         relevamiento: informeActualizado,
         config,
         tecnico,
-        folio: informeActualizado.folio
+        folio: informeActualizado.folio,
+        fotosServicio: fotosRes.data || []
       })
 
       toast.success(informeGenerado

@@ -267,6 +267,7 @@ export default function OrdenDetalle() {
           isAdmin={isAdmin}
           queuePhoto={queuePhoto}
           queueOrExecute={queueOrExecute}
+          fotosServicio={fotos}
         />
       )}
 
