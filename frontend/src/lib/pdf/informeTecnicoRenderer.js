@@ -99,14 +99,14 @@ export async function renderInformeTecnico(data) {
   y += 4
 
   // Fotografías
-  checkPage(50)
+  const imgH = 45
+  checkPage(fotos.length > 0 ? imgH + 35 : 30)
   y = drawSectionHeader('3. Evidencia Fotográfica', y)
   if (fotos.length > 0) {
     const imgW = (pageWidth - 2 * margin - 10) / 2
-    const imgH = 45
     let col = 0
     fotos.forEach((foto) => {
-      checkPage(imgH + 20)
+      if (col === 0) checkPage(imgH + 20)
       const x = margin + col * (imgW + 10)
       if (foto.data) {
         try {
