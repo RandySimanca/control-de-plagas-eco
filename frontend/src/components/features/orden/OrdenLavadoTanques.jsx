@@ -75,6 +75,12 @@ export default function OrdenLavadoTanques({
     }
   }
 
+  // Actualizar un campo del tanque en edición, sincronizando ambos estados
+  function updateTanqueField(id, field, value) {
+    setTanques(prev => prev.map(t => t.id === id ? { ...t, [field]: value } : t))
+    setSelectedTanque(prev => prev?.id === id ? { ...prev, [field]: value } : prev)
+  }
+
   // --- CRUD TANQUES ---
   async function handleAddTanque() {
     try {
@@ -179,17 +185,7 @@ export default function OrdenLavadoTanques({
         return t
       })
       syncSelectedTanque(updated)
-
-      if (queueOrExecute) {
-        const tanque = tanques.find(t => t.id === tanqueId)
-        const actividadPayload = {
-          id: generateUUID(), orden_id: ordenId,
-          descripcion: `Lavado de tanques: Evento añadido (${defaultEvent}) en tanque ${tanque?.numero || ''}`,
-          created_at: new Date().toISOString()
-        }
-        const { data } = await queueOrExecute('actividades_servicio', 'insert', actividadPayload, ordenId)
-        if (setActividades && actividades) setActividades([data[0] || actividadPayload, ...actividades])
-      }
+      // No se registra actividad al crear: el evento aún no tiene tipo ni descripción real
     } catch (err) {
       toast.error('Error al agregar evento')
     }
@@ -198,6 +194,7 @@ export default function OrdenLavadoTanques({
   async function handleUpdateEvento(evento, field, value) {
     try {
       await api.put(`/bitacora-tanques/${evento.id}`, { [field]: value }, { token })
+      const tipoFinal = field === 'tipo_evento' ? value : evento.tipo_evento
       const updated = tanques.map(t => {
         if (t.id === evento.tanque_id) {
           return { ...t, bitacora: t.bitacora.map(b => b.id === evento.id ? { ...b, [field]: value } : b) }
@@ -205,6 +202,19 @@ export default function OrdenLavadoTanques({
         return t
       })
       syncSelectedTanque(updated)
+
+      // Registrar actividad solo cuando se guarda la descripción (no en cada cambio de select)
+      if (field === 'descripcion' && queueOrExecute) {
+        const tanque = tanques.find(t => t.id === evento.tanque_id)
+        const preview = value?.trim() ? ` — "${value.trim().slice(0, 60)}${value.trim().length > 60 ? '…' : ''}"` : ''
+        const actividadPayload = {
+          id: generateUUID(), orden_id: ordenId,
+          descripcion: `Lavado de tanques [${tipoFinal}] en ${tanque?.numero || 'tanque'}${preview}`,
+          created_at: new Date().toISOString()
+        }
+        const { data } = await queueOrExecute('actividades_servicio', 'insert', actividadPayload, ordenId)
+        if (setActividades && actividades) setActividades([data[0] || actividadPayload, ...actividades])
+      }
     } catch (err) {
       toast.error('Error al actualizar evento')
     }
@@ -252,6 +262,19 @@ export default function OrdenLavadoTanques({
         syncSelectedTanque(updated)
       }
       toast.success('Fotos guardadas')
+
+      // Registrar actividad con el tipo real del evento y la cantidad de fotos subidas
+      if (queueOrExecute) {
+        const tanque = tanques.find(t => t.id === evento.tanque_id)
+        const cantidad = files.length
+        const actividadPayload = {
+          id: generateUUID(), orden_id: ordenId,
+          descripcion: `Lavado de tanques [${evento.tipo_evento}] en ${tanque?.numero || 'tanque'} — ${cantidad} foto${cantidad > 1 ? 's' : ''} de evidencia subida${cantidad > 1 ? 's' : ''}`,
+          created_at: new Date().toISOString()
+        }
+        const { data } = await queueOrExecute('actividades_servicio', 'insert', actividadPayload, ordenId)
+        if (setActividades && actividades) setActividades([data[0] || actividadPayload, ...actividades])
+      }
     } catch (err) {
       toast.error('Error al subir fotos')
     } finally {
@@ -376,22 +399,22 @@ export default function OrdenLavadoTanques({
                   <>
                     <div>
                       <label className="label-field">Número/Código</label>
-                      <input type="text" className="input-field" value={tanque.numero || ''} onChange={e => setTanques(tanques.map(t => t.id === tanque.id ? { ...t, numero: e.target.value } : t))} />
+                      <input type="text" className="input-field" value={tanque.numero || ''} onChange={e => updateTanqueField(tanque.id, 'numero', e.target.value)} />
                     </div>
                     <div>
                       <label className="label-field">Nombre</label>
-                      <input type="text" className="input-field" value={tanque.nombre || ''} onChange={e => setTanques(tanques.map(t => t.id === tanque.id ? { ...t, nombre: e.target.value } : t))} />
+                      <input type="text" className="input-field" value={tanque.nombre || ''} onChange={e => updateTanqueField(tanque.id, 'nombre', e.target.value)} />
                     </div>
                     <div>
                       <label className="label-field">Tipo de Tanque</label>
-                      <select className="input-field" value={tanque.tipo_tanque || ''} onChange={e => setTanques(tanques.map(t => t.id === tanque.id ? { ...t, tipo_tanque: e.target.value } : t))}>
+                      <select className="input-field" value={tanque.tipo_tanque || ''} onChange={e => updateTanqueField(tanque.id, 'tipo_tanque', e.target.value)}>
                         <option value="">Seleccione...</option>
                         {TIPOS_TANQUE.map(op => <option key={op} value={op}>{op}</option>)}
                       </select>
                     </div>
                     <div>
                       <label className="label-field">Material</label>
-                      <select className="input-field" value={tanque.material || ''} onChange={e => setTanques(tanques.map(t => t.id === tanque.id ? { ...t, material: e.target.value } : t))}>
+                      <select className="input-field" value={tanque.material || ''} onChange={e => updateTanqueField(tanque.id, 'material', e.target.value)}>
                         <option value="">Seleccione...</option>
                         {MATERIALES.map(op => <option key={op} value={op}>{op}</option>)}
                       </select>
@@ -399,11 +422,11 @@ export default function OrdenLavadoTanques({
                     <div className="flex gap-2">
                       <div className="w-2/3">
                         <label className="label-field">Capacidad</label>
-                        <input type="number" className="input-field" value={tanque.capacidad_valor || ''} onChange={e => setTanques(tanques.map(t => t.id === tanque.id ? { ...t, capacidad_valor: e.target.value } : t))} />
+                        <input type="number" className="input-field" value={tanque.capacidad_valor || ''} onChange={e => updateTanqueField(tanque.id, 'capacidad_valor', e.target.value)} />
                       </div>
                       <div className="w-1/3">
                         <label className="label-field">Unidad</label>
-                        <select className="input-field" value={tanque.capacidad_unidad || ''} onChange={e => setTanques(tanques.map(t => t.id === tanque.id ? { ...t, capacidad_unidad: e.target.value } : t))}>
+                        <select className="input-field" value={tanque.capacidad_unidad || 'L'} onChange={e => updateTanqueField(tanque.id, 'capacidad_unidad', e.target.value)}>
                           <option value="L">L</option>
                           <option value="m³">m³</option>
                         </select>
@@ -411,7 +434,7 @@ export default function OrdenLavadoTanques({
                     </div>
                     <div>
                       <label className="label-field">Ubicación</label>
-                      <input type="text" className="input-field" value={tanque.ubicacion || ''} onChange={e => setTanques(tanques.map(t => t.id === tanque.id ? { ...t, ubicacion: e.target.value } : t))} />
+                      <input type="text" className="input-field" value={tanque.ubicacion || ''} onChange={e => updateTanqueField(tanque.id, 'ubicacion', e.target.value)} />
                     </div>
                   </>
                 ) : (
