@@ -8,10 +8,11 @@ const authLimiter = rateLimit({
   max: 100, // Aumentado para soportar desarrollo con túneles
   message: { success: false, message: 'Demasiados intentos desde esta IP, por favor intente nuevamente en 15 minutos.' },
   skip: (req) => {
-    // Omitir rate limiting en desarrollo o cuando se usan headers de túnel
+    // Omitir rate limiting cuando se usan headers de túnel o es desarrollo
     return process.env.NODE_ENV === 'development' ||
            req.headers['x-tunnel-skip-anti-phishing-page'] ||
-           req.headers['ngrok-skip-browser-warning']
+           req.headers['ngrok-skip-browser-warning'] ||
+           req.headers['x-forwarded-for'] // Usar X-Forwarded-For como indicador de proxy/túnel
   }
 })
 
