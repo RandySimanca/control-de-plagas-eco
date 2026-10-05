@@ -152,14 +152,31 @@ export default function Usuarios() {
         setUsuarios(prev => prev.map(u => u.id === editingId ? updated : u))
         await successAlert('¡Usuario Actualizado!', 'Los datos se guardaron correctamente.')
       } else {
-        // Create user + profile
-        const response = await api.post('/profiles', {
-          ...payload,
-          password: form.password
+        // Create user with auth/register first
+        if (!form.password || form.password.length < 8) {
+          throw new Error('La contraseña debe tener al menos 8 caracteres')
+        }
+        const authResponse = await api.post('/auth/register', {
+          email: form.email,
+          password: form.password,
+          nombre: form.nombre_completo,
+          role: form.rol
         }, { token })
-        const created = response.data
-        setUsuarios(prev => [created, ...prev])
-        await successAlert('¡Usuario Creado!', 'El usuario ha sido registrado en el sistema.')
+
+        if (authResponse.data && authResponse.data.user) {
+          // Update profile with additional fields
+          const profileResponse = await api.patch(`/profiles/${authResponse.data.user.id}`, {
+            telefono: form.telefono,
+            especialidad: form.especialidad,
+            cliente_id: form.rol === 'cliente' ? form.cliente_id || null : null,
+            firma_url: firmaUrl
+          }, { token })
+          const created = profileResponse.data
+          setUsuarios(prev => [created, ...prev])
+          await successAlert('¡Usuario Creado!', 'El usuario ha sido registrado en el sistema.')
+        } else {
+          throw new Error('Error al crear el usuario')
+        }
       }
 
       setSignatureFile(null)
@@ -267,7 +284,7 @@ export default function Usuarios() {
               {!isEdit && (
                 <div>
                   <label className="label-field">Contraseña *</label>
-                  <input className="input-field" type="password" value={form.password} onChange={e => handleChange('password', e.target.value)} placeholder="Mínimo 6 caracteres" required />
+                  <input className="input-field" type="password" value={form.password} onChange={e => handleChange('password', e.target.value)} placeholder="Mínimo 8 caracteres" required minLength={8} />
                 </div>
               )}
             </div>

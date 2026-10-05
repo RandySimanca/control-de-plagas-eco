@@ -23,14 +23,21 @@ export async function register ({ email, password, nombre, role }) {
   }
 
   const passwordHash = await bcrypt.hash(password, SALT_ROUNDS)
-  const { rows: [user] } = await pool.query(
-    `INSERT INTO profiles (nombre_completo, email, rol, activo, password_hash)
-     VALUES ($1, $2, $3, true, $4)
-     RETURNING id, email, rol AS role, nombre_completo, created_at`,
-    [nombre.trim(), email.toLowerCase().trim(), role, passwordHash]
-  )
-  const token = signToken(user)
-  return { user: { id: user.id, email: user.email, role: user.role, nombre_completo: user.nombre_completo }, token }
+  try {
+    const { rows: [user] } = await pool.query(
+      `INSERT INTO profiles (nombre_completo, email, rol, activo, password_hash)
+       VALUES ($1, $2, $3, true, $4)
+       RETURNING id, email, rol AS role, nombre_completo, created_at`,
+      [nombre.trim(), email.toLowerCase().trim(), role, passwordHash]
+    )
+    const token = signToken(user)
+    return { user: { id: user.id, email: user.email, role: user.role, nombre_completo: user.nombre_completo }, token }
+  } catch (err) {
+    if (err.code === '23505') { // Unique violation
+      throw new AppError('El email ya está registrado en el sistema', 409)
+    }
+    throw err
+  }
 }
 
 export async function login ({ email, password }) {

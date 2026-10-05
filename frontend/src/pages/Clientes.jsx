@@ -40,7 +40,7 @@ export default function Clientes() {
   useEffect(() => {
     loadClientes()
     if (location.state?.openModal) {
-      openModal()
+      openModal(location.state.openModal)
       window.history.replaceState({}, document.title)
     }
   }, [location])
@@ -96,6 +96,10 @@ export default function Clientes() {
   async function handleSubmit(e) {
     e.preventDefault()
     if (!form.nombre.trim()) { toast.error('El nombre es obligatorio'); return }
+    if (crearUsuario && (!userPassword || userPassword.length < 8)) {
+      toast.error('La contraseña debe tener al menos 8 caracteres')
+      return
+    }
     setSaving(true)
     try {
       const token = localStorage.getItem('token')
@@ -110,23 +114,30 @@ export default function Clientes() {
         setClientes(prev => prev.map(c => c.id === editingId ? updatedCliente : c))
 
         if (crearUsuario && !tieneUsuario && form.email && userPassword) {
-          // Register new user as cliente
-          const { data: authData } = await api.post('/auth/register', {
-            email: form.email,
-            password: userPassword,
-            nombre: form.nombre,
-            role: 'cliente'
-          }, { token })
-          // Link profile to cliente
-          if (authData && authData.user) {
-            await api.patch(`/profiles/${authData.user.id}`, {
-              rol: 'cliente',
-              cliente_id: updatedCliente.id,
-              activo: true
+          try {
+            // Register new user as cliente
+            const { data: authData } = await api.post('/auth/register', {
+              email: form.email,
+              password: userPassword,
+              nombre: form.nombre,
+              role: 'cliente'
             }, { token })
-            await successAlert('¡Cliente Actualizado!', 'Se actualizó el cliente y se creó su cuenta de acceso.')
-          } else {
-            await successAlert('¡Cliente Actualizado!', 'Los datos del cliente se actualizaron correctamente.')
+            // Link profile to cliente
+            if (authData && authData.user) {
+              await api.patch(`/profiles/${authData.user.id}`, {
+                rol: 'cliente',
+                cliente_id: updatedCliente.id,
+                activo: true
+              }, { token })
+              setTieneUsuario(true)
+              await successAlert('¡Cliente Actualizado!', 'Se actualizó el cliente y se creó su cuenta de acceso.')
+            } else {
+              await successAlert('¡Cliente Actualizado!', 'Los datos del cliente se actualizaron correctamente (sin cuenta de acceso).')
+            }
+          } catch (registerErr) {
+            console.error('Error al registrar usuario:', registerErr)
+            toast.error('Error al crear cuenta de acceso: ' + (registerErr.message || 'El email ya podría estar en uso'))
+            await successAlert('¡Cliente Actualizado!', 'Los datos del cliente se actualizaron, pero no se pudo crear la cuenta de acceso.')
           }
         } else {
           await successAlert('¡Cliente Actualizado!', 'Los datos del cliente se actualizaron correctamente.')
@@ -141,21 +152,27 @@ export default function Clientes() {
         setClientes(prev => [newCliente, ...prev])
 
         if (crearUsuario && form.email && userPassword) {
-          const { data: authData } = await api.post('/auth/register', {
-            email: form.email,
-            password: userPassword,
-            nombre: form.nombre,
-            role: 'cliente'
-          }, { token })
-          if (authData && authData.user) {
-            await api.patch(`/profiles/${authData.user.id}`, {
-              rol: 'cliente',
-              cliente_id: newCliente.id,
-              activo: true
+          try {
+            const { data: authData } = await api.post('/auth/register', {
+              email: form.email,
+              password: userPassword,
+              nombre: form.nombre,
+              role: 'cliente'
             }, { token })
-            await successAlert('¡Cliente Creado!', 'Se creó el cliente y su cuenta de acceso exitosamente.')
-          } else {
-            await successAlert('¡Cliente Creado!', 'El nuevo cliente se ha registrado con éxito.')
+            if (authData && authData.user) {
+              await api.patch(`/profiles/${authData.user.id}`, {
+                rol: 'cliente',
+                cliente_id: newCliente.id,
+                activo: true
+              }, { token })
+              await successAlert('¡Cliente Creado!', 'Se creó el cliente y su cuenta de acceso exitosamente.')
+            } else {
+              await successAlert('¡Cliente Creado!', 'El nuevo cliente se ha registrado con éxito (sin cuenta de acceso).')
+            }
+          } catch (registerErr) {
+            console.error('Error al registrar usuario:', registerErr)
+            toast.error('Error al crear cuenta de acceso: ' + (registerErr.message || 'El email ya podría estar en uso'))
+            await successAlert('¡Cliente Creado!', 'El cliente se creó, pero no se pudo crear la cuenta de acceso.')
           }
         } else {
           await successAlert('¡Cliente Creado!', 'El nuevo cliente se ha registrado con éxito.')
@@ -545,10 +562,11 @@ export default function Clientes() {
                           <div className="mt-5 pt-5 border-t border-dark-200/50 animate-in fade-in slide-in-from-top-2">
                             <div className="space-y-1.5">
                               <label className="text-sm font-semibold text-dark-700">Contraseña Temporal</label>
-                              <input 
-                                type="password" 
-                                className="w-full bg-white border border-dark-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 rounded-xl px-4 py-2.5 text-sm transition-all shadow-sm" 
-                                value={userPassword} onChange={e => setUserPassword(e.target.value)} placeholder="Ingresa al menos 6 caracteres" required={crearUsuario} 
+                              <input
+                                type="password"
+                                className="w-full bg-white border border-dark-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 rounded-xl px-4 py-2.5 text-sm transition-all shadow-sm"
+                                value={userPassword} onChange={e => setUserPassword(e.target.value)} placeholder="Mínimo 8 caracteres" required={crearUsuario}
+                                minLength={8}
                               />
                               <p className="text-[11px] text-dark-400 mt-1 font-medium flex items-center gap-1">
                                 <Mail className="w-3 h-3" /> El email <span className="font-bold text-dark-700">{form.email || '(sin especificar)'}</span> será su usuario.
