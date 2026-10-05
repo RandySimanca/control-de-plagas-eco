@@ -28,7 +28,7 @@ router.delete('/:id/sedes/:sede_id', clientesController.deleteSede)
 
 // Planos / croquis de sede
 router.get('/:id/planos', clientesController.listPlanos)
-router.post('/:id/planos', requireAdmin, clientesController.createPlano)
-router.delete('/:id/planos/:plano_id', requireAdmin, clientesController.deletePlano)
+router.post('/:id/planos', clientesController.createPlano)
+router.delete('/:id/planos/:plano_id', clientesController.deletePlano)
 
 export default router

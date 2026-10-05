@@ -5,8 +5,14 @@ import { authenticate, requireAdmin } from '../../middlewares/auth.middleware.js
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 10, // Limitar a 10 solicitudes por IP
-  message: { success: false, message: 'Demasiados intentos desde esta IP, por favor intente nuevamente en 15 minutos.' }
+  max: 100, // Aumentado para soportar desarrollo con túneles
+  message: { success: false, message: 'Demasiados intentos desde esta IP, por favor intente nuevamente en 15 minutos.' },
+  skip: (req) => {
+    // Omitir rate limiting en desarrollo o cuando se usan headers de túnel
+    return process.env.NODE_ENV === 'development' ||
+           req.headers['x-tunnel-skip-anti-phishing-page'] ||
+           req.headers['ngrok-skip-browser-warning']
+  }
 })
 
 const router = Router()

@@ -181,10 +181,16 @@ export default function PlanoEstaciones ({
 
   return (
     <div className="flex flex-col gap-2">
-      {puedeColocar && (
-        <p className="text-xs text-primary-800 bg-primary-50 rounded-lg px-3 py-2">
-          Toca el plano para colocar la estación {seleccionada.numero}
-        </p>
+      {modo === 'editar' && (
+        <div className="text-xs text-primary-800 bg-primary-50 rounded-lg px-3 py-2">
+          {puedeColocar ? (
+            <span>📍 Toca el plano para colocar la estación <strong>{seleccionada.numero}</strong></span>
+          ) : seleccionada && tienePosicion(seleccionada) ? (
+            <span>✋ Arrastra el pin de la estación <strong>{seleccionada.numero}</strong> para moverla</span>
+          ) : (
+            <span>👆 Selecciona una estación del dropdown para colocarla en el plano</span>
+          )}
+        </div>
       )}
 
       <div className="relative overflow-hidden rounded-xl border border-dark-200 bg-dark-100 touch-none">

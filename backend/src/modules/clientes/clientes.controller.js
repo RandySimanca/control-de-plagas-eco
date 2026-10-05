@@ -90,11 +90,49 @@ export const listPlanos = catchAsync(async (req, res) => {
 })
 
 export const createPlano = catchAsync(async (req, res) => {
+  // Admin puede siempre; técnico solo puede crear planos para clientes de sus órdenes asignadas
+  if (req.user.role !== 'admin') {
+    if (req.user.role === 'tecnico') {
+      // Verificar que el técnico tiene órdenes asignadas para este cliente
+      const { rows } = await pool.query(
+        'SELECT o.id FROM ordenes_servicio o WHERE o.cliente_id = $1 AND o.tecnico_id = $2 LIMIT 1',
+        [req.params.id, req.user.id]
+      )
+      if (!rows[0]) throw new AppError('No autorizado: no tienes órdenes asignadas para este cliente', 403)
+    } else if (req.user.role === 'cliente') {
+      // Cliente solo puede crear planos en su propio cliente_id
+      const { rows } = await pool.query('SELECT cliente_id FROM profiles WHERE id = $1', [req.user.id])
+      if (!rows[0] || rows[0].cliente_id !== req.params.id) {
+        throw new AppError('No autorizado', 403)
+      }
+    } else {
+      throw new AppError('No autorizado', 403)
+    }
+  }
   const data = await clientesService.createPlano(req.params.id, req.body)
   res.status(201).json({ success: true, data })
 })
 
 export const deletePlano = catchAsync(async (req, res) => {
+  // Admin puede siempre; técnico solo puede eliminar planos de clientes de sus órdenes asignadas
+  if (req.user.role !== 'admin') {
+    if (req.user.role === 'tecnico') {
+      // Verificar que el técnico tiene órdenes asignadas para este cliente
+      const { rows } = await pool.query(
+        'SELECT o.id FROM ordenes_servicio o WHERE o.cliente_id = $1 AND o.tecnico_id = $2 LIMIT 1',
+        [req.params.id, req.user.id]
+      )
+      if (!rows[0]) throw new AppError('No autorizado: no tienes órdenes asignadas para este cliente', 403)
+    } else if (req.user.role === 'cliente') {
+      // Cliente solo puede eliminar planos de su propio cliente_id
+      const { rows } = await pool.query('SELECT cliente_id FROM profiles WHERE id = $1', [req.user.id])
+      if (!rows[0] || rows[0].cliente_id !== req.params.id) {
+        throw new AppError('No autorizado', 403)
+      }
+    } else {
+      throw new AppError('No autorizado', 403)
+    }
+  }
   await clientesService.deletePlano(req.params.id, req.params.plano_id)
   res.status(204).send()
 })

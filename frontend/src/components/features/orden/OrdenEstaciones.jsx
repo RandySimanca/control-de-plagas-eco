@@ -30,6 +30,7 @@ export default function OrdenEstaciones({ ordenId, clienteId, sedeId, estaciones
   const [planos, setPlanos] = useState([])
   const [showPlanoModal, setShowPlanoModal] = useState(false)
   const [planoSeleccionado, setPlanoSeleccionado] = useState(null)
+  const [showUploadForm, setShowUploadForm] = useState(false)
   const [uploadForm, setUploadForm] = useState({ nombre: '', origen: 'foto_croquis', file: null })
   const [uploading, setUploading] = useState(false)
   const [locateMode, setLocateMode] = useState(null)
@@ -289,6 +290,7 @@ export default function OrdenEstaciones({ ordenId, clienteId, sedeId, estaciones
 
       setPlanos(prev => [data, ...prev])
       setUploadForm({ nombre: '', origen: 'foto_croquis', file: null })
+      setShowUploadForm(false)
       setLocateMode('subir')
       toast.success('Croquis guardado')
     } catch (err) {
@@ -387,14 +389,17 @@ export default function OrdenEstaciones({ ordenId, clienteId, sedeId, estaciones
               <MapPinned className="w-3.5 h-3.5" /> Croquis del sitio
             </span>
             <button
-              onClick={() => setUploadForm({ nombre: '', origen: 'foto_croquis', file: null })}
+              onClick={() => {
+                setShowUploadForm(!showUploadForm)
+                setUploadForm({ nombre: '', origen: 'foto_croquis', file: null })
+              }}
               className="text-xs flex items-center gap-1 text-primary-600 hover:text-primary-700"
             >
-              <ImagePlus className="w-3.5 h-3.5" /> Subir croquis
+              <ImagePlus className="w-3.5 h-3.5" /> {showUploadForm ? 'Cancelar' : 'Subir croquis o Plano'}
             </button>
           </div>
 
-          {uploadForm.file && (
+          {showUploadForm && (
             <form onSubmit={handleSubirPlano} className="bg-white p-2 rounded-lg border border-primary-200 mb-2 space-y-2">
               <input
                 type="text"
@@ -421,12 +426,15 @@ export default function OrdenEstaciones({ ordenId, clienteId, sedeId, estaciones
                 <button type="submit" disabled={uploading} className="btn-primary text-xs">
                   {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Guardar'}
                 </button>
-                <button type="button" onClick={() => setUploadForm({ nombre: '', origen: 'foto_croquis', file: null })} className="btn-secondary text-xs">Cancelar</button>
+                <button type="button" onClick={() => {
+                  setShowUploadForm(false)
+                  setUploadForm({ nombre: '', origen: 'foto_croquis', file: null })
+                }} className="btn-secondary text-xs">Cancelar</button>
               </div>
             </form>
           )}
 
-          {planos.length === 0 && !uploadForm.file && (
+          {planos.length === 0 && !showUploadForm && (
             <p className="text-xs text-dark-400 italic">No hay croquis para esta visita</p>
           )}
 
@@ -485,11 +493,10 @@ export default function OrdenEstaciones({ ordenId, clienteId, sedeId, estaciones
                 return (
                   <div
                     key={m.id}
-                    className={`rounded-xl border transition-all overflow-hidden ${
-                      registered
+                    className={`rounded-xl border transition-all overflow-hidden ${registered
                         ? 'border-emerald-200 bg-emerald-50/40'
                         : 'border-dark-100 bg-white'
-                    }`}
+                      }`}
                   >
                     {/* Cabecera de la estación */}
                     <div
