@@ -39,7 +39,7 @@ export const createEstacion = catchAsync(async (req, res) => {
 })
 
 export const updateEstacion = catchAsync(async (req, res) => {
-  const data = await clientesService.updateEstacion(req.params.estacion_id, req.body)
+  const data = await clientesService.updateEstacion(req.params.id, req.params.estacion_id, req.body)
   res.json({ success: true, data })
 })
 
@@ -81,5 +81,20 @@ export const deleteSede = catchAsync(async (req, res) => {
     if (!rows[0]) throw new AppError('No autorizado', 403)
   }
   await clientesService.deleteSede(req.params.sede_id)
+  res.status(204).send()
+})
+
+export const listPlanos = catchAsync(async (req, res) => {
+  const data = await clientesService.listPlanos(req.params.id, req.query.sede_id)
+  res.json({ success: true, data })
+})
+
+export const createPlano = catchAsync(async (req, res) => {
+  const data = await clientesService.createPlano(req.params.id, req.body)
+  res.status(201).json({ success: true, data })
+})
+
+export const deletePlano = catchAsync(async (req, res) => {
+  await clientesService.deletePlano(req.params.id, req.params.plano_id)
   res.status(204).send()
 })

@@ -37,7 +37,17 @@ const upload = multer({
   }
 });
 
-const ALLOWED_BUCKETS = new Set(['fotos-servicio', 'documentos', 'branding', 'certificados', 'firmas', 'default', 'avatars']);
+const ALLOWED_BUCKETS = new Set(['fotos-servicio', 'documentos', 'branding', 'certificados', 'firmas', 'default', 'avatars', 'planos']);
+
+const PLANOS_MIME_TYPES = new Set([
+  'image/jpeg',
+  'image/jpg',
+  'image/pjpeg',
+  'image/png',
+  'image/x-png',
+  'image/webp'
+]);
+const PLANOS_MAX_BYTES = 10 * 1024 * 1024;
 
 router.post('/', authenticate, upload.single('file'), async (req, res) => {
   if (!req.file) {
@@ -54,6 +64,21 @@ router.post('/', authenticate, upload.single('file'), async (req, res) => {
 
   if (!ALLOWED_BUCKETS.has(safeBucket)) {
     return res.status(400).json({ success: false, message: 'Bucket no permitido' });
+  }
+
+  if (safeBucket === 'planos') {
+    if (!PLANOS_MIME_TYPES.has(req.file.mimetype)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Solo se permiten imágenes JPEG, PNG o WebP para planos'
+      });
+    }
+    if (req.file.size > PLANOS_MAX_BYTES) {
+      return res.status(400).json({
+        success: false,
+        message: 'El plano no puede superar 10 MB'
+      });
+    }
   }
 
   // Sanitize each path segment to prevent directory traversal

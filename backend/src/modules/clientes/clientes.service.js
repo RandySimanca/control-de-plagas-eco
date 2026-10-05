@@ -1,5 +1,6 @@
 import { pool } from '../../config/database.js'
 import { AppError } from '../../utils/AppError.js'
+import { storage } from '../../utils/storage.js'
 
 export async function listClientes () {
   const { rows } = await pool.query(
@@ -80,6 +81,59 @@ export async function deleteCliente (id) {
   }
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+const ORIGENES_PLANO = new Set(['plano', 'foto_croquis', 'croquis_app'])
+const NOMBRE_PLANO_MAX = 255
+const DIM_MAX = 20000
+const PLANOS_BUCKET = 'planos'
+
+function assertUuid (value, label) {
+  if (!value || !UUID_RE.test(String(value))) {
+    throw new AppError(`${label} inválido`, 400)
+  }
+}
+
+function parseDim (value, label) {
+  if (value === undefined || value === null || value === '') return null
+  const n = Number(value)
+  if (!Number.isInteger(n) || n < 1 || n > DIM_MAX) {
+    throw new AppError(`${label} debe ser un entero entre 1 y ${DIM_MAX}`, 400)
+  }
+  return n
+}
+
+function parsePos (value, label) {
+  if (value === null || value === '') return null
+  const n = Number(value)
+  if (!Number.isFinite(n) || n < 0 || n > 1) {
+    throw new AppError(`${label} debe ser un número entre 0 y 1`, 400)
+  }
+  return n
+}
+
+function normalizeStoragePathPlanos (storagePath) {
+  if (!storagePath || typeof storagePath !== 'string') return null
+  const normalized = storagePath.replace(/\\/g, '/').replace(/^\/+/, '')
+  if (normalized.includes('..') || normalized.includes('\0')) return null
+  const segments = normalized.split('/').filter(Boolean)
+  if (segments[0] !== PLANOS_BUCKET || segments.length < 2) return null
+  if (segments.some(seg => seg === '.' || seg === '..')) return null
+  return segments.join('/')
+}
+
+function imagenUrlCorrespondeAStorage (imagenUrl, storagePath) {
+  if (!imagenUrl || typeof imagenUrl !== 'string') return false
+  const expectedPath = `/uploads/${storagePath}`
+  const trimmed = imagenUrl.trim()
+  if (trimmed === expectedPath) return true
+  if (!/^https?:\/\//i.test(trimmed)) return false
+  try {
+    const parsed = new URL(trimmed)
+    return parsed.pathname === expectedPath
+  } catch {
+    return false
+  }
+}
 
 export async function listEstaciones(clienteId, sedeId = null) {
   let query = 'SELECT * FROM estaciones WHERE cliente_id = $1'
@@ -133,7 +187,17 @@ export async function deleteSede(sedeId) {
   if (!rowCount) throw new AppError('Sede no encontrada', 404)
 }
 
-export async function updateEstacion(id, body) {
+export async function updateEstacion(clienteId, id, body) {
+  assertUuid(clienteId, 'Cliente')
+  assertUuid(id, 'Estación')
+
+  const { rows: existingRows } = await pool.query(
+    'SELECT * FROM estaciones WHERE id = $1 AND cliente_id = $2',
+    [id, clienteId]
+  )
+  if (!existingRows[0]) throw new AppError('Estación no encontrada', 404)
+  const cur = existingRows[0]
+
   const allowed = ['numero', 'tipo', 'ubicacion', 'estado', 'fecha_instalacion', 'codigo_qr']
   const sets = []
   const vals = []
@@ -143,11 +207,155 @@ export async function updateEstacion(id, body) {
       sets.push(`${key} = $${vals.length}`)
     }
   }
+
+  if (body.plano_id !== undefined || body.pos_x !== undefined || body.pos_y !== undefined) {
+    let planoId = cur.plano_id
+    let posX = cur.pos_x
+    let posY = cur.pos_y
+
+    if (body.plano_id !== undefined) {
+      if (body.plano_id === null || body.plano_id === '') {
+        planoId = null
+        posX = null
+        posY = null
+      } else {
+        assertUuid(body.plano_id, 'Plano')
+        const { rows: planoRows } = await pool.query(
+          'SELECT id, cliente_id, sede_id FROM sede_planos WHERE id = $1',
+          [body.plano_id]
+        )
+        const plano = planoRows[0]
+        if (!plano || plano.cliente_id !== clienteId) {
+          throw new AppError('El plano no pertenece a este cliente', 400)
+        }
+        if (plano.sede_id && plano.sede_id !== cur.sede_id) {
+          throw new AppError('El plano no pertenece a la sede de la estación', 400)
+        }
+        planoId = plano.id
+      }
+    }
+
+    if (planoId !== null) {
+      if (body.pos_x !== undefined) posX = parsePos(body.pos_x, 'pos_x')
+      if (body.pos_y !== undefined) posY = parsePos(body.pos_y, 'pos_y')
+    }
+
+    if ((posX !== null && posX !== undefined) || (posY !== null && posY !== undefined)) {
+      if (!planoId) {
+        throw new AppError('No se puede asignar posición sin un plano', 400)
+      }
+    }
+
+    vals.push(planoId)
+    sets.push(`plano_id = $${vals.length}`)
+    vals.push(posX ?? null)
+    sets.push(`pos_x = $${vals.length}`)
+    vals.push(posY ?? null)
+    sets.push(`pos_y = $${vals.length}`)
+  }
+
   if (!sets.length) throw new AppError('No hay campos para actualizar', 400)
   vals.push(id)
-  const { rows } = await pool.query(`UPDATE estaciones SET ${sets.join(', ')}, updated_at = NOW() WHERE id = $${vals.length} RETURNING *`, vals)
+  vals.push(clienteId)
+  const { rows } = await pool.query(
+    `UPDATE estaciones SET ${sets.join(', ')}, updated_at = NOW() WHERE id = $${vals.length - 1} AND cliente_id = $${vals.length} RETURNING *`,
+    vals
+  )
   if (!rows[0]) throw new AppError('Estación no encontrada', 404)
   return rows[0]
+}
+
+export async function listPlanos (clienteId, sedeId = null) {
+  assertUuid(clienteId, 'Cliente')
+  let query = 'SELECT * FROM sede_planos WHERE cliente_id = $1'
+  const params = [clienteId]
+  if (sedeId) {
+    assertUuid(sedeId, 'Sede')
+    params.push(sedeId)
+    query += ' AND sede_id = $2'
+  }
+  query += ' ORDER BY created_at DESC'
+  const { rows } = await pool.query(query, params)
+  return rows
+}
+
+export async function createPlano (clienteId, body) {
+  assertUuid(clienteId, 'Cliente')
+  await getClienteById(clienteId)
+
+  const nombre = typeof body.nombre === 'string' ? body.nombre.trim() : ''
+  if (!nombre) throw new AppError('El nombre del plano es obligatorio', 400)
+  if (nombre.length > NOMBRE_PLANO_MAX) {
+    throw new AppError(`El nombre no puede superar ${NOMBRE_PLANO_MAX} caracteres`, 400)
+  }
+
+  const origen = body.origen || 'plano'
+  if (!ORIGENES_PLANO.has(origen)) {
+    throw new AppError('Origen de plano no válido', 400)
+  }
+
+  const storagePath = normalizeStoragePathPlanos(body.storage_path)
+  if (!storagePath) {
+    throw new AppError('storage_path debe pertenecer al bucket planos', 400)
+  }
+  if (!imagenUrlCorrespondeAStorage(body.imagen_url, storagePath)) {
+    throw new AppError('imagen_url debe apuntar al almacenamiento propio y coincidir con storage_path', 400)
+  }
+
+  let sedeId = body.sede_id || null
+  if (sedeId) {
+    assertUuid(sedeId, 'Sede')
+    const { rows: sedeRows } = await pool.query(
+      'SELECT id FROM clientes_sedes WHERE id = $1 AND cliente_id = $2',
+      [sedeId, clienteId]
+    )
+    if (!sedeRows[0]) throw new AppError('La sede no pertenece a este cliente', 400)
+  }
+
+  const ancho = parseDim(body.ancho, 'ancho')
+  const alto = parseDim(body.alto, 'alto')
+
+  const { rows } = await pool.query(
+    `INSERT INTO sede_planos (cliente_id, sede_id, nombre, origen, imagen_url, storage_path, ancho, alto)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+     RETURNING *`,
+    [clienteId, sedeId, nombre, origen, body.imagen_url.trim(), storagePath, ancho, alto]
+  )
+  return rows[0]
+}
+
+export async function deletePlano (clienteId, planoId) {
+  assertUuid(clienteId, 'Cliente')
+  assertUuid(planoId, 'Plano')
+
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+    const { rows } = await client.query(
+      'SELECT * FROM sede_planos WHERE id = $1 AND cliente_id = $2 FOR UPDATE',
+      [planoId, clienteId]
+    )
+    if (!rows[0]) throw new AppError('Plano no encontrado', 404)
+
+    await client.query(
+      'UPDATE estaciones SET plano_id = NULL, pos_x = NULL, pos_y = NULL, updated_at = NOW() WHERE plano_id = $1',
+      [planoId]
+    )
+    await client.query('DELETE FROM sede_planos WHERE id = $1', [planoId])
+    await client.query('COMMIT')
+
+    if (rows[0].storage_path) {
+      storage.delete(rows[0].storage_path).catch(err =>
+        console.error('Error al eliminar archivo del plano del almacenamiento:', err)
+      )
+    }
+    return rows[0]
+  } catch (err) {
+    try { await client.query('ROLLBACK') } catch { /* ignore */ }
+    throw err
+  } finally {
+    client.release()
+  }
 }
 
 export async function deleteEstacion(id) {

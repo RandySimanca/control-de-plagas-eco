@@ -1,10 +1,14 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Package, Camera, X, Loader2, Plus, CheckCircle2, Circle, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react'
+import { Package, Camera, X, Loader2, Plus, CheckCircle2, Circle, ChevronDown, ChevronUp, AlertCircle, MapPinned, ImagePlus } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { getAuthImageUrl } from '../../../utils/imageUtils'
 import { generateUUID } from '../../../utils/uuid'
 import db from '../../../lib/db'
 import api from '../../../lib/api'
+import { listPlanos, createPlano, deletePlano, updateEstacionCliente } from '../../../api/clientes.api'
+import Modal from '../../ui/Modal'
+import PlanoEstaciones from '../PlanoEstaciones'
+import { compressImage } from '../../../utils/imageCompressor'
 
 const DEFAULT_TYPES = ['Cebadero', 'Impacto', 'Jaula atrapavivos']
 
@@ -22,6 +26,15 @@ export default function OrdenEstaciones({ ordenId, clienteId, sedeId, estaciones
   const [nuevaEstacion, setNuevaEstacion] = useState({ tipo: 'Cebadero', numero: '', ubicacion: '' })
   const [savingNueva, setSavingNueva] = useState(false)
 
+  // Estado para planos
+  const [planos, setPlanos] = useState([])
+  const [showPlanoModal, setShowPlanoModal] = useState(false)
+  const [planoSeleccionado, setPlanoSeleccionado] = useState(null)
+  const [uploadForm, setUploadForm] = useState({ nombre: '', origen: 'foto_croquis', file: null })
+  const [uploading, setUploading] = useState(false)
+  const [locateMode, setLocateMode] = useState(null)
+  const [estacionSeleccionadaId, setEstacionSeleccionadaId] = useState(null)
+
   const reloadEstaciones = useCallback(async () => {
     if (!isOnline) return
     const token = localStorage.getItem('token')
@@ -32,6 +45,23 @@ export default function OrdenEstaciones({ ordenId, clienteId, sedeId, estaciones
       console.error('Error recargando estaciones', err)
     }
   }, [isOnline, ordenId, setEstaciones])
+
+  // Cargar planos de la sede
+  useEffect(() => {
+    async function loadPlanos() {
+      if (!clienteId || !isOnline) return
+      try {
+        const token = localStorage.getItem('token')
+        const params = sedeId ? { sede_id: sedeId } : {}
+        const res = await listPlanos(clienteId, token, params)
+        setPlanos(res.data || [])
+      } catch (err) {
+        console.error('Error cargando planos', err)
+        setPlanos([])
+      }
+    }
+    loadPlanos()
+  }, [clienteId, sedeId, isOnline])
 
   useEffect(() => {
     async function loadMaestras() {
@@ -208,12 +238,114 @@ export default function OrdenEstaciones({ ordenId, clienteId, sedeId, estaciones
       setNuevaEstacion({ tipo: 'Cebadero', numero: '', ubicacion: '' })
       // Auto-expandir la nueva estación para que el técnico la registre
       setExpandedId(mId)
+      // Si hay un plano abierto, seleccionar la nueva estación para ubicarla
+      if (showPlanoModal && planoSeleccionado) {
+        setEstacionSeleccionadaId(mId)
+      }
       toast.success('Estación creada. Completa el monitoreo y guarda.')
     } catch (err) {
       toast.error('Error al crear estación')
     } finally {
       setSavingNueva(false)
     }
+  }
+
+  // --- Gestión de planos ---
+
+  async function handleSubirPlano(e) {
+    e.preventDefault()
+    if (!uploadForm.file) return toast.error('Selecciona una imagen')
+    const nombre = uploadForm.nombre.trim() || 'Croquis de la visita'
+    setUploading(true)
+    try {
+      const token = localStorage.getItem('token')
+      const comprimida = await compressImage(uploadForm.file)
+      const ext = (comprimida.name.split('.').pop() || 'jpg').toLowerCase()
+      const filePath = `${clienteId}/${sedeId || 'sin-sede'}/${ordenId}_${Date.now()}.${ext}`
+
+      const formData = new FormData()
+      formData.append('file', comprimida)
+      formData.append('path', filePath)
+      formData.append('bucket', 'planos')
+
+      const uploadRes = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api'}/upload`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData
+      })
+      if (!uploadRes.ok) {
+        const errData = await uploadRes.json().catch(() => ({}))
+        throw new Error(errData.message || errData.error || 'Error subiendo la imagen')
+      }
+      const { publicUrl } = await uploadRes.json()
+
+      const { data } = await createPlano(clienteId, {
+        nombre,
+        origen: uploadForm.origen,
+        imagen_url: publicUrl,
+        storage_path: `planos/${filePath}`,
+        sede_id: sedeId || null
+      }, token)
+
+      setPlanos(prev => [data, ...prev])
+      setUploadForm({ nombre: '', origen: 'foto_croquis', file: null })
+      setLocateMode('subir')
+      toast.success('Croquis guardado')
+    } catch (err) {
+      toast.error('Error al subir croquis: ' + err.message)
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  async function handleDeletePlano(planoId) {
+    if (!confirm('¿Eliminar este croquis? Las estaciones perderán su posición.')) return
+    try {
+      const token = localStorage.getItem('token')
+      await deletePlano(clienteId, planoId, token)
+      setPlanos(prev => prev.filter(p => p.id !== planoId))
+      toast.success('Croquis eliminado')
+    } catch (err) {
+      toast.error('Error al eliminar croquis: ' + err.message)
+    }
+  }
+
+  function abrirPlano(plano) {
+    setPlanoSeleccionado(plano)
+    const estacionesFiltradas = plano.sede_id
+      ? maestras.filter(e => e.sede_id === plano.sede_id)
+      : maestras.filter(e => e.cliente_id === clienteId)
+    const sinUbicar = estacionesFiltradas.find(e => e.pos_x == null || e.pos_y == null)
+    setEstacionSeleccionadaId(sinUbicar?.id || estacionesFiltradas[0]?.id || null)
+    setLocateMode('ver')
+    setShowPlanoModal(true)
+  }
+
+  async function handleMoverEstacion(estacionId, x, y) {
+    if (!planoSeleccionado) return
+    try {
+      const token = localStorage.getItem('token')
+      const { data } = await updateEstacionCliente(clienteId, estacionId, {
+        plano_id: planoSeleccionado.id,
+        pos_x: x,
+        pos_y: y
+      }, token)
+      // Actualizar estaciones maestras localmente
+      setMaestras(prev => prev.map(e => e.id === estacionId ? { ...e, ...data } : e))
+      toast.success('Posición guardada')
+    } catch (err) {
+      toast.error('No se pudo guardar la posición: ' + err.message)
+    }
+  }
+
+  function handleSeleccionarEstacion(estacion) {
+    setEstacionSeleccionadaId(estacion.id)
+  }
+
+  function handlePinClick(estacion) {
+    setEstacionSeleccionadaId(estacion.id)
+    setExpandedId(estacion.id)
+    setShowPlanoModal(false)
   }
 
   const canEdit = isAdmin || (isAssignedTecnico && ordenEstado === 'en_progreso')
@@ -232,10 +364,101 @@ export default function OrdenEstaciones({ ordenId, clienteId, sedeId, estaciones
         <h2 className="text-base font-bold text-dark-900 flex items-center gap-2">
           <Package className="w-5 h-5 text-primary-600" /> Trazabilidad de Estaciones
         </h2>
-        <span className="text-xs text-dark-400 bg-dark-50 px-2 py-1 rounded-full">
-          {estaciones.length}/{maestras.length} monitoreadas
-        </span>
+        <div className="flex items-center gap-2">
+          {planos.length > 0 && (
+            <button
+              onClick={() => abrirPlano(planos[0])}
+              className="text-xs flex items-center gap-1 text-primary-600 hover:text-primary-700"
+            >
+              <MapPinned className="w-3.5 h-3.5" /> Ver en plano
+            </button>
+          )}
+          <span className="text-xs text-dark-400 bg-dark-50 px-2 py-1 rounded-full">
+            {estaciones.length}/{maestras.length} monitoreadas
+          </span>
+        </div>
       </div>
+
+      {/* Gestión de planos (técnico) */}
+      {canEdit && (
+        <div className="bg-primary-50/30 p-3 rounded-xl border border-primary-100">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-bold text-primary-800 flex items-center gap-1">
+              <MapPinned className="w-3.5 h-3.5" /> Croquis del sitio
+            </span>
+            <button
+              onClick={() => setUploadForm({ nombre: '', origen: 'foto_croquis', file: null })}
+              className="text-xs flex items-center gap-1 text-primary-600 hover:text-primary-700"
+            >
+              <ImagePlus className="w-3.5 h-3.5" /> Subir croquis
+            </button>
+          </div>
+
+          {uploadForm.file && (
+            <form onSubmit={handleSubirPlano} className="bg-white p-2 rounded-lg border border-primary-200 mb-2 space-y-2">
+              <input
+                type="text"
+                className="input-field text-sm bg-white"
+                placeholder="Nombre del croquis"
+                value={uploadForm.nombre}
+                onChange={e => setUploadForm({ ...uploadForm, nombre: e.target.value })}
+              />
+              <select
+                className="input-field text-sm bg-white"
+                value={uploadForm.origen}
+                onChange={e => setUploadForm({ ...uploadForm, origen: e.target.value })}
+              >
+                <option value="foto_croquis">Foto de croquis a mano</option>
+                <option value="plano">Plano del cliente</option>
+              </select>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="input-field text-sm bg-white"
+                onChange={e => setUploadForm({ ...uploadForm, file: e.target.files[0] })}
+              />
+              <div className="flex gap-2">
+                <button type="submit" disabled={uploading} className="btn-primary text-xs">
+                  {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Guardar'}
+                </button>
+                <button type="button" onClick={() => setUploadForm({ nombre: '', origen: 'foto_croquis', file: null })} className="btn-secondary text-xs">Cancelar</button>
+              </div>
+            </form>
+          )}
+
+          {planos.length === 0 && !uploadForm.file && (
+            <p className="text-xs text-dark-400 italic">No hay croquis para esta visita</p>
+          )}
+
+          {planos.length > 0 && (
+            <div className="space-y-1">
+              {planos.map(plano => (
+                <div key={plano.id} className="flex items-center justify-between p-2 bg-white rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <MapPinned className="w-4 h-4 text-primary-500" />
+                    <span className="text-xs font-medium text-dark-800">{plano.nombre}</span>
+                  </div>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => abrirPlano(plano)}
+                      className="text-xs flex items-center gap-1 px-2 py-1 bg-primary-100 text-primary-700 rounded hover:bg-primary-200"
+                    >
+                      Ver/Ubicar
+                    </button>
+                    <button
+                      onClick={() => handleDeletePlano(plano.id)}
+                      className="p-1 text-dark-400 hover:text-red-600 rounded"
+                      title="Eliminar"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {maestras.length === 0 && (
         <div className="text-center py-8 bg-dark-50 rounded-xl border border-dashed border-dark-200">
@@ -426,6 +649,51 @@ export default function OrdenEstaciones({ ordenId, clienteId, sedeId, estaciones
             </form>
           )}
         </div>
+      )}
+
+      {/* Modal del plano */}
+      {showPlanoModal && planoSeleccionado && (
+        <Modal
+          isOpen={showPlanoModal}
+          onClose={() => setShowPlanoModal(false)}
+          title={`Croquis - ${planoSeleccionado.nombre}`}
+          maxWidth="max-w-4xl"
+        >
+          <div className="flex flex-col gap-4">
+            {canEdit && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-dark-600">
+                  Estación seleccionada: <strong>{maestras.find(e => e.id === estacionSeleccionadaId)?.numero || '-'}</strong>
+                </span>
+                <select
+                  className="input-field text-sm w-40"
+                  value={estacionSeleccionadaId || ''}
+                  onChange={e => setEstacionSeleccionadaId(e.target.value || null)}
+                >
+                  <option value="">Seleccionar estación</option>
+                  {maestras
+                    .filter(e => planoSeleccionado.sede_id ? e.sede_id === planoSeleccionado.sede_id : e.cliente_id === clienteId)
+                    .map(e => (
+                      <option key={e.id} value={e.id}>
+                        {e.numero} - {e.tipo || e.tipo_estacion || 'Sin tipo'}
+                      </option>
+                    ))}
+                </select>
+              </div>
+            )}
+            <PlanoEstaciones
+              plano={planoSeleccionado}
+              estaciones={maestras.filter(e => planoSeleccionado.sede_id ? e.sede_id === planoSeleccionado.sede_id : e.cliente_id === clienteId).map(e => {
+                const usada = estaciones.find(us => us.estacion_id === e.id)
+                return { ...e, _estado_visita: usada ? 'revisada' : (e.id === estacionSeleccionadaId ? 'seleccionada' : 'sin_revisar') }
+              })}
+              modo={canEdit ? 'editar' : 'ver'}
+              estacionSeleccionadaId={estacionSeleccionadaId}
+              onMover={canEdit ? handleMoverEstacion : undefined}
+              onSeleccionar={handlePinClick}
+            />
+          </div>
+        </Modal>
       )}
     </div>
   )
