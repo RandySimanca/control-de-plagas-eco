@@ -38,9 +38,10 @@ const localDriver = {
     const destPath = path.join(destDir, fileName);
     fs.writeFileSync(destPath, buffer);
 
+    const storagePath = `${bucket}/${safeFilePath}`;
     return {
-      publicUrl: `/uploads/${bucket}/${safeFilePath}`,
-      storagePath: `${bucket}/${safeFilePath}`,
+      publicUrl: `/uploads/${storagePath}`,
+      storagePath,
     };
   },
 

@@ -86,8 +86,15 @@ router.post('/', authenticate, upload.single('file'), async (req, res) => {
   const safeFilePath = pathSegments.join('/');
 
   try {
-    const { publicUrl } = await storage.upload(safeBucket, safeFilePath, req.file.buffer);
-    res.json({ publicUrl });
+    const { publicUrl, storagePath } = await storage.upload(safeBucket, safeFilePath, req.file.buffer);
+
+    // Construir URL absoluta basada en el Host header (soporta túneles)
+    // Usar X-Forwarded-Proto si está presente (de nginx/proxy)
+    const protocol = req.get('x-forwarded-proto') || req.protocol || 'http';
+    const host = req.get('host') || 'localhost';
+    const absoluteUrl = `${protocol}://${host}${publicUrl}`;
+
+    res.json({ publicUrl: absoluteUrl, storagePath });
   } catch (err) {
     console.error('Error uploading file:', err);
     res.status(500).json({ success: false, message: 'Error al guardar el archivo' });

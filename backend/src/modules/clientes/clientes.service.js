@@ -129,7 +129,9 @@ function imagenUrlCorrespondeAStorage (imagenUrl, storagePath) {
   if (!/^https?:\/\//i.test(trimmed)) return false
   try {
     const parsed = new URL(trimmed)
-    return parsed.pathname === expectedPath
+    // Permitir URLs con cualquier hostname (túneles, dominios externos, etc.)
+    // Solo validamos que el pathname termine con el storage_path esperado
+    return parsed.pathname.endsWith(storagePath) || parsed.pathname === expectedPath
   } catch {
     return false
   }

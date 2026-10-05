@@ -193,7 +193,7 @@ export default function PlanoEstaciones ({
         </div>
       )}
 
-      <div className="relative overflow-hidden rounded-xl border border-dark-200 bg-dark-100 touch-none">
+      <div className="relative overflow-hidden rounded-xl border border-dark-200 bg-dark-100 touch-none" style={{ minHeight: '300px', maxHeight: '60vh' }}>
         <TransformWrapper
           minScale={1}
           maxScale={8}
@@ -207,7 +207,7 @@ export default function PlanoEstaciones ({
         >
           <ControlesZoom />
           <TransformComponent
-            wrapperStyle={{ width: '100%', maxHeight: '70vh' }}
+            wrapperStyle={{ width: '100%', height: '100%' }}
             contentStyle={{ width: '100%' }}
           >
             <div
