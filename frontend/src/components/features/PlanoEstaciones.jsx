@@ -99,13 +99,34 @@ export default function PlanoEstaciones ({
   const seleccionada = estaciones.find(e => e.id === estacionSeleccionadaId)
   const puedeColocar = modo === 'editar' && seleccionada && !tienePosicion(seleccionada)
 
+  // Calcular offset para estaciones sin posición (distribuirlas alrededor del centro)
+  const estacionesSinPosicion = estaciones.filter(e => !tienePosicion(e))
+  const posicionOffset = useCallback((estacion) => {
+    const idx = estacionesSinPosicion.findIndex(e => e.id === estacion.id)
+    if (idx === -1) return { x: 0, y: 0 }
+    // Distribuir en círculo alrededor del centro
+    const angle = (idx / estacionesSinPosicion.length) * Math.PI * 2
+    const radius = 0.05 // 5% del tamaño del plano
+    return {
+      x: 0.5 + Math.cos(angle) * radius,
+      y: 0.5 + Math.sin(angle) * radius
+    }
+  }, [estacionesSinPosicion])
+
   const src = plano?.imagen_url ? getAuthImageUrl(plano.imagen_url) : null
 
   const posDe = useCallback((estacion) => {
     if (arrastre?.id === estacion.id) return { x: arrastre.x, y: arrastre.y }
-    if (!tienePosicion(estacion)) return null
+    if (!tienePosicion(estacion)) {
+      // En modo edición, mostrar estaciones sin posición alrededor del centro
+      if (modo === 'editar') {
+        const offset = posicionOffset(estacion)
+        return { x: 0.5 + offset.x, y: 0.5 + offset.y }
+      }
+      return null
+    }
     return { x: Number(estacion.pos_x), y: Number(estacion.pos_y) }
-  }, [arrastre])
+  }, [arrastre, modo, posicionOffset])
 
   useEffect(() => {
     if (modo !== 'editar') return undefined
