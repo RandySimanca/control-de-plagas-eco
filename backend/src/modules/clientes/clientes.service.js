@@ -123,18 +123,23 @@ function normalizeStoragePathPlanos (storagePath) {
 
 function imagenUrlCorrespondeAStorage (imagenUrl, storagePath) {
   if (!imagenUrl || typeof imagenUrl !== 'string') return false
-  const expectedPath = `/uploads/${storagePath}`
   const trimmed = imagenUrl.trim()
-  if (trimmed === expectedPath) return true
-  if (!/^https?:\/\//i.test(trimmed)) return false
-  try {
-    const parsed = new URL(trimmed)
-    // Permitir URLs con cualquier hostname (túneles, dominios externos, etc.)
-    // Solo validamos que el pathname termine con el storage_path esperado
-    return parsed.pathname.endsWith(storagePath) || parsed.pathname === expectedPath
-  } catch {
-    return false
+
+  // Permitir URLs absolutas (http/https) - solo validar que tenga el storage_path en el pathname
+  if (/^https?:\/\//i.test(trimmed)) {
+    try {
+      const parsed = new URL(trimmed)
+      // El pathname debe terminar con el storage_path o ser el path completo
+      const expectedPath = `/uploads/${storagePath}`
+      return parsed.pathname.endsWith(storagePath) || parsed.pathname === expectedPath
+    } catch {
+      return false
+    }
   }
+
+  // Para URLs relativas, validar exactitud
+  const expectedPath = `/uploads/${storagePath}`
+  return trimmed === expectedPath
 }
 
 export async function listEstaciones(clienteId, sedeId = null) {

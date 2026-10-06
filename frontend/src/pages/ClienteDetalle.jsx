@@ -77,7 +77,9 @@ export default function ClienteDetalle() {
         ])
         setPlanos(planosRes.data || [])
         setEstaciones(estacionesRes.data || [])
-      } catch {
+      } catch (err) {
+        console.error('Error cargando planos/estaciones:', err)
+        toast.error('Error al cargar planos: ' + (err.message || 'No autorizado'))
         setPlanos([])
         setEstaciones([])
       }

@@ -85,6 +85,29 @@ export const deleteSede = catchAsync(async (req, res) => {
 })
 
 export const listPlanos = catchAsync(async (req, res) => {
+  // Admin puede siempre; técnico y cliente solo pueden ver planos de sus clientes
+  if (req.user.role !== 'admin') {
+    if (req.user.role === 'tecnico') {
+      // Técnico puede ver planos de cualquier cliente (sin restricción por ahora)
+      // Esto permite que el técnico vea planos subidos por el admin
+      // Si se requiere restricción, uncomment la validación de órdenes
+      /*
+      const { rows } = await pool.query(
+        'SELECT o.id FROM ordenes_servicio o WHERE o.cliente_id = $1 AND o.tecnico_id = $2 LIMIT 1',
+        [req.params.id, req.user.id]
+      )
+      if (!rows[0]) throw new AppError('No autorizado: no tienes órdenes asignadas para este cliente', 403)
+      */
+    } else if (req.user.role === 'cliente') {
+      // Cliente solo puede ver planos de su propio cliente_id
+      const { rows } = await pool.query('SELECT cliente_id FROM profiles WHERE id = $1', [req.user.id])
+      if (!rows[0] || rows[0].cliente_id !== req.params.id) {
+        throw new AppError('No autorizado', 403)
+      }
+    } else {
+      throw new AppError('No autorizado', 403)
+    }
+  }
   const data = await clientesService.listPlanos(req.params.id, req.query.sede_id)
   res.json({ success: true, data })
 })
