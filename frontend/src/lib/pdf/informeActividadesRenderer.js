@@ -337,18 +337,27 @@ export async function renderInformeActividades(data) {
       for (let i = 0; i < photos.length; i++) {
         const imgData = photos[i].data;
         if (!imgData) continue;
-        
+
+        // Detectar el formato de la imagen desde el base64
+        let imgFormat = 'PNG';
+        if (typeof imgData === 'string' && imgData.startsWith('data:')) {
+          const match = imgData.match(/^data:image\/(\w+);/);
+          if (match) {
+            imgFormat = match[1].toUpperCase();
+          }
+        }
+
         if (y + imgH > pageHeight - 20) {
-          doc.addPage(); y = 42; 
+          doc.addPage(); y = 42;
           y = drawSectionHeader('7. Registro Fotográfico (Cont.) - ' + label, y);
           col = 0;
         }
-        
+
         const posX = margin + 10 + col * (imgW + spacingX);
         const posY = y;
-        
-        doc.addImage(imgData, posX, posY, imgW, imgH);
-        
+
+        doc.addImage(imgData, imgFormat, posX, posY, imgW, imgH);
+
         col++;
         if (col >= 2) {
           col = 0;
