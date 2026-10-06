@@ -243,7 +243,13 @@ export default function PlanoEstaciones ({
                     key={estacion.id}
                     type="button"
                     className="estacion-pin absolute z-[1] -translate-x-1/2 -translate-y-full touch-none"
-                    style={{ left: `${pos.x * 100}%`, top: `${pos.y * 100}%` }}
+                    style={{
+                      left: `${pos.x * 100}%`,
+                      top: `${pos.y * 100}%`,
+                      // Aumentar área táctil en móviles
+                      padding: '20px',
+                      margin: '-20px'
+                    }}
                     onPointerDown={(e) => iniciarArrastre(e, estacion)}
                     onClick={(e) => {
                       e.stopPropagation()

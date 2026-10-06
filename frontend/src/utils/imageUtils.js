@@ -1,7 +1,21 @@
 export function getAuthImageUrl(url) {
   if (!url) return url;
-  
+
   if (typeof url === 'string') {
+    // Si ya es una URL absoluta (http/https), devolverla tal cual
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      // Asegurar que tenga el token si es una URL de uploads
+      if (url.includes('/uploads/')) {
+        const token = localStorage.getItem('token');
+        if (token && !url.includes('token=')) {
+          const separator = url.includes('?') ? '&' : '?';
+          return `${url}${separator}token=${token}`;
+        }
+      }
+      return url;
+    }
+
+    // URLs de datos o blobs se devuelven tal cual
     if (url.startsWith('data:') || url.startsWith('blob:')) {
       return url;
     }
@@ -27,9 +41,10 @@ export function getAuthImageUrl(url) {
         const separator = path.includes('?') ? '&' : '?';
         path = `${path}${separator}token=${token}`;
       }
-      
-      const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api').replace('/api', '').replace(/\/$/, '');
-      return `${API_BASE}${path}`;
+
+      // En Docker/túneles, usar la URL base actual del navegador
+      const currentOrigin = window.location.origin;
+      return `${currentOrigin}${path}`;
     }
 
     return path;
