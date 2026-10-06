@@ -1,6 +1,25 @@
 import { jsPDF } from 'jspdf'
 
 /**
+ * Detecta el formato de una imagen desde un data URL base64
+ */
+function detectImageFormat(imgData) {
+  if (!imgData || typeof imgData !== 'string') return 'PNG'
+  if (!imgData.startsWith('data:')) return 'PNG'
+
+  const match = imgData.match(/^data:image\/(\w+);/)
+  if (match) {
+    const format = match[1].toUpperCase()
+    // Mapear formatos comunes
+    if (format === 'JPEG' || format === 'JPG') return 'JPEG'
+    if (format === 'PNG') return 'PNG'
+    if (format === 'WEBP') return 'PNG' // jsPDF no soporta WEBP directamente, convertir a PNG
+    return format
+  }
+  return 'PNG'
+}
+
+/**
  * Renderiza el PDF del Informe General de Actividades
  * Anteriormente conocido como renderCertificado
  */
@@ -338,14 +357,7 @@ export async function renderInformeActividades(data) {
         const imgData = photos[i].data;
         if (!imgData) continue;
 
-        // Detectar el formato de la imagen desde el base64
-        let imgFormat = 'PNG';
-        if (typeof imgData === 'string' && imgData.startsWith('data:')) {
-          const match = imgData.match(/^data:image\/(\w+);/);
-          if (match) {
-            imgFormat = match[1].toUpperCase();
-          }
-        }
+        const imgFormat = detectImageFormat(imgData);
 
         if (y + imgH > pageHeight - 20) {
           doc.addPage(); y = 42;
@@ -356,7 +368,17 @@ export async function renderInformeActividades(data) {
         const posX = margin + 10 + col * (imgW + spacingX);
         const posY = y;
 
-        doc.addImage(imgData, imgFormat, posX, posY, imgW, imgH);
+        try {
+          doc.addImage(imgData, imgFormat, posX, posY, imgW, imgH);
+        } catch (e) {
+          console.error('Error al añadir imagen al PDF:', e, 'Formato:', imgFormat);
+          // Dibujar un placeholder si falla la imagen
+          doc.setDrawColor(200, 200, 200);
+          doc.rect(posX, posY, imgW, imgH);
+          doc.setFontSize(8);
+          doc.setTextColor(150, 150, 150);
+          doc.text('Imagen no disponible', posX + 5, posY + imgH / 2);
+        }
 
         col++;
         if (col >= 2) {
@@ -417,7 +439,8 @@ export async function renderInformeActividades(data) {
       doc.setDrawColor(200, 200, 200); doc.setLineWidth(0.3)
       if (tanque.fotoData) {
         try {
-          doc.addImage(tanque.fotoData, margin, fichaStartY, fichaFotoW, fichaFotoH)
+          const imgFormat = detectImageFormat(tanque.fotoData)
+          doc.addImage(tanque.fotoData, imgFormat, margin, fichaStartY, fichaFotoW, fichaFotoH)
           doc.rect(margin, fichaStartY, fichaFotoW, fichaFotoH)
         } catch(e) {}
       } else {
@@ -535,10 +558,18 @@ export async function renderInformeActividades(data) {
               if (!foto.data) { colIdx++; continue }
 
               try {
-                doc.addImage(foto.data, def.x, rowY, def.w, imgH)
+                const imgFormat = detectImageFormat(foto.data)
+                doc.addImage(foto.data, imgFormat, def.x, rowY, def.w, imgH)
                 doc.setDrawColor(220, 220, 220); doc.setLineWidth(0.2)
                 doc.rect(def.x, rowY, def.w, imgH)
-              } catch (e) {}
+              } catch (e) {
+                // Placeholder si falla la imagen
+                doc.setDrawColor(200, 200, 200)
+                doc.rect(def.x, rowY, def.w, imgH)
+                doc.setFontSize(7)
+                doc.setTextColor(150, 150, 150)
+                doc.text('Foto no disponible', def.x + 5, rowY + imgH / 2)
+              }
               colIdx++
             }
             y = rowY + imgH + 3
