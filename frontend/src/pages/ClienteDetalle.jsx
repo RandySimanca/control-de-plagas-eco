@@ -35,7 +35,7 @@ async function dimensionesDeImagen (file) {
 export default function ClienteDetalle() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { isAdmin } = useAuth()
+  const { isAdmin, isTecnico } = useAuth()
   const [cliente, setCliente] = useState(null)
   const [ordenes, setOrdenes] = useState([])
   const [sedes, setSedes] = useState([])
@@ -385,6 +385,100 @@ export default function ClienteDetalle() {
               <button type="button" onClick={() => setShowSedeForm(false)} className="btn-secondary text-sm">Cancelar</button>
             </div>
           </form>
+        )}
+
+        {/* Planos globales (sin sede) */}
+        {(isAdmin || isTecnico) && (
+          <div className="border rounded-xl bg-white overflow-hidden mb-4">
+            <div className="p-3 flex justify-between items-start">
+              <div>
+                <h4 className="text-sm font-bold text-dark-900 flex items-center gap-2">
+                  <Map className="w-3.5 h-3.5 text-primary-500" /> Planos Globales (sin sede)
+                </h4>
+                <p className="text-xs text-dark-500 mt-1 ml-5.5">Planos aplicables a todo el cliente</p>
+              </div>
+              <button
+                onClick={() => abrirSubida(null)}
+                className="text-xs flex items-center gap-1 text-primary-600 hover:text-primary-700"
+              >
+                <ImagePlus className="w-3.5 h-3.5" /> Subir plano
+              </button>
+            </div>
+
+            {uploadSedeId === null && (isAdmin || isTecnico) && (
+              <form onSubmit={(e) => handleSubirPlano(e, null)} className="bg-primary-50/50 p-3 rounded-lg border border-primary-100 mb-2 space-y-2">
+                <input
+                  type="text"
+                  className="input-field text-sm"
+                  placeholder="Nombre del plano"
+                  value={uploadForm.nombre}
+                  onChange={e => setUploadForm({...uploadForm, nombre: e.target.value})}
+                />
+                <select
+                  className="input-field text-sm"
+                  value={uploadForm.origen}
+                  onChange={e => setUploadForm({...uploadForm, origen: e.target.value})}
+                >
+                  <option value="plano">Plano del cliente</option>
+                  <option value="foto_croquis">Foto de croquis a mano</option>
+                  <option value="croquis_app">Croquis desde app móvil</option>
+                </select>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="input-field text-sm"
+                  onChange={e => setUploadForm({...uploadForm, file: e.target.files[0]})}
+                />
+                <div className="flex gap-2 pt-1">
+                  <button type="submit" disabled={uploading} className="btn-primary text-xs">
+                    {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Guardar'}
+                  </button>
+                  <button type="button" onClick={() => setUploadSedeId(null)} className="btn-secondary text-xs">Cancelar</button>
+                </div>
+              </form>
+            )}
+
+            {(() => {
+              const planosGlobales = planos.filter(p => !p.sede_id)
+              if (planosGlobales.length === 0 && uploadSedeId !== null) {
+                return <p className="text-xs text-dark-400 italic px-3 pb-3">No hay planos globales</p>
+              }
+              if (planosGlobales.length > 0) {
+                return (
+                  <div className="px-3 pb-3 space-y-2">
+                    {planosGlobales.map(plano => (
+                      <div key={plano.id} className="flex items-center justify-between p-2 bg-dark-50 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <MapPinned className="w-4 h-4 text-primary-500" />
+                          <div>
+                            <p className="text-xs font-medium text-dark-800">{plano.nombre}</p>
+                            <p className="text-[10px] text-dark-400">{ORIGEN_LABEL[plano.origen] || plano.origen}</p>
+                          </div>
+                        </div>
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => abrirLocateModal(plano)}
+                            className="p-1 text-dark-400 hover:text-primary-600 rounded"
+                            title="Ubicar estaciones"
+                          >
+                            <MapPinned className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleDeletePlano(plano.id)}
+                            className="p-1 text-dark-400 hover:text-red-600 rounded"
+                            title="Eliminar plano"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )
+              }
+              return null
+            })()}
+          </div>
         )}
 
         {sedes.length === 0 && !showSedeForm ? (
