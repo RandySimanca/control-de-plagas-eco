@@ -6,13 +6,13 @@ const router = Router()
 
 // El técnico puede ubicar estaciones en el plano (solo plano_id/pos_x/pos_y); el resto es solo admin
 const CAMPOS_POSICION = new Set(['plano_id', 'pos_x', 'pos_y'])
-function adminOTecnicoPosicion(req, res, next) {
-    if (req.user.role === 'admin') return next()
-    if (req.user.role === 'tecnico') {
-        const keys = Object.keys(req.body || {})
-        if (keys.length > 0 && keys.every(k => CAMPOS_POSICION.has(k))) return next()
-    }
-    return res.status(403).json({ success: false, message: 'Solo administradores' })
+function adminOTecnicoPosicion (req, res, next) {
+  if (req.user.role === 'admin') return next()
+  if (req.user.role === 'tecnico') {
+    const keys = Object.keys(req.body || {})
+    if (keys.length > 0 && keys.every(k => CAMPOS_POSICION.has(k))) return next()
+  }
+  return res.status(403).json({ success: false, message: 'Solo administradores' })
 }
 
 router.use(authenticate)

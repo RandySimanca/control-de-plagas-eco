@@ -493,8 +493,8 @@ export default function OrdenEstaciones({ ordenId, clienteId, sedeId, estaciones
                   <div
                     key={m.id}
                     className={`rounded-xl border transition-all overflow-hidden ${registered
-                      ? 'border-emerald-200 bg-emerald-50/40'
-                      : 'border-dark-100 bg-white'
+                        ? 'border-emerald-200 bg-emerald-50/40'
+                        : 'border-dark-100 bg-white'
                       }`}
                   >
                     {/* Cabecera de la estación */}

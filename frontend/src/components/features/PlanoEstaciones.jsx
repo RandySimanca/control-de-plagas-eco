@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Minus, Plus, RotateCcw } from 'lucide-react'
 import { TransformComponent, TransformWrapper, useControls } from 'react-zoom-pan-pinch'
 import { getAuthImageUrl } from '../../utils/imageUtils'
@@ -11,30 +11,33 @@ const COLORES_TIPO = {
 
 const COLORES_OTROS = ['#dc2626', '#0891b2', '#65a30d', '#db2777', '#ea580c']
 
-function colorPorTipo(tipo, extras) {
+function colorPorTipo (tipo, extras) {
   if (COLORES_TIPO[tipo]) return COLORES_TIPO[tipo]
   const idx = extras.indexOf(tipo)
   return COLORES_OTROS[idx >= 0 ? idx % COLORES_OTROS.length : 0]
 }
 
-function tienePosicion(estacion) {
-  const x = Number(estacion?.pos_x)
-  const y = Number(estacion?.pos_y)
-  return Number.isFinite(x) && Number.isFinite(y)
+function tienePosicion (estacion) {
+  // Number(null) === 0, así que hay que descartar null/''/undefined antes de convertir
+  const rx = estacion?.pos_x
+  const ry = estacion?.pos_y
+  if (rx === null || rx === undefined || rx === '') return false
+  if (ry === null || ry === undefined || ry === '') return false
+  return Number.isFinite(Number(rx)) && Number.isFinite(Number(ry))
 }
 
-function clamp01(n) {
+function clamp01 (n) {
   if (!Number.isFinite(n)) return 0
   return Math.min(1, Math.max(0, n))
 }
 
-function clienteXY(e) {
+function clienteXY (e) {
   if (e.touches?.[0]) return { x: e.touches[0].clientX, y: e.touches[0].clientY }
   if (e.changedTouches?.[0]) return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY }
   return { x: e.clientX, y: e.clientY }
 }
 
-function coordsEnImagen(e, imgEl) {
+function coordsEnImagen (e, imgEl) {
   if (!imgEl) return null
   const { x, y } = clienteXY(e)
   const rect = imgEl.getBoundingClientRect()
@@ -45,7 +48,7 @@ function coordsEnImagen(e, imgEl) {
   }
 }
 
-function ControlesZoom() {
+function ControlesZoom () {
   const { zoomIn, zoomOut, resetTransform } = useControls()
   return (
     <div className="absolute top-2 right-2 z-10 flex flex-col gap-1">
@@ -62,7 +65,7 @@ function ControlesZoom() {
   )
 }
 
-export default function PlanoEstaciones({
+export default function PlanoEstaciones ({
   plano,
   estaciones = [],
   modo = 'ver',
@@ -72,6 +75,8 @@ export default function PlanoEstaciones({
   onAbrir
 }) {
   const imgRef = useRef(null)
+  const cajaRef = useRef(null)
+  const [, setTick] = useState(0)
   const arrastreRef = useRef(null)
   const tapRef = useRef(null)
   const [arrastre, setArrastre] = useState(null)
@@ -100,23 +105,47 @@ export default function PlanoEstaciones({
   const seleccionada = estaciones.find(e => e.id === estacionSeleccionadaId)
   const puedeColocar = modo === 'editar' && seleccionada && !tienePosicion(seleccionada)
 
-  // Calcular offset para estaciones sin posición (distribuirlas alrededor del centro)
+  // Estaciones sin posición: se muestran alrededor del CENTRO DE LO QUE SE VE en pantalla
+  // (zona visible del plano), para no tener que desplazar el plano para encontrarlas.
   const estacionesSinPosicion = estaciones.filter(e => !tienePosicion(e))
-  const posicionOffset = useCallback((estacion) => {
-    const idx = estacionesSinPosicion.findIndex(e => e.id === estacion.id)
-    if (idx === -1) return { x: 0, y: 0 }
-    // Distribuir en círculo alrededor del centro
-    const angle = (idx / estacionesSinPosicion.length) * Math.PI * 2
-    const radius = 0.05 // 5% del tamaño del plano
+  function centroVisible () {
+    const img = imgRef.current
+    const caja = cajaRef.current
+    if (!img || !caja) return null
+    const r = img.getBoundingClientRect()
+    const b = caja.getBoundingClientRect()
+    if (r.width <= 0 || r.height <= 0) return null
+    const left = Math.max(r.left, b.left)
+    const right = Math.min(r.right, b.right)
+    const top = Math.max(r.top, b.top)
+    const bottom = Math.min(r.bottom, b.bottom)
+    if (right <= left || bottom <= top) return null
     return {
-      x: 0.5 + Math.cos(angle) * radius,
-      y: 0.5 + Math.sin(angle) * radius
+      cx: ((left + right) / 2 - r.left) / r.width,
+      cy: ((top + bottom) / 2 - r.top) / r.height,
+      // radio en píxeles de pantalla, proporcional a la zona visible
+      radioPx: Math.min(right - left, bottom - top) * 0.12,
+      w: r.width,
+      h: r.height
     }
-  }, [estacionesSinPosicion])
+  }
+  function posicionOffset (estacion) {
+    const idx = estacionesSinPosicion.findIndex(e => e.id === estacion.id)
+    if (idx === -1) return { x: 0.5, y: 0.5 }
+    const c = centroVisible()
+    if (!c) return { x: 0.5, y: 0.5 }
+    const n = estacionesSinPosicion.length
+    if (n === 1) return { x: clamp01(c.cx), y: clamp01(c.cy) }
+    const angle = (idx / n) * Math.PI * 2
+    return {
+      x: clamp01(c.cx + (Math.cos(angle) * c.radioPx) / c.w),
+      y: clamp01(c.cy + (Math.sin(angle) * c.radioPx) / c.h)
+    }
+  }
 
   const src = plano?.imagen_url ? getAuthImageUrl(plano.imagen_url) : null
 
-  const posDe = useCallback((estacion) => {
+  const posDe = (estacion) => {
     if (arrastre?.id === estacion.id) return { x: arrastre.x, y: arrastre.y }
     if (!tienePosicion(estacion)) {
       // En modo edición, mostrar estaciones sin posición alrededor del centro
@@ -127,12 +156,12 @@ export default function PlanoEstaciones({
       return null
     }
     return { x: Number(estacion.pos_x), y: Number(estacion.pos_y) }
-  }, [arrastre, modo, posicionOffset])
+  }
 
   useEffect(() => {
     if (modo !== 'editar') return undefined
 
-    function onMove(e) {
+    function onMove (e) {
       const drag = arrastreRef.current
       if (!drag) return
       e.preventDefault()
@@ -143,7 +172,7 @@ export default function PlanoEstaciones({
       setArrastre({ id: drag.id, x: coords.x, y: coords.y })
     }
 
-    function onUp(e) {
+    function onUp (e) {
       const drag = arrastreRef.current
       arrastreRef.current = null
       setArrastre(null)
@@ -164,7 +193,7 @@ export default function PlanoEstaciones({
     }
   }, [modo, onMover])
 
-  function iniciarArrastre(e, estacion) {
+  function iniciarArrastre (e, estacion) {
     if (modo !== 'editar') return
     e.stopPropagation()
     e.preventDefault()
@@ -177,13 +206,13 @@ export default function PlanoEstaciones({
     onSeleccionar?.(estacion)
   }
 
-  function onPointerDownMapa(e) {
+  function onPointerDownMapa (e) {
     if (!puedeColocar) return
     const { x, y } = clienteXY(e)
     tapRef.current = { x, y }
   }
 
-  function onPointerUpMapa(e) {
+  function onPointerUpMapa (e) {
     if (!puedeColocar || arrastreRef.current) return
     const start = tapRef.current
     tapRef.current = null
@@ -217,7 +246,7 @@ export default function PlanoEstaciones({
         </div>
       )}
 
-      <div className="relative overflow-hidden rounded-xl border border-dark-200 bg-dark-100 touch-none" style={{ minHeight: '300px', maxHeight: '60vh' }}>
+      <div ref={cajaRef} className="relative overflow-hidden rounded-xl border border-dark-200 bg-dark-100 touch-none" style={{ height: '60vh', minHeight: '300px' }}>
         <TransformWrapper
           minScale={1}
           maxScale={8}
@@ -228,14 +257,16 @@ export default function PlanoEstaciones({
             excluded: ['estacion-pin']
           }}
           doubleClick={{ disabled: modo === 'editar' }}
+          onTransform={() => setTick(t => t + 1)}
         >
           <ControlesZoom />
           <TransformComponent
-            wrapperStyle={{ width: '100%', maxHeight: '60vh' }}
-            contentStyle={{ width: '100%' }}
+            wrapperStyle={{ width: '100%', height: '100%' }}
+            contentStyle={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
             <div
-              className="relative w-full"
+              className="relative"
+              style={{ maxWidth: '100%' }}
               onPointerDown={onPointerDownMapa}
               onPointerUp={onPointerUpMapa}
             >
@@ -243,7 +274,9 @@ export default function PlanoEstaciones({
                 ref={imgRef}
                 src={src}
                 alt={plano.nombre || 'Plano de estaciones'}
-                className="block w-full h-auto select-none"
+                className="block select-none"
+                style={{ maxWidth: '100%', maxHeight: 'calc(60vh - 4px)', width: 'auto', height: 'auto' }}
+                onLoad={() => setTick(t => t + 1)}
                 draggable={false}
               />
               {estaciones.map(estacion => {
