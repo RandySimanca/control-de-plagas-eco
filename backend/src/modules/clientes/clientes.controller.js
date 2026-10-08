@@ -39,6 +39,13 @@ export const createEstacion = catchAsync(async (req, res) => {
 })
 
 export const updateEstacion = catchAsync(async (req, res) => {
+  if (req.user.role === 'tecnico') {
+    const { rows } = await pool.query(
+      'SELECT o.id FROM ordenes_servicio o WHERE o.cliente_id = $1 AND o.tecnico_id = $2 LIMIT 1',
+      [req.params.id, req.user.id]
+    )
+    if (!rows[0]) throw new AppError('No autorizado: no tienes órdenes asignadas para este cliente', 403)
+  }
   const data = await clientesService.updateEstacion(req.params.id, req.params.estacion_id, req.body)
   res.json({ success: true, data })
 })

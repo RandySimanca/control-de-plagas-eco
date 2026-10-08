@@ -53,8 +53,7 @@ export default function OrdenEstaciones({ ordenId, clienteId, sedeId, estaciones
       if (!clienteId || !isOnline) return
       try {
         const token = localStorage.getItem('token')
-        const params = sedeId ? { sede_id: sedeId } : {}
-        const res = await listPlanos(clienteId, token, params)
+        const res = await listPlanos(clienteId, token, sedeId)
         setPlanos(res.data || [])
       } catch (err) {
         console.error('Error cargando planos', err)
@@ -494,8 +493,8 @@ export default function OrdenEstaciones({ ordenId, clienteId, sedeId, estaciones
                   <div
                     key={m.id}
                     className={`rounded-xl border transition-all overflow-hidden ${registered
-                        ? 'border-emerald-200 bg-emerald-50/40'
-                        : 'border-dark-100 bg-white'
+                      ? 'border-emerald-200 bg-emerald-50/40'
+                      : 'border-dark-100 bg-white'
                       }`}
                   >
                     {/* Cabecera de la estación */}
@@ -697,7 +696,8 @@ export default function OrdenEstaciones({ ordenId, clienteId, sedeId, estaciones
               modo={canEdit ? 'editar' : 'ver'}
               estacionSeleccionadaId={estacionSeleccionadaId}
               onMover={canEdit ? handleMoverEstacion : undefined}
-              onSeleccionar={handlePinClick}
+              onSeleccionar={handleSeleccionarEstacion}
+              onAbrir={handlePinClick}
             />
           </div>
         </Modal>

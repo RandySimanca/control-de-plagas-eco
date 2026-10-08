@@ -11,30 +11,30 @@ const COLORES_TIPO = {
 
 const COLORES_OTROS = ['#dc2626', '#0891b2', '#65a30d', '#db2777', '#ea580c']
 
-function colorPorTipo (tipo, extras) {
+function colorPorTipo(tipo, extras) {
   if (COLORES_TIPO[tipo]) return COLORES_TIPO[tipo]
   const idx = extras.indexOf(tipo)
   return COLORES_OTROS[idx >= 0 ? idx % COLORES_OTROS.length : 0]
 }
 
-function tienePosicion (estacion) {
+function tienePosicion(estacion) {
   const x = Number(estacion?.pos_x)
   const y = Number(estacion?.pos_y)
   return Number.isFinite(x) && Number.isFinite(y)
 }
 
-function clamp01 (n) {
+function clamp01(n) {
   if (!Number.isFinite(n)) return 0
   return Math.min(1, Math.max(0, n))
 }
 
-function clienteXY (e) {
+function clienteXY(e) {
   if (e.touches?.[0]) return { x: e.touches[0].clientX, y: e.touches[0].clientY }
   if (e.changedTouches?.[0]) return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY }
   return { x: e.clientX, y: e.clientY }
 }
 
-function coordsEnImagen (e, imgEl) {
+function coordsEnImagen(e, imgEl) {
   if (!imgEl) return null
   const { x, y } = clienteXY(e)
   const rect = imgEl.getBoundingClientRect()
@@ -45,7 +45,7 @@ function coordsEnImagen (e, imgEl) {
   }
 }
 
-function ControlesZoom () {
+function ControlesZoom() {
   const { zoomIn, zoomOut, resetTransform } = useControls()
   return (
     <div className="absolute top-2 right-2 z-10 flex flex-col gap-1">
@@ -62,13 +62,14 @@ function ControlesZoom () {
   )
 }
 
-export default function PlanoEstaciones ({
+export default function PlanoEstaciones({
   plano,
   estaciones = [],
   modo = 'ver',
   estacionSeleccionadaId,
   onMover,
-  onSeleccionar
+  onSeleccionar,
+  onAbrir
 }) {
   const imgRef = useRef(null)
   const arrastreRef = useRef(null)
@@ -120,8 +121,8 @@ export default function PlanoEstaciones ({
     if (!tienePosicion(estacion)) {
       // En modo edición, mostrar estaciones sin posición alrededor del centro
       if (modo === 'editar') {
-        const offset = posicionOffset(estacion)
-        return { x: 0.5 + offset.x, y: 0.5 + offset.y }
+        // posicionOffset ya devuelve coordenadas absolutas (0..1) alrededor del centro
+        return posicionOffset(estacion)
       }
       return null
     }
@@ -131,7 +132,7 @@ export default function PlanoEstaciones ({
   useEffect(() => {
     if (modo !== 'editar') return undefined
 
-    function onMove (e) {
+    function onMove(e) {
       const drag = arrastreRef.current
       if (!drag) return
       e.preventDefault()
@@ -142,11 +143,13 @@ export default function PlanoEstaciones ({
       setArrastre({ id: drag.id, x: coords.x, y: coords.y })
     }
 
-    function onUp (e) {
+    function onUp(e) {
       const drag = arrastreRef.current
       arrastreRef.current = null
       setArrastre(null)
       if (!drag) return
+      // Un simple toque sobre un pin ya ubicado no debe moverlo
+      if (!drag.moved && !drag.sinPosicion) return
       const coords = coordsEnImagen(e, imgRef.current) || { x: drag.x, y: drag.y }
       onMover?.(drag.id, clamp01(coords.x), clamp01(coords.y))
     }
@@ -161,7 +164,7 @@ export default function PlanoEstaciones ({
     }
   }, [modo, onMover])
 
-  function iniciarArrastre (e, estacion) {
+  function iniciarArrastre(e, estacion) {
     if (modo !== 'editar') return
     e.stopPropagation()
     e.preventDefault()
@@ -169,18 +172,18 @@ export default function PlanoEstaciones ({
       x: Number(estacion.pos_x) || 0,
       y: Number(estacion.pos_y) || 0
     }
-    arrastreRef.current = { id: estacion.id, moved: false, ...coords }
+    arrastreRef.current = { id: estacion.id, moved: false, sinPosicion: !tienePosicion(estacion), ...coords }
     setArrastre({ id: estacion.id, x: coords.x, y: coords.y })
     onSeleccionar?.(estacion)
   }
 
-  function onPointerDownMapa (e) {
+  function onPointerDownMapa(e) {
     if (!puedeColocar) return
     const { x, y } = clienteXY(e)
     tapRef.current = { x, y }
   }
 
-  function onPointerUpMapa (e) {
+  function onPointerUpMapa(e) {
     if (!puedeColocar || arrastreRef.current) return
     const start = tapRef.current
     tapRef.current = null
@@ -228,7 +231,7 @@ export default function PlanoEstaciones ({
         >
           <ControlesZoom />
           <TransformComponent
-            wrapperStyle={{ width: '100%', height: '100%' }}
+            wrapperStyle={{ width: '100%', maxHeight: '60vh' }}
             contentStyle={{ width: '100%' }}
           >
             <div
@@ -274,7 +277,8 @@ export default function PlanoEstaciones ({
                     onPointerDown={(e) => iniciarArrastre(e, estacion)}
                     onClick={(e) => {
                       e.stopPropagation()
-                      onSeleccionar?.(estacion)
+                      if (modo === 'editar') onSeleccionar?.(estacion)
+                      else (onAbrir || onSeleccionar)?.(estacion)
                     }}
                     aria-label={`Estación ${estacion.numero}`}
                   >
