@@ -13,7 +13,8 @@ export async function prepareInformeActividadesData(params) {
     estaciones = [], 
     config, 
     fotos = [], 
-    firma_tecnico 
+    firma_tecnico,
+    planos = []
   } = params
 
   // 1. Normalizar Fotos y Evidencias (convirtiendo a Base64 para incluir el token y evitar problemas async en el renderer)
@@ -199,6 +200,12 @@ export async function prepareInformeActividadesData(params) {
 
   const tecnicoNombre = orden.profiles?.nombre_completo || orden.tecnico_nombre || 'TÉCNICO OPERATIVO';
 
+  // Procesar planos
+  const normalizedPlanos = await Promise.all(planos.map(async (p) => {
+    const planoData = p.imagen_url ? await getImgData(p.imagen_url) : null
+    return { ...p, planoData }
+  }))
+
   return {
     ...params,
     normalized: {
@@ -210,7 +217,8 @@ export async function prepareInformeActividadesData(params) {
       fechaEjecucion,
       tanques: normalizedTanques,
       areasPorTipo,
-      tecnicoNombre
+      tecnicoNombre,
+      planos: normalizedPlanos
     }
   }
 }

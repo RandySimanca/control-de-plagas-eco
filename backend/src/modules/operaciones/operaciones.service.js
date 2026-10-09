@@ -190,7 +190,14 @@ export async function getActividadesByOrden(ordenId, user) {
 }
 export async function getEstacionesByOrden(ordenId, user) {
   await assertOrdenAccess(ordenId, user)
-  const { rows: estaciones } = await pool.query('SELECT * FROM estaciones_usadas WHERE orden_id = $1 ORDER BY created_at DESC', [ordenId])
+  const { rows: estaciones } = await pool.query(`
+    SELECT eu.*, e.numero as numero_estacion, e.ubicacion as ubicacion_estacion, e.codigo_qr,
+           e.pos_x, e.pos_y, e.plano_id, e.tipo as tipo_estacion_maestra
+    FROM estaciones_usadas eu
+    LEFT JOIN estaciones e ON e.id = eu.estacion_id
+    WHERE eu.orden_id = $1
+    ORDER BY eu.created_at DESC
+  `, [ordenId])
   
   if (estaciones.length > 0) {
     const ids = estaciones.map(e => e.id)
@@ -345,7 +352,8 @@ export async function listEstaciones(ordenId, user) {
   else if (user.role !== 'admin') throw new AppError('orden_id es obligatorio', 400)
     
   const { rows: estaciones } = await pool.query(`
-    SELECT eu.*, e.numero as numero_estacion, e.ubicacion as ubicacion_estacion, e.codigo_qr 
+    SELECT eu.*, e.numero as numero_estacion, e.ubicacion as ubicacion_estacion, e.codigo_qr,
+           e.pos_x, e.pos_y, e.plano_id, e.tipo as tipo_estacion_maestra
     FROM estaciones_usadas eu
     LEFT JOIN estaciones e ON e.id = eu.estacion_id
     WHERE ($1::uuid IS NULL OR eu.orden_id = $1) 

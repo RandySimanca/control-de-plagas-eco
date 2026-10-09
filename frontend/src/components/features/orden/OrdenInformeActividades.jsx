@@ -63,19 +63,52 @@ export default function OrdenInformeActividades({
       }
     }
 
+    // Obtener planos de la sede si los hay
+    let planosMapeados = []
+    let estacionesMaestrasParaPlano = []
+    try {
+      const { data: planosData } = await api.get(`/clientes/${orden.cliente_id}/planos`, { 
+        params: orden.sede_id ? { sede_id: orden.sede_id } : {},
+        token 
+      })
+      planosMapeados = planosData || []
+
+      // Si hay planos, obtener todas las estaciones maestras del cliente (con pos_x, pos_y, plano_id)
+      // para mostrar las que no fueron visitadas también en el plano
+      if (planosMapeados.length > 0) {
+        const params = orden.sede_id ? { sede_id: orden.sede_id } : {}
+        const { data: maestrasData } = await api.get(`/clientes/${orden.cliente_id}/estaciones`, { token, params })
+        // Enriquecer maestras con observaciones de la visita actual si aplica
+        estacionesMaestrasParaPlano = (maestrasData || []).map(m => {
+          const usada = estacionesMapeadas.find(eu => eu.estacion_id === m.id)
+          return {
+            ...m,
+            // Campos de la visita actual
+            observaciones: usada?.observaciones || null,
+            es_nueva_instalacion: usada?.es_nueva_instalacion || false,
+            _visitada: Boolean(usada)
+          }
+        })
+      }
+    } catch (e) {
+      console.error('Error fetching planos for report:', e)
+    }
+
     return {
       folio: folioValue,
       cliente: orden.clientes,
       orden,
       productos,
       estaciones: estacionesMapeadas,
+      estacionesMaestras: estacionesMaestrasParaPlano,
       tecnico: orden.profiles?.nombre_completo || 'N/A',
       config: { ...config, logo_asset: logoDerosh },
       firma: certificado?.firma_url,
       firma_tecnico: orden.profiles?.firma_url,
       actividades,
       fotos: fotosMapeadas,
-      tanques: tanquesMapeados
+      tanques: tanquesMapeados,
+      planos: planosMapeados
     }
   }
 

@@ -588,6 +588,155 @@ export async function renderInformeActividades(data) {
   }
 
 
+  // Sección: Croquis de Estaciones
+  const planos = normalized.planos || []
+  const estacionesMaestras = data.estacionesMaestras || []
+  if (planos.length > 0) {
+    const typeColors = {
+      'Cebadero': '#d97706',
+      'Impacto': '#2563eb',
+      'Jaula atrapavivos': '#7c3aed',
+      'default': '#94a3b8'
+    }
+    // Paleta de colores extra para tipos no definidos (igual que PlanoEstaciones.jsx)
+    const extraColors = ['#dc2626', '#0891b2', '#65a30d', '#db2777', '#ea580c']
+    const extraTipos = [...new Set(estacionesMaestras.map(e => e.tipo || e.tipo_estacion).filter(t => t && !typeColors[t]))]
+    extraTipos.forEach((t, i) => {
+      typeColors[t] = extraColors[i % extraColors.length]
+    })
+
+    const drawPlanoWithPins = async (planoData, estacionesPlano) => {
+      return new Promise((resolve) => {
+        const img = new Image()
+        img.onload = () => {
+          const canvas = document.createElement('canvas')
+          canvas.width = img.width
+          canvas.height = img.height
+          const ctx = canvas.getContext('2d')
+          
+          ctx.drawImage(img, 0, 0)
+          
+          const minDimension = Math.min(img.width, img.height)
+          const pinRadius = Math.max(minDimension * 0.02, 12)
+          
+          estacionesPlano.forEach(est => {
+            if (est.pos_x != null && est.pos_y != null) {
+              const px = est.pos_x * img.width
+              const py = est.pos_y * img.height
+              const color = typeColors[est.tipo || est.tipo_estacion] || typeColors.default
+              
+              ctx.beginPath()
+              ctx.arc(px, py, pinRadius + (pinRadius * 0.2), 0, 2 * Math.PI)
+              ctx.fillStyle = '#ffffff'
+              ctx.fill()
+              
+              ctx.beginPath()
+              ctx.arc(px, py, pinRadius, 0, 2 * Math.PI)
+              ctx.fillStyle = color
+              ctx.fill()
+              
+              ctx.fillStyle = '#ffffff'
+              ctx.font = `bold ${pinRadius * 1.1}px Arial`
+              ctx.textAlign = 'center'
+              ctx.textBaseline = 'middle'
+              ctx.fillText((est.numero || est.numero_estacion || '').toString(), px, py)
+            }
+          })
+          resolve(canvas.toDataURL('image/jpeg', 0.8))
+        }
+        img.onerror = () => resolve(null)
+        img.src = planoData
+      })
+    }
+
+    for (let pIdx = 0; pIdx < planos.length; pIdx++) {
+      const plano = planos[pIdx]
+      // estacionesMaestras incluye todas las estaciones del cliente con pos_x/pos_y/plano_id y datos de visita
+      const estacionesValidas = estacionesMaestras.filter(e => e.plano_id === plano.id)
+
+      doc.addPage()
+      y = 42
+      y = drawSectionHeader(`Croquis de Estaciones - ${plano.nombre}`, y)
+      
+      if (plano.planoData) {
+        const planoImgRendered = await drawPlanoWithPins(plano.planoData, estacionesValidas)
+        if (planoImgRendered) {
+          const imgH = 100
+          const imgW = 160
+          const imgX = margin + (pageWidth - 2 * margin - imgW) / 2
+          
+          doc.addImage(planoImgRendered, 'JPEG', imgX, y, imgW, imgH)
+          doc.setDrawColor(200, 200, 200)
+          doc.rect(imgX, y, imgW, imgH)
+          y += imgH + 10
+        }
+      }
+
+      // Tabla de leyenda
+      if (estacionesValidas.length > 0) {
+        doc.setFontSize(10); doc.setFont(undefined, 'bold'); doc.setTextColor(30, 41, 59)
+        doc.text('Leyenda de Estaciones', margin + 3, y); y += 6
+
+        // Dibujar colores por tipo
+        const tiposPresentes = [...new Set(estacionesValidas.map(e => e.tipo || e.tipo_estacion).filter(Boolean))]
+        let lx = margin + 3
+        tiposPresentes.forEach(t => {
+          const colorHex = typeColors[t] || typeColors.default
+          const r = parseInt(colorHex.slice(1,3), 16)
+          const g = parseInt(colorHex.slice(3,5), 16)
+          const b = parseInt(colorHex.slice(5,7), 16)
+          doc.setFillColor(r, g, b)
+          doc.circle(lx, y - 1, 2, 'F')
+          doc.setFontSize(8); doc.setFont(undefined, 'normal')
+          doc.text(t, lx + 4, y)
+          lx += 40
+        })
+        y += 8
+
+        // Tabla
+        doc.setFillColor(240, 240, 240)
+        doc.rect(margin, y, pageWidth - 2 * margin, 6, 'F')
+        doc.setFontSize(8); doc.setFont(undefined, 'bold'); doc.setTextColor(30, 41, 59)
+        doc.text('Nº', margin + 2, y + 4)
+        doc.text('Tipo', margin + 15, y + 4)
+        doc.text('Ubicación', margin + 45, y + 4)
+        doc.text('Estado / Observaciones', margin + 105, y + 4)
+        y += 6
+
+        doc.setFont(undefined, 'normal')
+        for (const est of estacionesValidas) {
+          if (y > pageHeight - 30) { doc.addPage(); y = 42 }
+          
+          const esNueva = est.es_nueva_instalacion ? '(Nueva) ' : ''
+          const visitadaStr = est._visitada ? '' : 'Sin revisar'
+          const estadoObs = esNueva + (est.observaciones || visitadaStr || '')
+          
+          // Punto de color indicando si fue visitada o no
+          const colorEstado = est._visitada ? '#10b981' : '#94a3b8'
+          const cr = parseInt(colorEstado.slice(1,3), 16)
+          const cg = parseInt(colorEstado.slice(3,5), 16)
+          const cb = parseInt(colorEstado.slice(5,7), 16)
+          doc.setFillColor(cr, cg, cb)
+          doc.circle(margin + 2, y + 2.5, 1.5, 'F')
+          
+          doc.text((est.numero || est.numero_estacion || '').toString(), margin + 7, y + 4)
+          doc.text((est.tipo || est.tipo_estacion_maestra || est.tipo_estacion || '').toString(), margin + 18, y + 4)
+          
+          const ubicLines = doc.splitTextToSize(est.ubicacion || est.ubicacion_estacion || 'N/A', 50)
+          doc.text(ubicLines, margin + 45, y + 4)
+          
+          const obsLines = doc.splitTextToSize(estadoObs || '—', pageWidth - margin - 105 - 5)
+          doc.text(obsLines, margin + 105, y + 4)
+          
+          y += Math.max(ubicLines.length, obsLines.length) * 4 + 2
+          doc.setDrawColor(230, 230, 230); doc.setLineWidth(0.1)
+          doc.line(margin, y, pageWidth - margin, y)
+        }
+      }
+    }
+  }
+
+
   if (y > pageHeight - 40) { doc.addPage(); y = 42 }
   y += 10
   doc.setTextColor(30, 41, 59); doc.setFontSize(8.5); doc.setFont(undefined, 'normal')
