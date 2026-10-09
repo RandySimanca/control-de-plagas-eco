@@ -8,6 +8,7 @@ import api from '../../../lib/api'
 import { listPlanos, createPlano, deletePlano, updateEstacionCliente } from '../../../api/clientes.api'
 import Modal from '../../ui/Modal'
 import PlanoEstaciones from '../PlanoEstaciones'
+import { estacionesDelPlano } from '../../../utils/planoUtils'
 import { compressImage } from '../../../utils/imageCompressor'
 
 const DEFAULT_TYPES = ['Cebadero', 'Impacto', 'Jaula atrapavivos']
@@ -313,9 +314,7 @@ export default function OrdenEstaciones({ ordenId, clienteId, sedeId, estaciones
 
   function abrirPlano(plano) {
     setPlanoSeleccionado(plano)
-    const estacionesFiltradas = plano.sede_id
-      ? maestras.filter(e => e.sede_id === plano.sede_id)
-      : maestras.filter(e => e.cliente_id === clienteId)
+    const estacionesFiltradas = estacionesDelPlano(maestras, plano, clienteId)
     const sinUbicar = estacionesFiltradas.find(e => e.pos_x == null || e.pos_y == null)
     setEstacionSeleccionadaId(sinUbicar?.id || estacionesFiltradas[0]?.id || null)
     setLocateMode('ver')
@@ -677,8 +676,7 @@ export default function OrdenEstaciones({ ordenId, clienteId, sedeId, estaciones
                   onChange={e => setEstacionSeleccionadaId(e.target.value || null)}
                 >
                   <option value="">Seleccionar estación</option>
-                  {maestras
-                    .filter(e => planoSeleccionado.sede_id ? e.sede_id === planoSeleccionado.sede_id : e.cliente_id === clienteId)
+                  {estacionesDelPlano(maestras, planoSeleccionado, clienteId)
                     .map(e => (
                       <option key={e.id} value={e.id}>
                         {e.numero} - {e.tipo || e.tipo_estacion || 'Sin tipo'}
@@ -689,7 +687,7 @@ export default function OrdenEstaciones({ ordenId, clienteId, sedeId, estaciones
             )}
             <PlanoEstaciones
               plano={planoSeleccionado}
-              estaciones={maestras.filter(e => planoSeleccionado.sede_id ? e.sede_id === planoSeleccionado.sede_id : e.cliente_id === clienteId).map(e => {
+              estaciones={estacionesDelPlano(maestras, planoSeleccionado, clienteId).map(e => {
                 const usada = estaciones.find(us => us.estacion_id === e.id)
                 return { ...e, _estado_visita: usada ? 'revisada' : (e.id === estacionSeleccionadaId ? 'seleccionada' : 'sin_revisar') }
               })}

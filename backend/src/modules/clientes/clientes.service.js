@@ -238,6 +238,9 @@ export async function updateEstacion(clienteId, id, body) {
         if (plano.sede_id && plano.sede_id !== cur.sede_id) {
           throw new AppError('El plano no pertenece a la sede de la estación', 400)
         }
+        if (cur.plano_id && cur.plano_id !== plano.id) {
+          throw new AppError('Esta estación ya está ubicada en otro plano. Para usar este plano instala estaciones nuevas.', 409)
+        }
         planoId = plano.id
       }
     }

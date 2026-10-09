@@ -16,6 +16,7 @@ import HelpButton from '../components/features/HelpButton'
 import { HELP_CONTENT } from '../lib/helpContent'
 import Modal from '../components/ui/Modal'
 import PlanoEstaciones from '../components/features/PlanoEstaciones'
+import { estacionesDelPlano } from '../utils/planoUtils'
 import { compressImage } from '../utils/imageCompressor'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
@@ -206,9 +207,7 @@ export default function ClienteDetalle() {
 
   function abrirUbicar (sede, plano) {
     // Si el plano tiene sede, filtrar por esa sede. Si no, mostrar todas las estaciones del cliente
-    const estacionesFiltradas = plano.sede_id
-      ? estaciones.filter(e => e.sede_id === plano.sede_id)
-      : estaciones.filter(e => e.cliente_id === id)
+    const estacionesFiltradas = estacionesDelPlano(estaciones, plano, id)
     const sinUbicar = estacionesFiltradas.find(e => e.pos_x == null || e.pos_y == null)
     setEstacionSeleccionadaId(sinUbicar?.id || estacionesFiltradas[0]?.id || null)
     setLocate({ sede, plano })
@@ -656,8 +655,7 @@ export default function ClienteDetalle() {
                 onChange={e => setEstacionSeleccionadaId(e.target.value || null)}
               >
                 <option value="">Seleccionar estación</option>
-                {estaciones
-                  .filter(e => locate.plano.sede_id ? e.sede_id === locate.plano.sede_id : e.cliente_id === id)
+                {estacionesDelPlano(estaciones, locate.plano, id)
                   .map(e => (
                     <option key={e.id} value={e.id}>
                       {e.numero} - {e.tipo || e.tipo_estacion || 'Sin tipo'}
@@ -667,7 +665,7 @@ export default function ClienteDetalle() {
             </div>
             <PlanoEstaciones
               plano={locate.plano}
-              estaciones={estaciones.filter(e => locate.plano.sede_id ? e.sede_id === locate.plano.sede_id : e.cliente_id === id)}
+              estaciones={estacionesDelPlano(estaciones, locate.plano, id)}
               modo="editar"
               estacionSeleccionadaId={estacionSeleccionadaId}
               onMover={handleMoverEstacion}

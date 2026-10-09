@@ -45,6 +45,9 @@ export const updateEstacion = catchAsync(async (req, res) => {
       [req.params.id, req.user.id]
     )
     if (!rows[0]) throw new AppError('No autorizado: no tienes órdenes asignadas para este cliente', 403)
+    if (req.body.plano_id === null || req.body.plano_id === '') {
+      throw new AppError('Solo un administrador puede quitar una estación de su plano', 403)
+    }
   }
   const data = await clientesService.updateEstacion(req.params.id, req.params.estacion_id, req.body)
   res.json({ success: true, data })
