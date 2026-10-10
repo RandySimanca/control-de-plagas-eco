@@ -75,6 +75,20 @@ export default function OrdenProductos({
   })
 
   async function handleSave() {
+    // Validar si algún producto excede el stock disponible retirado de bodega
+    for (const item of catalogoDisponible) {
+      const stockDisp = Math.max(0, parseFloat(item.cantidad_sacada || 0) - parseFloat(item.cantidad_usada || 0))
+      const existing = productos.find(p => p.tecnico_inventario_id === item.id)
+      const cantAnterior = parseFloat(existing?.cantidad_numerica || 0)
+      const maxPermitido = stockDisp + cantAnterior
+      const cantidad = parseFloat(cantidades[item.id] || 0)
+
+      if (cantidad > maxPermitido && !isAdmin) {
+        toast.error(`No tienes ${item.nombre_comercial} disponible en tu inventario (disponible: ${maxPermitido} ${item.unidad_base || ''}).`)
+        return
+      }
+    }
+
     setIsSaving(true)
     try {
       const updatedProductos = [...productos]
@@ -145,6 +159,16 @@ export default function OrdenProductos({
     }
   }
 
+  // Comprobar si hay algún item con exceso
+  const algunExceso = !isAdmin && catalogoDisponible.some(item => {
+    const stockDisp = Math.max(0, parseFloat(item.cantidad_sacada || 0) - parseFloat(item.cantidad_usada || 0))
+    const existing = productos.find(p => p.tecnico_inventario_id === item.id)
+    const cantAnterior = parseFloat(existing?.cantidad_numerica || 0)
+    const maxPermitido = stockDisp + cantAnterior
+    const cantidad = parseFloat(cantidades[item.id] || 0)
+    return cantidad > maxPermitido
+  })
+
   // ── Vista de solo lectura (admin o estado no editable) ──────────────────────
   if (!canEdit) {
     return (
@@ -211,7 +235,7 @@ export default function OrdenProductos({
         </h2>
       </div>
       <p className="text-xs text-dark-400 mb-4">
-        Ingresa cuánto usaste de cada insumo. Lo que no uses se registrará como devolución.
+        Ingresa cuánto usaste de cada insumo. Lo que no uses se registrará como devolución. Solo puedes usar hasta lo retirado de bodega.
       </p>
 
       {loadingCatalogo ? (
@@ -229,10 +253,13 @@ export default function OrdenProductos({
           <div className="space-y-3 mb-4">
             {catalogoDisponible.map(item => {
               const stockDisp = Math.max(0, parseFloat(item.cantidad_sacada || 0) - parseFloat(item.cantidad_usada || 0))
+              const existing = productos.find(p => p.tecnico_inventario_id === item.id)
+              const cantAnterior = parseFloat(existing?.cantidad_numerica || 0)
+              const maxPermitido = stockDisp + cantAnterior
               const cantidadUsada = parseFloat(cantidades[item.id] || 0)
-              const devolucion = Math.max(0, stockDisp - cantidadUsada)
+              const devolucion = Math.max(0, maxPermitido - cantidadUsada)
               const yaRegistrado = productos.some(p => p.tecnico_inventario_id === item.id)
-              const excede = cantidadUsada > stockDisp
+              const excede = !isAdmin && cantidadUsada > maxPermitido
 
               return (
                 <div
@@ -257,7 +284,7 @@ export default function OrdenProductos({
                     <div className="text-right shrink-0">
                       <p className="text-[10px] text-dark-400 uppercase tracking-wider">Disponible</p>
                       <p className="text-sm font-black text-dark-800">
-                        {stockDisp.toLocaleString(undefined, { maximumFractionDigits: 3 })}
+                        {maxPermitido.toLocaleString(undefined, { maximumFractionDigits: 3 })}
                         <span className="text-xs font-normal text-dark-500 ml-1">{item.unidad_base}</span>
                       </p>
                     </div>
@@ -272,8 +299,9 @@ export default function OrdenProductos({
                         <input
                           type="number"
                           min="0"
+                          max={maxPermitido}
                           step="0.001"
-                          className={`input-field flex-1 text-center font-bold text-base ${excede ? 'border-red-400 bg-red-50' : ''}`}
+                          className={`input-field flex-1 text-center font-bold text-base ${excede ? 'border-red-400 bg-red-50 text-red-700' : ''}`}
                           value={cantidades[item.id] ?? ''}
                           onChange={e => setCantidades(prev => ({ ...prev, [item.id]: e.target.value }))}
                           placeholder="0"
@@ -281,7 +309,9 @@ export default function OrdenProductos({
                         <span className="text-xs text-dark-500 w-10 text-center shrink-0">{item.unidad_base}</span>
                       </div>
                       {excede && (
-                        <p className="text-[10px] text-red-600 mt-1">⚠️ Supera el disponible. Se guardará igual.</p>
+                        <p className="text-[10px] font-medium text-red-600 mt-1">
+                          ⚠️ Supera el disponible ({maxPermitido} {item.unidad_base}). Debes retirar más de bodega.
+                        </p>
                       )}
                     </div>
 
@@ -296,9 +326,10 @@ export default function OrdenProductos({
                       </div>
                     )}
                     {cantidadUsada > 0 && excede && (
-                      <div className="bg-orange-50 border border-orange-200 rounded-lg px-3 py-2 text-right shrink-0 min-w-[90px]">
-                        <p className="text-[10px] text-orange-500 font-medium uppercase tracking-wider">Se devuelven</p>
-                        <p className="text-sm font-black text-orange-700">0
+                      <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-right shrink-0 min-w-[90px]">
+                        <p className="text-[10px] text-red-500 font-medium uppercase tracking-wider">Exceso</p>
+                        <p className="text-sm font-black text-red-700">
+                          +{(cantidadUsada - maxPermitido).toLocaleString(undefined, { maximumFractionDigits: 3 })}
                           <span className="text-[10px] font-normal ml-1">{item.unidad_base}</span>
                         </p>
                       </div>
@@ -336,8 +367,12 @@ export default function OrdenProductos({
 
           <button
             onClick={handleSave}
-            disabled={isSaving}
-            className="btn-primary w-full flex items-center justify-center gap-2"
+            disabled={isSaving || algunExceso}
+            className={`w-full flex items-center justify-center gap-2 ${
+              algunExceso
+                ? 'btn-disabled opacity-50 cursor-not-allowed bg-gray-300 text-gray-600'
+                : 'btn-primary'
+            }`}
           >
             {isSaving
               ? <Loader2 className="w-5 h-5 animate-spin" />

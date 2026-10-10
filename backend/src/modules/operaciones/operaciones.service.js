@@ -460,6 +460,28 @@ export async function createProducto(body, user) {
   try {
     await client.query('BEGIN')
 
+    // ── Validar límite de stock del técnico ──────────────────────────────────
+    // Un técnico solo puede registrar hasta lo que sacó de bodega (cantidad_sacada).
+    // Los admins pueden registrar sin restricción de inventario personal.
+    if (tecnicoInventarioId && cantidadNumerica > 0 && user.role !== 'admin') {
+      const { rows: invRows } = await client.query(
+        'SELECT cantidad_sacada, cantidad_usada FROM tecnicos_inventario WHERE id = $1 FOR UPDATE',
+        [tecnicoInventarioId]
+      )
+      if (invRows[0]) {
+        const sacada = parseFloat(invRows[0].cantidad_sacada || 0)
+        const usada  = parseFloat(invRows[0].cantidad_usada  || 0)
+        const disponible = sacada - usada
+        if (cantidadNumerica > disponible) {
+          throw new AppError(
+            `No tienes este producto disponible en tu inventario (disponible: ${disponible}).`,
+            400
+          )
+        }
+      }
+    }
+    // ────────────────────────────────────────────────────────────────────────
+
     const { rows } = await client.query(
       `INSERT INTO productos_usados
          (id, orden_id, ingrediente_activo, cantidad, tipo_producto, dosis, nombre_comercial,
@@ -524,6 +546,34 @@ export async function updateProducto(id, body, user) {
   try {
     await client.query('BEGIN')
 
+    const tecnicoInventarioId = prodRows[0].tecnico_inventario_id
+    const cantAnterior = parseFloat(prodRows[0].cantidad_numerica || 0)
+    const cantNueva = body.cantidad_numerica != null ? parseFloat(body.cantidad_numerica) : cantAnterior
+    const diferencia = cantNueva - cantAnterior
+
+    // ── Validar límite de stock del técnico ──────────────────────────────────
+    // Si la nueva cantidad es mayor a la anterior, verificar que haya stock disponible
+    // para absorber el incremento. Los admins pueden ajustar sin restricción.
+    if (tecnicoInventarioId && diferencia > 0 && user.role !== 'admin') {
+      const { rows: invRows } = await client.query(
+        'SELECT cantidad_sacada, cantidad_usada FROM tecnicos_inventario WHERE id = $1 FOR UPDATE',
+        [tecnicoInventarioId]
+      )
+      if (invRows[0]) {
+        const sacada = parseFloat(invRows[0].cantidad_sacada || 0)
+        const usada  = parseFloat(invRows[0].cantidad_usada  || 0)
+        // El disponible real = sacada - usada + lo que ya estaba registrado antes (cantAnterior)
+        const disponible = sacada - usada + cantAnterior
+        if (cantNueva > disponible) {
+          throw new AppError(
+            `No tienes este producto disponible en tu inventario (disponible: ${disponible}).`,
+            400
+          )
+        }
+      }
+    }
+    // ────────────────────────────────────────────────────────────────────────
+
     const { rows } = await client.query(
       `UPDATE productos_usados
        SET ingrediente_activo = COALESCE($2, ingrediente_activo),
@@ -541,10 +591,6 @@ export async function updateProducto(id, body, user) {
 
     // Ajustar la diferencia en stock si cambió la cantidad_numerica
     const catalogoId = prodRows[0].catalogo_id
-    const tecnicoInventarioId = prodRows[0].tecnico_inventario_id
-    const cantAnterior = parseFloat(prodRows[0].cantidad_numerica || 0)
-    const cantNueva = body.cantidad_numerica != null ? parseFloat(body.cantidad_numerica) : cantAnterior
-    const diferencia = cantNueva - cantAnterior
 
     if (diferencia !== 0) {
       if (tecnicoInventarioId) {
